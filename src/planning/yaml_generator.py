@@ -142,38 +142,48 @@ def _write_dataset_config(
 
 
 def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> None:
-    """Write model architecture configuration."""
+    """Write model architecture configuration for DynUNet (exact nnUNet match)."""
     f.write(
         "# ============================================================================\n"
     )
-    f.write("# Model Architecture\n")
+    f.write("# Model Architecture (DynUNet - Exact nnU-Net Match)\n")
     f.write(
         "# ============================================================================\n"
     )
-    f.write("# U-Net architecture with parameters optimized for this dataset.\n\n")
+    f.write("# DynUNet exactly replicates nnU-Net PlainConvUNet architecture.\n")
+    f.write("# First encoder level maintains full resolution (stride [1,1,1]).\n\n")
     f.write("model:\n")
-    f.write("  type: UNet  # MONAI U-Net implementation\n\n")
+    f.write("  type: DynUNet  # MONAI DynUNet for exact nnU-Net replication\n\n")
     f.write(f"  # Spatial dimensions: {spatial_dims}D\n")
     f.write(f"  spatial_dims: {spatial_dims}\n\n")
     f.write("  # Input/output channels\n")
     f.write("  in_channels: 1  # Single modality (grayscale)\n")
     f.write(f"  out_channels: {plan.num_classes}  # One channel per class\n\n")
-    f.write("  # Feature channels at each resolution level (auto-optimized)\n")
-    f.write(f"  channels: {plan.channels}\n\n")
-    f.write("  # Downsampling strides for each encoder level\n")
-    f.write("  # Note: MONAI UNet expects len(strides) = len(channels) - 1\n")
-    f.write(
-        "  # Strides define transitions between levels, not the levels themselves\n"
-    )
+    f.write("  # Feature channels per encoder stage (nnU-Net: features_per_stage)\n")
+    f.write(f"  filters: {plan.filters}\n\n")
+    f.write("  # Kernel sizes per encoder stage (nnU-Net: all 3x3x3)\n")
+    f.write("  kernel_size:\n")
+    for ks in plan.kernel_size:
+        f.write(f"    - {list(ks)}\n")
+    f.write("\n")
+    f.write("  # Strides per encoder stage (nnU-Net exact)\n")
+    f.write("  # First stride [1,1,1] maintains full resolution at first level\n")
+    f.write("  # Subsequent strides downsample to bottleneck\n")
     f.write("  strides:\n")
-    # Write all strides (first [1,1,1] is already excluded in the plan)
     for stride in plan.strides:
         f.write(f"    - {list(stride)}\n")
     f.write("\n")
-    f.write(
-        "  # Number of residual units per level (0 = plain convolutions, nnU-Net default)\n"
-    )
-    f.write(f"  num_res_units: {plan.num_res_units}\n\n")
+    f.write("  # Upsample kernel sizes for decoder (inverse of downsampling)\n")
+    f.write("  upsample_kernel_size:\n")
+    for uks in plan.upsample_kernel_size:
+        f.write(f"    - {list(uks)}\n")
+    f.write("\n")
+    f.write("  # Normalization: InstanceNorm3d with affine=True (nnU-Net default)\n")
+    f.write("  norm_name: [INSTANCE, {affine: true}]\n\n")
+    f.write("  # Activation: LeakyReLU with slope=0.01 (nnU-Net default)\n")
+    f.write("  act_name: [leakyrelu, {inplace: true, negative_slope: 0.01}]\n\n")
+    f.write("  # Plain convolutions, no residual connections (nnU-Net default)\n")
+    f.write("  res_block: false\n\n")
     f.write(
         "  # ========================================================================\n"
     )
@@ -192,9 +202,10 @@ def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> N
     f.write("  # - Lower weights on intermediate outputs (regularization)\n")
     f.write("  # - Number of weights must match number of decoder stages\n")
     f.write("  #\n")
-    f.write("  # You can override weights here if needed, but these are optimized\n")
-    f.write("  # for this dataset based on the network topology.\n\n")
+    f.write("  # DynUNet's deep_supervision parameter enables this automatically.\n\n")
     f.write(f"  deep_supervision: {str(plan.deep_supervision).lower()}\n")
+    f.write("  deep_supr_num: 1  # Number of deep supervision outputs\n\n")
+    f.write("  # Deep supervision weights (for loss calculation)\n")
     f.write(f"  ds_weights: {plan.ds_weights}\n\n")
 
 

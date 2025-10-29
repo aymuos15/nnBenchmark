@@ -24,7 +24,7 @@ class TestLoadConfig:
 
         assert result == sample_config
         assert result["dataset"]["name"] == "Dataset001_Hippo"
-        assert result["model"]["type"] == "UNet"
+        assert result["model"]["type"] == "DynUNet"
         assert result["training"]["epochs"] == 5
 
     def test_load_missing_config_file(self, temp_dir: str) -> None:

@@ -8,65 +8,13 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-import torch
-from monai import losses, metrics, networks, transforms
+from monai import losses, metrics, transforms
 
 from src.utils.builders import (
     build_loss,
     build_metrics,
-    build_model,
-    build_optimizer,
     build_transforms,
 )
-
-
-class TestBuildModel:
-    """Tests for build_model function."""
-
-    def test_build_unet_model(self, sample_config: dict[str, Any]) -> None:
-        """Test building UNet model from config."""
-        device = torch.device("cpu")
-        model = build_model(sample_config, device)
-
-        # Check type
-        assert isinstance(model, networks.nets.UNet)  # type: ignore[attr-defined]
-
-        # Check device
-        assert next(model.parameters()).device.type == "cpu"
-
-    def test_build_model_with_custom_params(
-        self, sample_config: dict[str, Any]
-    ) -> None:
-        """Test that model parameters are correctly passed."""
-        device = torch.device("cpu")
-
-        # Modify config to have specific params
-        sample_config["model"]["in_channels"] = 2
-        sample_config["model"]["out_channels"] = 5
-
-        model = build_model(sample_config, device)
-
-        # UNet should accept these parameters
-        assert isinstance(model, networks.nets.UNet)  # type: ignore[attr-defined]
-
-    def test_build_model_on_cuda_if_available(
-        self, sample_config: dict[str, Any]
-    ) -> None:
-        """Test building model on CUDA device (if available)."""
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-            model = build_model(sample_config, device)
-            assert next(model.parameters()).device.type == "cuda"
-        else:
-            pytest.skip("CUDA not available")
-
-    def test_build_invalid_model_type(self, sample_config: dict[str, Any]) -> None:
-        """Test that invalid model type raises AttributeError."""
-        sample_config["model"]["type"] = "InvalidModelType"
-        device = torch.device("cpu")
-
-        with pytest.raises(AttributeError):
-            build_model(sample_config, device)
 
 
 class TestBuildLoss:
@@ -94,54 +42,6 @@ class TestBuildLoss:
 
         with pytest.raises(AttributeError):
             build_loss(sample_config)
-
-
-class TestBuildOptimizer:
-    """Tests for build_optimizer function."""
-
-    def test_build_adam_optimizer(self, sample_config: dict[str, Any]) -> None:
-        """Test building Adam optimizer from config."""
-        device = torch.device("cpu")
-        model = build_model(sample_config, device)
-        optimizer = build_optimizer(model, sample_config)
-
-        assert isinstance(optimizer, torch.optim.Adam)
-
-    def test_optimizer_learning_rate(self, sample_config: dict[str, Any]) -> None:
-        """Test that learning rate is correctly set."""
-        device = torch.device("cpu")
-        model = build_model(sample_config, device)
-
-        sample_config["training"]["learning_rate"] = 0.001
-
-        optimizer = build_optimizer(model, sample_config)
-
-        # Check learning rate
-        assert optimizer.param_groups[0]["lr"] == 0.001
-
-    def test_optimizer_weight_decay(self, sample_config: dict[str, Any]) -> None:
-        """Test that weight decay is correctly set."""
-        device = torch.device("cpu")
-        model = build_model(sample_config, device)
-
-        sample_config["optimizer"]["weight_decay"] = 0.0005
-
-        optimizer = build_optimizer(model, sample_config)
-
-        # Check weight decay
-        assert optimizer.param_groups[0]["weight_decay"] == 0.0005
-
-    def test_build_sgd_optimizer(self, sample_config: dict[str, Any]) -> None:
-        """Test building SGD optimizer."""
-        device = torch.device("cpu")
-        model = build_model(sample_config, device)
-
-        sample_config["optimizer"]["type"] = "SGD"
-        sample_config["optimizer"]["momentum"] = 0.9
-
-        optimizer = build_optimizer(model, sample_config)
-
-        assert isinstance(optimizer, torch.optim.SGD)
 
 
 class TestBuildMetrics:

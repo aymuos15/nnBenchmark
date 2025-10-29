@@ -96,7 +96,7 @@ class SegmentationModule(LightningModule):
         target_size = labels.shape[2:]  # Get spatial dimensions (H, W) or (H, W, D)
         total_loss = torch.tensor(0.0, device=labels.device, dtype=labels.dtype)
 
-        for _, (output, weight) in enumerate(zip(outputs, self.ds_weights)):
+        for output, weight in zip(outputs, self.ds_weights):
             # Upsample output to match target size if needed
             if output.shape[2:] != target_size:
                 output_up = F.interpolate(
@@ -136,12 +136,19 @@ class SegmentationModule(LightningModule):
         # Forward pass
         outputs = self(inputs)
 
-        # Compute loss with or without deep supervision
-        # Note: MONAI UNet's deep_supervision is internal (doesn't expose intermediate outputs)
-        # so we only use our custom deep supervision if outputs are actually a list
-        if self.deep_supervision and isinstance(outputs, list):
+        # Handle deep supervision output format
+        # DynUNet with deep_supervision=True outputs shape: [B, num_outputs, C, H, W, D]
+        # We need to extract each output and compute weighted loss
+        if self.deep_supervision and len(outputs.shape) == 6:
+            # DynUNet deep supervision format: [B, num_outputs, C, H, W, D]
+            # Split into list of outputs for loss computation
+            outputs_list = [outputs[:, i, ...] for i in range(outputs.shape[1])]
+            loss = self._compute_deep_supervision_loss(outputs_list, labels)
+        elif self.deep_supervision and isinstance(outputs, list):
+            # List format (alternative deep supervision format)
             loss = self._compute_deep_supervision_loss(outputs, labels)
         else:
+            # No deep supervision or single output
             loss = self.loss_fn(outputs, labels)
 
         # Log training loss (to file and console progress bar)
@@ -189,10 +196,16 @@ class SegmentationModule(LightningModule):
         # Forward pass
         outputs = self(inputs)
 
-        # Use only final output if deep supervision is enabled
-        if self.deep_supervision and isinstance(outputs, list):
-            final_output = outputs[-1]  # Last element is final output
+        # Handle deep supervision output format
+        # DynUNet with deep_supervision=True outputs shape: [B, num_outputs, C, H, W, D]
+        if self.deep_supervision and len(outputs.shape) == 6:
+            # DynUNet format: use first output (final prediction)
+            final_output = outputs[:, 0, ...]  # First output is final prediction
+        elif self.deep_supervision and isinstance(outputs, list):
+            # List format: use last output
+            final_output = outputs[-1]
         else:
+            # No deep supervision
             final_output = outputs
 
         # Get predictions (argmax for multi-class)

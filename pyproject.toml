@@ -97,6 +97,9 @@ ignore_names = [
     "validation_step",       # Lightning method
     "on_validation_epoch_end",  # Lightning method
     "configure_optimizers",  # Lightning method
+    "on_before_optimizer_step",  # Lightning hook
+    "step",                  # Custom LR scheduler method
+    "get_last_lr",           # Custom LR scheduler method
     "dataloader_idx",        # Lightning callback parameter
     "return_value",          # Mock attribute
     "side_effect",           # Mock attribute
