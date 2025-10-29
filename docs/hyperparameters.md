@@ -1,30 +1,6 @@
 # Hyperparameter choices, and it's comparison with nnUNet's latest version.
 This document maps parameters between **nnBenchmark** and **nnU-Net v2.4.1** to verify implementation accuracy. Line numbers have been verified directly from source code.
 
-## Important Notes
-- **nnBenchmark file references** are verified against the actual codebase
-- **nnU-Net references** are hyperlinked to the official repository at [`https://github.com/MIC-DKFZ/nnUNet`](https://github.com/MIC-DKFZ/nnUNet)
-- **Network architecture references** link to [`dynamic-network-architectures`](https://github.com/MIC-DKFZ/dynamic-network-architectures) (nnUNet's architecture library)
-- All line numbers are accurate and verified against source code (v2.4.1 for nnUNet)
-- Some ranges (e.g., `340-345`) indicate a section, not individual lines
-- ⚠️ indicates where nnBenchmark differs from nnU-Net (intentional or not)
-
-## ✅ Architecture Implementation: EXACT MATCH CONFIRMED
-
-**nnBenchmark uses MONAI DynUNet to exactly replicate nnU-Net PlainConvUNet:**
-- **First encoder level maintains full resolution** (stride [1,1,1])
-- **Feature channels**: [32, 64, 128, 256] ✓
-- **Strides**: [[1,1,1], [2,2,2], [2,2,2], [2,2,2]] ✓
-- **Activation**: LeakyReLU(negative_slope=0.01, inplace=True) ✓
-- **Normalization**: InstanceNorm3d(affine=True, eps=1e-5) ✓
-- **Verified with comprehensive tests** (`tests/test_nnunet_exact_match.py`)
-
-**Why DynUNet instead of MONAI UNet?**
-- MONAI UNet requires `len(strides) = len(channels) - 1` (3 strides for 4 levels)
-- This prevents having stride [1,1,1] at first level while maintaining 4 channel levels
-- DynUNet accepts 4 strides for 4 levels, allowing exact nnU-Net replication
-- See implementation in `src/utils/builders.py` and config in `configs/dataset001_hippo.yaml`
-
 ---
 
 ## Optimizer Configuration
@@ -302,36 +278,7 @@ is_anisotropic = bool(spacing_ratio > aniso_threshold and voxel_ratio < 0.25)
 
 ---
 
-## Summary Statistics
-
-**Total Parameters Checked: 152** (updated from 137)
-- ✅ Matching: 149
-- ⚠️ Different (Intentional): 3
-  - Number of Epochs (200 vs 1000)
-  - Iterations per Epoch (PyTorch Lightning vs nnUNet)
-  - Validation Iterations (PyTorch Lightning vs nnUNet)
-  - Max Dataset Coverage (implicit vs 0.05)
-
-**Architecture Verification:**
-- ✅ **EXACT MATCH CONFIRMED**: DynUNet exactly replicates nnU-Net PlainConvUNet
-- ✅ First level full resolution maintained (stride [1,1,1])
-- ✅ Feature map progression verified at all levels
-- ✅ All architectural parameters match (see `tests/test_nnunet_exact_match.py`)
-
-**Verified Source Files:**
-- `src/planning/yaml_generator.py` - DynUNet config generation (lines 69-116)
-- `src/planning/planner/create.py` - ExperimentPlan with DynUNet parameters
-- `src/utils/builders.py` - DynUNet construction with trans_bias=True (line 82)
-- `src/lightning/module.py` - Lines 59-60, 245-255 (gradient clipping), 259-283 verified
-- `src/lightning/lr_scheduler.py` - PolyLRScheduler implementation verified
-- `src/preprocessing/cropping.py` - Lines 20-223 verified
-- `src/inference/restoration.py` - Lines 19-110 verified
-- `src/planning/run.py` - Lines 128-165 verified
-- `tests/test_nnunet_exact_match.py` - Comprehensive architecture verification (NEW)
-
----
-
-## Analysis of Remaining Differences
+# Analysis of Differences
 
 ### Overview
 
@@ -426,22 +373,5 @@ Based on comprehensive verification of both repositories, the following differen
 | 5 | Dataset Coverage (5% vs 100%) | Framework-Driven | Medium | Medium | ✅ Accepted |
 | 6 | Batch Size Calculation | Implementation | Negligible | Low | ✅ Equivalent |
 | 7 | Inference Configuration | Implementation | Negligible | Low | ✅ Identical |
-
----
-
-## Recommendations
-
-### High Priority (Alignment with nnU-Net)
-- ✅ **None required** - All core parameters now match
-
-### Medium Priority (Framework Adaptations)
-- ✅ Accept epoch/iteration differences (PyTorch Lightning vs custom trainer)
-- ✅ Accept dataset coverage strategy (full dataset vs 5% sampling)
-  - *Rationale*: nnBenchmark's approach may be better for smaller datasets
-
-### Low Priority (Optional Enhancements)
-- ⏳ Consider implementing low-res augmentation (p=0.25) if multi-scale robustness is needed
-- ⏳ Consider implementing elastic deformation if domain-specific requirements exist
-  - *Note*: Both are disabled/not recommended in standard nnU-Net usage
 
 ---

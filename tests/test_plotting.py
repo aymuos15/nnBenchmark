@@ -18,12 +18,23 @@ from src.plotting.validation import plot_validation_metric
 class TestTrainingPlots:
     """Tests for src.plotting.training module."""
 
-    def test_plot_training_loss_creates_file(self, temp_dir: str) -> None:
-        """Test that plot_training_loss creates a plot file."""
+    @pytest.mark.parametrize(
+        "num_epochs",
+        [1, 5, 100],
+    )
+    def test_plot_training_loss_creates_file(self, temp_dir: str, num_epochs: int) -> None:
+        """Test that plot_training_loss creates valid plot files with various epoch counts.
+
+        Validates plot creation for:
+        - Single epoch (edge case)
+        - Normal training (5 epochs)
+        - Long training (100 epochs)
+        """
         # Arrange
-        epochs = [1, 2, 3, 4, 5]
-        train_loss = [0.5, 0.4, 0.3, 0.25, 0.2]
-        save_path = os.path.join(temp_dir, "training_loss.png")
+        epochs = list(range(1, num_epochs + 1))
+        # Exponential decay: realistic loss curve
+        train_loss = [0.5 * (0.98 ** i) for i in range(num_epochs)]
+        save_path = os.path.join(temp_dir, f"training_loss_{num_epochs}.png")
 
         # Act
         plot_training_loss(epochs, train_loss, save_path)
@@ -31,34 +42,6 @@ class TestTrainingPlots:
         # Assert
         assert os.path.exists(save_path), "Plot file should be created"
         assert os.path.getsize(save_path) > 0, "Plot file should not be empty"
-
-    def test_plot_training_loss_with_single_epoch(self, temp_dir: str) -> None:
-        """Test that plot_training_loss handles single epoch."""
-        # Arrange
-        epochs = [1]
-        train_loss = [0.5]
-        save_path = os.path.join(temp_dir, "training_loss_single.png")
-
-        # Act
-        plot_training_loss(epochs, train_loss, save_path)
-
-        # Assert
-        assert os.path.exists(save_path)
-        assert os.path.getsize(save_path) > 0
-
-    def test_plot_training_loss_with_long_training(self, temp_dir: str) -> None:
-        """Test that plot_training_loss handles many epochs."""
-        # Arrange
-        epochs = list(range(1, 101))
-        train_loss = [0.5 * (0.98 ** i) for i in range(100)]  # Exponential decay
-        save_path = os.path.join(temp_dir, "training_loss_long.png")
-
-        # Act
-        plot_training_loss(epochs, train_loss, save_path)
-
-        # Assert
-        assert os.path.exists(save_path)
-        assert os.path.getsize(save_path) > 0
 
 
 class TestValidationPlots:

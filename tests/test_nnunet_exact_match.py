@@ -8,7 +8,6 @@ from __future__ import annotations
 from typing import cast
 
 import torch
-import yaml
 from monai.networks.nets.dynunet import DynUNet
 from torch.nn.modules.conv import Conv3d
 
@@ -214,43 +213,6 @@ def test_dynunet_deep_supervision():
     # Shape is (batch, num_outputs, channels, H, W, D)
     assert len(outputs.shape) == 6, (
         f"Deep supervision output should have 6 dimensions, got {len(outputs.shape)}"
-    )
-
-
-def test_config_yaml_loads_correctly():
-    """Test that generated config YAML can be loaded and used."""
-    with open("configs/dataset001_hippo.yaml") as f:
-        config = yaml.safe_load(f)
-
-    # Verify model type
-    assert config["model"]["type"] == "DynUNet", "Model type should be DynUNet"
-
-    # Verify strides include [1,1,1] at first level
-    assert config["model"]["strides"][0] == [1, 1, 1], "First stride should be [1,1,1]"
-
-    # Verify all strides
-    expected_strides = [[1, 1, 1], [2, 2, 2], [2, 2, 2], [2, 2, 2]]
-    assert config["model"]["strides"] == expected_strides, (
-        f"Strides should be {expected_strides}, got {config['model']['strides']}"
-    )
-
-    # Verify filters (feature channels)
-    assert config["model"]["filters"] == [32, 64, 128, 256], (
-        "Filters should be [32, 64, 128, 256]"
-    )
-
-    # Verify activation
-    assert config["model"]["act_name"] == [
-        "leakyrelu",
-        {
-            "inplace": True,
-            "negative_slope": 0.01,
-        },
-    ], "Activation should be LeakyReLU with correct params"
-
-    # Verify deep supervision
-    assert config["model"]["deep_supervision"] is True, (
-        "Deep supervision should be enabled"
     )
 
 

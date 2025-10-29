@@ -22,52 +22,46 @@ from src.utils.files import detect_file_type, load_nifti_data, load_nifti_with_m
 class TestDetectFileType:
     """Tests for detect_file_type function."""
 
-    def test_nifti_gz_extension(self) -> None:
-        """Test NIfTI .nii.gz files are detected correctly."""
-        assert detect_file_type("image.nii.gz") == "nifti"
-        assert detect_file_type("/path/to/image.nii.gz") == "nifti"
+    @pytest.mark.parametrize(
+        "filename,expected_type",
+        [
+            # NIfTI files
+            ("image.nii.gz", "nifti"),
+            ("/path/to/image.nii.gz", "nifti"),
+            ("image.nii", "nifti"),
+            ("/path/to/image.nii", "nifti"),
+            # PNG files
+            ("image.png", "png"),
+            ("/path/to/image.png", "png"),
+            # JPEG files (.jpg and .jpeg variants)
+            ("image.jpg", "jpeg"),
+            ("/path/to/image.jpg", "jpeg"),
+            ("image.jpeg", "jpeg"),
+            ("/path/to/image.jpeg", "jpeg"),
+            # Case-insensitive detection
+            ("image.NII.GZ", "nifti"),
+            ("image.PNG", "png"),
+            ("image.JPG", "jpeg"),
+            ("image.NiI.Gz", "nifti"),
+            ("image.PnG", "png"),
+            # Unknown extensions
+            ("image.dcm", "unknown"),
+            ("image.tif", "unknown"),
+            ("image.txt", "unknown"),
+            ("image", "unknown"),
+            ("/path/to/image", "unknown"),
+        ],
+    )
+    def test_detect_file_type(self, filename: str, expected_type: str) -> None:
+        """Test file type detection across various extensions and cases.
 
-    def test_nifti_extension(self) -> None:
-        """Test NIfTI .nii files are detected correctly."""
-        assert detect_file_type("image.nii") == "nifti"
-        assert detect_file_type("/path/to/image.nii") == "nifti"
-
-    def test_png_extension(self) -> None:
-        """Test PNG files are detected correctly."""
-        assert detect_file_type("image.png") == "png"
-        assert detect_file_type("/path/to/image.png") == "png"
-
-    def test_jpg_extension(self) -> None:
-        """Test JPG files are detected correctly."""
-        assert detect_file_type("image.jpg") == "jpeg"
-        assert detect_file_type("/path/to/image.jpg") == "jpeg"
-
-    def test_jpeg_extension(self) -> None:
-        """Test JPEG files are detected correctly."""
-        assert detect_file_type("image.jpeg") == "jpeg"
-        assert detect_file_type("/path/to/image.jpeg") == "jpeg"
-
-    def test_uppercase_extension(self) -> None:
-        """Test uppercase extensions are handled correctly."""
-        assert detect_file_type("image.NII.GZ") == "nifti"
-        assert detect_file_type("image.PNG") == "png"
-        assert detect_file_type("image.JPG") == "jpeg"
-
-    def test_mixed_case_extension(self) -> None:
-        """Test mixed case extensions are handled correctly."""
-        assert detect_file_type("image.NiI.Gz") == "nifti"
-        assert detect_file_type("image.PnG") == "png"
-
-    def test_unknown_extension(self) -> None:
-        """Test unknown file types return 'unknown'."""
-        assert detect_file_type("image.dcm") == "unknown"
-        assert detect_file_type("image.tif") == "unknown"
-        assert detect_file_type("image.txt") == "unknown"
-
-    def test_no_extension(self) -> None:
-        """Test files without extension return 'unknown'."""
-        assert detect_file_type("image") == "unknown"
-        assert detect_file_type("/path/to/image") == "unknown"
+        Validates that detect_file_type correctly identifies:
+        - Common medical imaging formats (NIfTI)
+        - Standard image formats (PNG, JPEG)
+        - Case-insensitive extension matching
+        - Unknown and unsupported file types
+        """
+        assert detect_file_type(filename) == expected_type
 
 
 class TestLoadNiftiData:
