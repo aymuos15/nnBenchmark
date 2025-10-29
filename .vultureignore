@@ -1,0 +1,4 @@
+# PyTorch Lightning hooks - called automatically by the framework
+src/lightning/module.py:on_before_optimizer_step
+src/lightning/lr_scheduler.py:step
+src/lightning/lr_scheduler.py:get_last_lr

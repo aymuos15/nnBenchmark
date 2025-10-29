@@ -1,0 +1,228 @@
+"""
+Data loading and dataset preparation utilities for nnBenchmark.
+Provides helpers for creating MONAI data dictionaries from dataset.json and splits.
+"""
+
+from pathlib import Path
+from typing import Any
+
+from src.config.load import load_splits
+from src.utils.files import extract_base_name_for_label, extract_case_id, load_json
+
+
+def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
+    """
+    Build a mapping from case IDs to preprocessed image/label file paths.
+
+    This helper eliminates code duplication between get_data_dicts and get_test_data_dicts.
+    REQUIRES preprocessed data (imagesTr_cropped/labelsTr_cropped) - preprocessing is mandatory.
+
+    The preprocessing step (crop to nonzero regions) must be completed via 'nnBench.plan'
+    before training or inference. This ensures all data follows nnU-Net v2.4.1 preprocessing.
+
+    Args:
+        data_dir: Dataset directory containing preprocessed imagesTr_cropped/ and labelsTr_cropped/ folders
+
+    Returns:
+        Dictionary mapping case_id (filename) to {"image": path, "label": path}
+
+    Raises:
+        FileNotFoundError: If preprocessed directories don't exist
+    """
+    data_dir_path = Path(data_dir)
+
+    # REQUIRE cropped versions (preprocessing is mandatory)
+    images_dir = data_dir_path / "imagesTr_cropped"
+    labels_dir = data_dir_path / "labelsTr_cropped"
+
+    if not images_dir.exists():
+        raise FileNotFoundError(
+            f"Preprocessed images directory not found: {images_dir}\n"
+            "Please run 'nnBench.plan --dataset {dataset_name}' first to preprocess the dataset.\n"
+            "Preprocessing crops images to nonzero regions (nnU-Net v2.4.1 style)."
+        )
+    if not labels_dir.exists():
+        raise FileNotFoundError(
+            f"Preprocessed labels directory not found: {labels_dir}\n"
+            "Please run 'nnBench.plan --dataset {dataset_name}' first to preprocess the dataset.\n"
+            "Preprocessing crops labels to nonzero regions (nnU-Net v2.4.1 style)."
+        )
+
+    # Create a mapping from case_id (filename) to file paths
+    case_to_paths: dict[str, dict[str, str]] = {}
+
+    # Scan all training images
+    image_files = sorted(images_dir.glob("*_0000.*"))
+    for img_file in image_files:
+        if img_file.name.startswith("._"):  # Skip macOS metadata files
+            continue
+
+        # Extract base case name (e.g., "Hippo_001_0000.nii.gz" -> "Hippo_001")
+        base_name = extract_case_id(img_file.name, remove_channel_suffix=True)
+
+        # Find matching label file
+        label_file = None
+        for label_ext in [".nii.gz", ".nii", ".png", ".jpg", ".jpeg"]:
+            potential_label = labels_dir / f"{base_name}{label_ext}"
+            if potential_label.exists():
+                label_file = potential_label
+                break
+
+        if label_file:
+            case_to_paths[img_file.name] = {
+                "image": str(img_file),
+                "label": str(label_file),
+            }
+
+    return case_to_paths
+
+
+def get_data_dicts(
+    data_dir: str, fold: int
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """
+    Get train/val data dictionaries using fold-based splits.
+
+    Args:
+        data_dir: Dataset directory containing dataset.json and splits.json
+        fold: Fold number to use
+
+    Returns:
+        Tuple of (train_data_dicts, val_data_dicts)
+    """
+    train_cases, val_cases = load_splits(data_dir, fold)
+
+    # Build mapping from case IDs to paths (eliminates redundancy!)
+    case_to_paths = _build_case_to_paths_mapping(data_dir)
+
+    # Build train data dictionaries
+    train_data: list[dict[str, str]] = []
+    for case_id in train_cases:
+        if case_id in case_to_paths:
+            train_data.append(case_to_paths[case_id])
+
+    # Build val data dictionaries
+    val_data: list[dict[str, str]] = []
+    for case_id in val_cases:
+        if case_id in case_to_paths:
+            val_data.append(case_to_paths[case_id])
+
+    return train_data, val_data
+
+
+def get_test_data_dicts(
+    data_dir: str, fold: int | None, use_test_set: bool = False
+) -> list[dict[str, str]]:
+    """
+    Get test data dictionaries.
+
+    Args:
+        data_dir: Dataset directory
+        fold: Fold number (required if use_test_set=False)
+        use_test_set: If True, use dedicated test set (imagesTs/labelsTs).
+                      If False, use validation split from fold.
+
+    Returns:
+        List of data dictionaries with image/label paths
+
+    Raises:
+        ValueError: If use_test_set=False and fold is None
+    """
+    if use_test_set:
+        # Use dedicated test set if available
+        # Find all images in test directory (support multiple formats)
+        images_dir = str(Path(data_dir) / "imagesTs")
+
+        # Check if test set directory exists
+        if not Path(images_dir).exists():
+            raise FileNotFoundError(
+                f"Test set directory not found: {images_dir}\n"
+                f"This dataset does not have a dedicated test set (imagesTs/labelsTs).\n"
+                f"Use '--use-val-split' flag to test on the validation split instead:\n"
+                f"  nnBench.test --config <config.yaml> --use-val-split"
+            )
+
+        images = sorted(Path(images_dir).glob("*"))
+
+        # Check if any images were found
+        if len(images) == 0:
+            raise ValueError(
+                f"No images found in test set directory: {images_dir}\n"
+                f"The directory exists but contains no files.\n"
+                f"Use '--use-val-split' flag to test on the validation split instead."
+            )
+
+        label_dir = "labelsTs"
+
+        data_dicts: list[dict[str, str]] = []
+        for img_path in images:
+            img_name = img_path.name
+
+            # Extract base case name and label extension
+            base_name, label_ext = extract_base_name_for_label(img_name)
+            label_path = str(Path(data_dir) / label_dir / f"{base_name}{label_ext}")
+
+            if Path(label_path).exists():
+                data_dicts.append({"image": str(img_path), "label": label_path})
+
+        # Ensure we found at least some valid image-label pairs
+        if len(data_dicts) == 0:
+            raise ValueError(
+                f"No valid image-label pairs found in test set.\n"
+                f"Images directory: {images_dir} (found {len(images)} images)\n"
+                f"Labels directory: {Path(data_dir) / label_dir}\n"
+                f"This dataset may not have a dedicated test set (imagesTs/labelsTs).\n"
+                f"Use '--use-val-split' flag to test on the validation split instead:\n"
+                f"  nnBench.test --config <config.yaml> --use-val-split"
+            )
+
+        return data_dicts
+    else:
+        # Use validation split from fold-based splits
+        if fold is None:
+            raise ValueError("fold parameter is required when use_test_set=False")
+
+        # Reuse get_data_dicts to avoid duplicate case_to_paths mapping
+        _, val_data = get_data_dicts(data_dir, fold)
+        return val_data
+
+
+def get_class_labels(data_dir: str, include_background: bool = False) -> dict[int, str]:
+    """
+    Load class labels from dataset.json.
+
+    Args:
+        data_dir: Dataset directory containing dataset.json
+        include_background: If False, skip background class (index 0)
+
+    Returns:
+        Dictionary mapping class index to class name
+        Example: {1: "Anterior", 2: "Posterior"} when include_background=False
+                 {0: "background", 1: "Anterior", 2: "Posterior"} when include_background=True
+    """
+    dataset_json_path = str(Path(data_dir) / "dataset.json")
+    dataset_info: dict[str, Any] = load_json(dataset_json_path, "dataset.json")
+
+    labels_dict = dataset_info.get("labels", {})
+
+    # Handle both formats:
+    # - nnU-Net format: {"background": 0, "class1": 1, ...} (name -> index)
+    # - Our format: {"0": "background", "1": "class1", ...} (index -> name)
+    class_labels: dict[int, str] = {}
+
+    # Check format by looking at first key
+    first_key = next(iter(labels_dict.keys()))
+
+    if first_key.isdigit():
+        # Our format: index -> name
+        for key, value in labels_dict.items():
+            class_idx = int(key)
+            if include_background or class_idx != 0:
+                class_labels[class_idx] = value
+    else:
+        # nnU-Net format: name -> index
+        for name, idx in labels_dict.items():
+            if include_background or idx != 0:
+                class_labels[idx] = name
+
+    return class_labels

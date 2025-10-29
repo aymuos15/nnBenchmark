@@ -1,0 +1,90 @@
+# Pre-commit hooks for nnBenchmark
+# See https://pre-commit.com for more information
+
+repos:
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--unsafe]  # Allow custom YAML tags
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: debug-statements
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Ruff - Fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
+
+      # Run the formatter
+      - id: ruff-format
+        types_or: [python, pyi]
+
+  # Type checking with pyright (alternative to ty for pre-commit)
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.390
+    hooks:
+      - id: pyright
+        additional_dependencies:
+          - torch>=2.0.0
+          - monai>=1.3.0
+          - numpy>=1.24.0
+
+# Local hooks for project-specific checks
+  - repo: local
+    hooks:
+      # Run pytest on modified test files
+      - id: pytest-check
+        name: pytest
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [pre-commit]
+        files: ^tests/.*\.py$
+        verbose: true
+
+      # Check for print statements in source code (not tests)
+      - id: no-print-statements
+        name: Check for print statements
+        entry: 'print\('
+        language: pygrep
+        files: ^src/.*\.py$
+        exclude: ^src/(test|viz|plot)\.py$
+
+      # Ensure all Python files have proper imports
+      - id: check-future-annotations
+        name: Check for future annotations import
+        entry: 'from __future__ import annotations'
+        language: pygrep
+        files: ^(src|tests)/.*\.py$
+        # This checks that the import exists
+
+# Configuration
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: [pytest-check]  # Skip pytest in CI (too slow)
+  submodules: false

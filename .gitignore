@@ -1,0 +1,110 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# uv (package manager)
+.python-version  # Optional: remove if using project-wide Python version pinning
+# Note: uv.lock is tracked for development consistency
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# PyTorch models and checkpoints
+*.pth
+*.pt
+*.ckpt
+*.pkl
+
+# Training outputs and results
+results/
+logs/
+checkpoints/
+runs/
+wandb/
+mlruns/
+
+# Data directories (uncomment if you don't want to track datasets)
+datasets/
+data/
+*.nii
+*.nii.gz
+*.dcm
+*.mha
+*.nrrd
+
+# Numpy arrays
+*.npy
+*.npz
+
+# Temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.cover.*
+.hypothesis/
+.pytest_cache/
+
+# Test artifacts
+.ruff_cache/
+.mypy_cache/
+.pytype/
+

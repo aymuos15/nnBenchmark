@@ -1,0 +1,191 @@
+"""
+Network topology determination following nnU-Net heuristics.
+Calculates pooling operations and convolution kernel sizes.
+"""
+
+from __future__ import annotations
+
+from copy import deepcopy
+
+import numpy as np
+
+
+def get_shape_must_be_divisible_by(net_numpool_per_axis: list[int]) -> np.ndarray:
+    """
+    Calculate shape divisibility requirement from number of pooling operations per axis.
+    Each pooling operation requires divisibility by 2, so after N pools, divisible by 2^N.
+
+    Args:
+        net_numpool_per_axis: Number of pooling operations per axis
+
+    Returns:
+        Array of divisibility requirements (powers of 2)
+    """
+    return 2 ** np.array(net_numpool_per_axis)
+
+
+def pad_shape(
+    shape: tuple[int, ...], must_be_divisible_by: list[int] | np.ndarray
+) -> np.ndarray:
+    """
+    Pad shape so that it is divisible by must_be_divisible_by.
+
+    Args:
+        shape: Current shape
+        must_be_divisible_by: Divisibility requirements per axis
+
+    Returns:
+        Padded shape that satisfies divisibility constraints
+    """
+    if not isinstance(must_be_divisible_by, (tuple, list, np.ndarray)):  # type: ignore[redundant-isinstance]
+        must_be_divisible_by = [must_be_divisible_by] * len(shape)
+    else:
+        assert len(must_be_divisible_by) == len(shape)
+
+    new_shp = [
+        shape[i] + must_be_divisible_by[i] - shape[i] % must_be_divisible_by[i]
+        for i in range(len(shape))
+    ]
+
+    for i in range(len(shape)):
+        if shape[i] % must_be_divisible_by[i] == 0:
+            new_shp[i] -= must_be_divisible_by[i]
+    new_shp = np.array(new_shp).astype(int)
+    return new_shp
+
+
+def _determine_network_topology(
+    patch_size: tuple[int, ...], target_spacing: tuple[float, ...], is_2d: bool
+) -> tuple[list[tuple[int, ...]], int]:
+    """
+    Determine network topology (strides/pooling and number of stages).
+
+    This is a wrapper around get_pool_and_conv_props for backward compatibility.
+
+    Args:
+        patch_size: Input patch size
+        target_spacing: Voxel spacing per axis
+        is_2d: Whether this is 2D data
+
+    Returns:
+        tuple of:
+        - strides: List of pooling kernel sizes per stage (as tuples)
+        - num_stages: Number of decoder stages
+    """
+    unet_featuremap_min_edge_length = 4  # nnU-Net constant
+    _, pool_op_kernel_sizes, _, _, _ = get_pool_and_conv_props(
+        spacing=target_spacing,
+        patch_size=patch_size,
+        min_feature_map_size=unet_featuremap_min_edge_length,
+        max_numpool=999999,
+    )
+    # pool_op_kernel_sizes is already a list of tuples
+    num_stages = len(pool_op_kernel_sizes)
+    return list(pool_op_kernel_sizes), num_stages
+
+
+def get_pool_and_conv_props(
+    spacing: tuple[float, ...],
+    patch_size: tuple[int, ...],
+    min_feature_map_size: int,
+    max_numpool: int,
+) -> tuple[list[int], tuple, tuple, tuple[int, ...], np.ndarray]:
+    """
+    Determine network pooling/convolution properties (exact nnU-Net implementation).
+
+    This is the core nnU-Net algorithm for determining network topology.
+
+    Args:
+        spacing: Voxel spacing per axis
+        patch_size: Input patch size
+        min_feature_map_size: Minimum edge length of feature maps in bottleneck
+        max_numpool: Maximum number of pooling operations per axis
+
+    Returns:
+        tuple of:
+        - num_pool_per_axis: Number of pooling operations per axis
+        - pool_op_kernel_sizes: Pooling kernel sizes per stage (nested tuples)
+        - conv_kernel_sizes: Convolution kernel sizes per stage (nested tuples)
+        - patch_size: Adjusted patch size (padded for divisibility)
+        - must_be_divisible_by: Divisibility requirements per axis
+    """
+    dim = len(spacing)
+
+    current_spacing = deepcopy(list(spacing))
+    current_size = deepcopy(list(patch_size))
+
+    pool_op_kernel_sizes = [[1] * len(spacing)]
+    conv_kernel_sizes = []
+
+    num_pool_per_axis = [0] * dim
+    kernel_size = [1] * dim
+
+    while True:
+        # exclude axes that we cannot pool further because of min_feature_map_size constraint
+        valid_axes_for_pool = [
+            i for i in range(dim) if current_size[i] >= 2 * min_feature_map_size
+        ]
+        if len(valid_axes_for_pool) < 1:
+            break
+
+        spacings_of_axes = [current_spacing[i] for i in valid_axes_for_pool]
+
+        # find axis that are within factor of 2 within smallest spacing
+        min_spacing_of_valid = min(spacings_of_axes)
+        valid_axes_for_pool = [
+            i
+            for i in valid_axes_for_pool
+            if current_spacing[i] / min_spacing_of_valid < 2
+        ]
+
+        # max_numpool constraint
+        valid_axes_for_pool = [
+            i for i in valid_axes_for_pool if num_pool_per_axis[i] < max_numpool
+        ]
+
+        if len(valid_axes_for_pool) == 1:
+            if current_size[valid_axes_for_pool[0]] >= 3 * min_feature_map_size:
+                pass
+            else:
+                break
+        if len(valid_axes_for_pool) < 1:
+            break
+
+        # now we need to find kernel sizes
+        # kernel sizes are initialized to 1. They are successively set to 3 when their associated axis becomes within
+        # factor 2 of min_spacing. Once they are 3 they remain 3
+        for d in range(dim):
+            if kernel_size[d] == 3:
+                continue
+            else:
+                if current_spacing[d] / min(current_spacing) < 2:
+                    kernel_size[d] = 3
+
+        other_axes = [i for i in range(dim) if i not in valid_axes_for_pool]
+
+        pool_kernel_sizes = [0] * dim
+        for v in valid_axes_for_pool:
+            pool_kernel_sizes[v] = 2
+            num_pool_per_axis[v] += 1
+            current_spacing[v] *= 2
+            current_size[v] = np.ceil(current_size[v] / 2)
+        for nv in other_axes:
+            pool_kernel_sizes[nv] = 1
+
+        pool_op_kernel_sizes.append(pool_kernel_sizes)
+        conv_kernel_sizes.append(deepcopy(kernel_size))
+
+    must_be_divisible_by = get_shape_must_be_divisible_by(num_pool_per_axis)
+    patch_size_padded = tuple(pad_shape(patch_size, must_be_divisible_by))
+
+    def _to_tuple(lst):
+        return tuple(_to_tuple(i) if isinstance(i, list) else i for i in lst)
+
+    conv_kernel_sizes.append([3] * dim)
+    return (
+        num_pool_per_axis,
+        _to_tuple(pool_op_kernel_sizes),
+        _to_tuple(conv_kernel_sizes),
+        patch_size_padded,
+        must_be_divisible_by,
+    )
