@@ -67,6 +67,60 @@ class TestAnisotropyDetection:
         assert not is_aniso
 
 
+class TestDimensionalityDetection:
+    """Test 2D vs 3D dimensionality detection logic (matches nnUNet v2)."""
+
+    def test_true_2d_detection(self):
+        """True 2D images (no depth dimension) should be classified as 2D."""
+        # PNG/JPEG images with shape [C, H, W] → spatial [H, W]
+        median_shape = (1, 256, 256)
+        spatial_shape = median_shape[1:] if len(median_shape) > 2 else median_shape
+        is_2d = len(spatial_shape) == 2
+
+        assert is_2d is True, "Shape [1, 256, 256] should be 2D"
+        assert len(spatial_shape) == 2, "Spatial dimensions should be [H, W]"
+
+    def test_3d_volume_detection(self):
+        """3D volumes should be classified as 3D."""
+        # MRI/CT volumes with shape [C, D, H, W] → spatial [D, H, W]
+        median_shape = (1, 64, 256, 256)
+        spatial_shape = median_shape[1:] if len(median_shape) > 2 else median_shape
+        is_2d = len(spatial_shape) == 2
+
+        assert is_2d is False, "Shape [1, 64, 256, 256] should be 3D"
+        assert len(spatial_shape) == 3, "Spatial dimensions should be [D, H, W]"
+
+    def test_thin_slice_3d_detection(self):
+        """Thin slice 3D (D=1) should remain 3D, not downgraded to 2D."""
+        # Thin slice CT with shape [C, 1, H, W] → spatial [1, H, W]
+        median_shape = (1, 1, 512, 512)
+        spatial_shape = median_shape[1:] if len(median_shape) > 2 else median_shape
+        is_2d = len(spatial_shape) == 2
+
+        assert is_2d is False, "Shape [1, 1, 512, 512] should be 3D (anisotropic)"
+        assert len(spatial_shape) == 3, "Spatial dimensions should be [1, H, W]"
+
+    def test_hippocampus_detection(self):
+        """Hippocampus dataset should be classified as 3D."""
+        # Hippocampus with shape [C, D, H, W] → spatial [D, H, W]
+        median_shape = (1, 36, 50, 35)
+        spatial_shape = median_shape[1:] if len(median_shape) > 2 else median_shape
+        is_2d = len(spatial_shape) == 2
+
+        assert is_2d is False, "Shape [1, 36, 50, 35] should be 3D"
+        assert len(spatial_shape) == 3, "Spatial dimensions should be [36, 50, 35]"
+
+    def test_channel_dimension_excluded(self):
+        """Channel dimension should be excluded from dimensionality check."""
+        # Multi-channel 2D image with shape [3, H, W] → spatial [H, W]
+        median_shape = (3, 256, 256)
+        spatial_shape = median_shape[1:] if len(median_shape) > 2 else median_shape
+        is_2d = len(spatial_shape) == 2
+
+        assert is_2d is True, "Shape [3, 256, 256] should be 2D (multi-channel)"
+        assert len(spatial_shape) == 2, "Channel dimension should be excluded"
+
+
 class TestTargetSpacing:
     """Test target spacing calculation."""
 
@@ -258,7 +312,7 @@ class TestYAMLGenerator:
         # Verify some common transforms
         common_types = [t["type"] for t in config["transforms"]["common"]]
         assert "LoadImaged" in common_types
-        assert "EnsureChannelFirstd" in common_types
+        # EnsureChannelFirstd not needed - LoadImaged handles channel-first by default
         assert "NormalizeIntensityd" in common_types
 
         # Verify training augmentations

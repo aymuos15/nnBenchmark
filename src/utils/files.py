@@ -166,6 +166,8 @@ def load_nifti_data(image_path: str) -> NDArray:
         raise FileNotFoundError(f"Image file not found: {image_path}")
 
     # Use MONAI's LoadImaged for consistent, robust image loading
+    # ensure_channel_first=False to preserve NIfTI's native channel-first format
+    # (NIfTI files in preprocessed format already have channel dimension)
     loader = LoadImaged(keys=["image"], ensure_channel_first=False)
     data_dict = loader({"image": image_path})
     image_data = data_dict["image"].numpy()
@@ -179,14 +181,15 @@ def load_nifti_with_metadata(image_path: str) -> tuple[NDArray, tuple[float, ...
 
     Supports NIfTI (.nii, .nii.gz) and image formats (PNG, JPEG).
     Uses MONAI's robust image loading with proper metadata handling.
+    Returns data in channel-first format.
 
     Args:
         image_path: Path to image file (NIfTI, PNG, or JPEG)
 
     Returns:
         Tuple of (image_data, spacing)
-        - image_data: NumPy array containing image data in standard (H, W) or (H, W, D) format
-        - spacing: Tuple of voxel spacings for each dimension
+        - image_data: NumPy array in channel-first format (C, H, W) for 2D or (C, D, H, W) for 3D
+        - spacing: Tuple of voxel spacings for each spatial dimension
 
     Raises:
         FileNotFoundError: If the file doesn't exist
@@ -196,20 +199,14 @@ def load_nifti_with_metadata(image_path: str) -> tuple[NDArray, tuple[float, ...
         raise FileNotFoundError(f"Image file not found: {image_path}")
 
     # Use MONAI's LoadImaged for consistent, robust image loading
+    # ensure_channel_first=False to preserve NIfTI's native channel-first format
+    # PNG/JPEG files need manual channel dimension handling (done in fingerprint.py)
     loader = LoadImaged(keys=["image"], ensure_channel_first=False)
     data_dict = loader({"image": image_path})
     image_tensor = data_dict["image"]
 
-    # Detect file type to handle dimension ordering
-    file_type = detect_file_type(image_path)
-
     # Convert to numpy after extracting metadata
     image_data = image_tensor.numpy()
-
-    # MONAI may load 2D images (PNG/JPEG) in (W, H) order - need to transpose to (H, W)
-    if file_type in ["png", "jpeg"] and image_data.ndim == 2:
-        # Transpose from (W, H) to (H, W) for standard numpy convention
-        image_data = np.transpose(image_data, (1, 0))
 
     # Extract spacing from MONAI MetaTensor's affine matrix
     # MetaTensor stores affine as an attribute
@@ -222,14 +219,12 @@ def load_nifti_with_metadata(image_path: str) -> tuple[NDArray, tuple[float, ...
         # Compute spacing from affine matrix (norm of each column vector)
         spacing = tuple(float(np.linalg.norm(affine[:3, i])) for i in range(3))
     else:
-        # Fallback for PNG/JPEG: standard isotropic spacing
-        if file_type in ["png", "jpeg"]:
-            if image_data.ndim == 2:
-                spacing = (1.0, 1.0)
-            else:
-                spacing = (1.0, 1.0, 1.0)
+        # Fallback for images without affine (PNG/JPEG): standard isotropic spacing
+        # Use spatial dimensions (excluding channel dimension at index 0)
+        ndim_spatial = image_data.ndim - 1  # Subtract 1 for channel dimension
+        if ndim_spatial == 2:
+            spacing = (1.0, 1.0)
         else:
-            # NIfTI without affine (shouldn't happen)
             spacing = (1.0, 1.0, 1.0)
 
     return image_data, spacing

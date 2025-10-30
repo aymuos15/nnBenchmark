@@ -95,7 +95,14 @@ def create_experiment_plan(
 
     # Step 2: Calculate initial patch size (nnU-Net exact formula)
     ndim = 2 if fingerprint.is_2d else 3
-    median_shape = fingerprint.median_shape[:ndim]
+    # Extract spatial dimensions only (skip channel dimension)
+    # median_shape is in format [C, D, H, W] or [C, H, W]
+    spatial_shape = (
+        fingerprint.median_shape[1:]
+        if len(fingerprint.median_shape) > ndim
+        else fingerprint.median_shape
+    )
+    median_shape = spatial_shape[:ndim]  # Take first ndim spatial dimensions
     initial_patch = calculate_initial_patch_size(
         target_spacing, median_shape, fingerprint.is_2d
     )

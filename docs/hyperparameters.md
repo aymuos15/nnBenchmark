@@ -258,6 +258,26 @@ is_anisotropic = bool(spacing_ratio > aniso_threshold and voxel_ratio < 0.25)
 | **Cropped Images Directory** | `imagesTr_cropped/` (created in line 145) | Implicit in preprocessing | ✅ |
 | **Cropped Labels Directory** | `labelsTr_cropped/` (created in line 155) | Implicit in preprocessing | ✅ |
 
+## Data Format and Loading
+
+| Parameter | nnBenchmark | nnU-Net v2.4.1 | Status |
+|-----------|-------------|----------------|--------|
+| **3D NIfTI Format** | `(C, D, H, W)` = `(1, 35, 51, 35)` | Preprocessed: `(C, D, H, W)` | ✅ |
+| **3D Loading Strategy** | `src/utils/files.py:169-173` `ensure_channel_first=False` | Preserves preprocessed channel dim | ✅ |
+| **2D PNG/JPEG Format** | `(C, H, W)` = `(1, 512, 383)` | Expected: `(C, H, W)` | ✅ |
+| **2D Loading Strategy** | `src/planning/yaml_generator.py:350-361` `ensure_channel_first=True` in `LoadImaged` | Adds channel dimension | ✅ |
+| **Fingerprinting Channel Handling** | `src/planning/fingerprinting/fingerprint.py:98-107` Manual expansion for PNG/JPEG | Always channel-first | ✅ |
+| **Runtime Transform (2D)** | `LoadImaged(ensure_channel_first=true)` for 2D datasets | N/A (preprocessing handles this) | ✅ |
+| **Runtime Transform (3D)** | `LoadImaged` (default) for 3D datasets | N/A (preprocessing handles this) | ✅ |
+| **Format Compatibility** | Channel-first `(C, ...)` for all data types | Channel-first `(C, ...)` for all data types | ✅ |
+
+**Format Details:**
+- nnU-Net's **preprocessed** NIfTI files already contain the channel dimension in the file format
+- 3D NIfTI: Loaded as-is with `ensure_channel_first=False` → preserves `(C, D, H, W)` format
+- 2D PNG/JPEG: Loaded with `ensure_channel_first=True` → converts `(H, W)` to `(C, H, W)` format
+- Both approaches result in consistent channel-first convention matching nnU-Net preprocessed data
+- `src/planning/yaml_generator.py:350-361` conditionally sets `ensure_channel_first` based on `is_2d`
+
 ## 2D Image Handling
 
 | Parameter | nnBenchmark | nnU-Net v2.4.1 | Status |

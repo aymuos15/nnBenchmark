@@ -199,8 +199,8 @@ class TestLoadImageProperties:
         # Load properties
         props = _load_image_properties(png_path)
 
-        # Verify shape (PIL loads as HxW for grayscale)
-        assert props.shape == (64, 64)
+        # Verify shape (MONAI LoadImaged returns channel-first: C, H, W)
+        assert props.shape == (1, 64, 64)
 
         # Verify spacing (should be 1.0, 1.0 for PNG)
         assert props.spacing == (1.0, 1.0)
@@ -222,8 +222,8 @@ class TestLoadImageProperties:
         # Load properties
         props = _load_image_properties(png_path)
 
-        # Verify shape includes channels
-        assert props.shape == (32, 32, 3)
+        # Verify shape includes channels (MONAI LoadImaged returns channel-first: C, H, W)
+        assert props.shape == (3, 32, 32)
 
         # Verify spacing for 3-channel image (should be 1.0, 1.0)
         assert props.spacing == (1.0, 1.0)

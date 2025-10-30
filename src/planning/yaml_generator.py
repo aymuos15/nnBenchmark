@@ -345,12 +345,20 @@ def _write_transforms_config(f: TextIO, plan: ExperimentPlan) -> None:
         "  # --------------------------------------------------------------------------\n"
     )
     f.write("  common:\n")
-    f.write("    # Load NIfTI images and labels\n")
-    f.write("    - type: LoadImaged\n")
-    f.write("      keys: [image, label]\n\n")
-    f.write("    # Ensure channel-first format [C, H, W, D]\n")
-    f.write("    - type: EnsureChannelFirstd\n")
-    f.write("      keys: [image, label]\n\n")
+    f.write("    # Load images and labels\n")
+
+    if plan.is_2d:
+        # For 2D datasets (PNG/JPEG), use ensure_channel_first to add channel dimension
+        f.write("    # For 2D data: ensure_channel_first adds channel dimension to images loaded as (H, W)\n")
+        f.write("    - type: LoadImaged\n")
+        f.write("      keys: [image, label]\n")
+        f.write("      ensure_channel_first: true\n\n")
+    else:
+        # For 3D datasets (NIfTI), do not use ensure_channel_first
+        # NIfTI files already have channel dimension in preprocessed format
+        f.write("    # For 3D data: NIfTI files already have channel dimension (C, D, H, W)\n")
+        f.write("    - type: LoadImaged\n")
+        f.write("      keys: [image, label]\n\n")
 
     # CT-specific intensity clipping (nnU-Net style)
     if plan.normalization_scheme == "CTNormalization":

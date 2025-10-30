@@ -59,6 +59,7 @@ class SegmentationModule(LightningModule):
         model_cfg = cfg.get("model", {})
         self.deep_supervision: bool = model_cfg.get("deep_supervision", False)
         self.ds_weights: list[float] = model_cfg.get("ds_weights", [])
+        self.spatial_dims: int = model_cfg.get("spatial_dims", 3)
 
         # Validate deep supervision config if enabled
         if self.deep_supervision and not self.ds_weights:
@@ -138,10 +139,17 @@ class SegmentationModule(LightningModule):
 
         # Handle deep supervision output format
         # DynUNet with deep_supervision=True outputs shape:
-        #   2D: [B, num_outputs, C, H, W] (5D)
-        #   3D: [B, num_outputs, C, H, W, D] (6D)
+        #   2D: [B, num_outputs, C, H, W] (5D) vs [B, C, H, W] (4D) without
+        #   3D: [B, num_outputs, C, D, H, W] (6D) vs [B, C, D, H, W] (5D) without
         # We need to extract each output and compute weighted loss
-        if self.deep_supervision and len(outputs.shape) in (5, 6):
+        # Expected dimensions WITH deep supervision: [B, num_outputs, C, spatial...]
+        expected_ds_ndim = 3 + self.spatial_dims
+
+        if (
+            self.deep_supervision
+            and isinstance(outputs, torch.Tensor)
+            and outputs.ndim == expected_ds_ndim
+        ):
             # DynUNet deep supervision format
             # Split into list of outputs for loss computation
             outputs_list = [outputs[:, i, ...] for i in range(outputs.shape[1])]
@@ -195,21 +203,33 @@ class SegmentationModule(LightningModule):
         inputs = batch["image"]
         labels = batch["label"]
 
+        # Ensure labels are integers and within valid range
+        # Spatial transforms may introduce floating point errors
+        labels = torch.round(labels).long()
+        labels = torch.clamp(labels, min=0, max=self.num_classes - 1)
+
         # Forward pass
         outputs = self(inputs)
 
         # Handle deep supervision output format
         # DynUNet with deep_supervision=True outputs shape:
-        #   2D: [B, num_outputs, C, H, W] (5D)
-        #   3D: [B, num_outputs, C, H, W, D] (6D)
-        if self.deep_supervision and len(outputs.shape) in (5, 6):
+        #   2D: [B, num_outputs, C, H, W] (5D) vs [B, C, H, W] (4D) without
+        #   3D: [B, num_outputs, C, D, H, W] (6D) vs [B, C, D, H, W] (5D) without
+        # Expected dimensions WITH deep supervision: [B, num_outputs, C, spatial...]
+        expected_ds_ndim = 3 + self.spatial_dims
+
+        if (
+            self.deep_supervision
+            and isinstance(outputs, torch.Tensor)
+            and outputs.ndim == expected_ds_ndim
+        ):
             # DynUNet format: use first output (final prediction)
             final_output = outputs[:, 0, ...]  # First output is final prediction
         elif self.deep_supervision and isinstance(outputs, list):
             # List format: use last output
             final_output = outputs[-1]
         else:
-            # No deep supervision
+            # No deep supervision or already in eval mode
             final_output = outputs
 
         # Get predictions (argmax for multi-class)
