@@ -170,7 +170,8 @@ class ConfigComparator:
             # For 3D data, we would need nibabel to read .nii.gz files
             # For now, we'll just report nnUNet values
             try:
-                import nibabel as nib
+                import nibabel as nib  # type: ignore[import-untyped]
+
                 preprocessed_dir = self.fingerprint_path.parent / "imagesTr"
                 nnbenchmark_shapes = []
 
@@ -178,9 +179,9 @@ class ConfigComparator:
                     image_files = sorted(list(preprocessed_dir.glob("*.nii.gz")))
                     for img_path in image_files:
                         try:
-                            img = nib.load(img_path)
+                            img = nib.load(img_path)  # type: ignore[attr-defined]
                             # Get spatial dimensions (excluding channel if present)
-                            shape = img.shape
+                            shape = img.shape  # type: ignore[attr-defined]
                             if len(shape) == 4:  # Has channel dimension
                                 nnbenchmark_shapes.append(shape[1:])
                             else:

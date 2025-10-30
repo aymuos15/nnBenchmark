@@ -18,13 +18,11 @@ The data is already in semantic segmentation format with 3 classes:
 Data format: 3D MRI volumes in NIfTI (.nii.gz) format
 """
 
-import os
 import json
 import shutil
 import tarfile
 from pathlib import Path
-from typing import Set, Optional
-import nibabel as nib
+from typing import Optional, Set
 
 
 def extract_tar(dataset_dir: Path, tar_file: str) -> Optional[Path]:
@@ -39,7 +37,7 @@ def extract_tar(dataset_dir: Path, tar_file: str) -> Optional[Path]:
         Path to extracted directory or None if failed
     """
     tar_path = dataset_dir / tar_file
-    extract_name = tar_file.replace('.tar', '')
+    extract_name = tar_file.replace(".tar", "")
     extract_dir = dataset_dir / extract_name
 
     if extract_dir.exists():
@@ -51,7 +49,7 @@ def extract_tar(dataset_dir: Path, tar_file: str) -> Optional[Path]:
         return None
 
     print(f"Extracting {tar_file}...")
-    with tarfile.open(tar_path, 'r') as tar_ref:
+    with tarfile.open(tar_path, "r") as tar_ref:
         tar_ref.extractall(dataset_dir)
 
     print(f"Extracted to {extract_dir}")
@@ -75,7 +73,7 @@ def get_unique_cases(folder_path: Path, prefix: str = "hippocampus_") -> Set[str
 
     for file in folder_path.glob(f"{prefix}*.nii.gz"):
         # Extract case ID: hippocampus_001.nii.gz -> 001
-        case_id = file.stem.replace('.nii', '').replace(prefix, '')
+        case_id = file.stem.replace(".nii", "").replace(prefix, "")
         cases.add(case_id)
 
     return cases
@@ -88,7 +86,7 @@ def copy_and_rename_files(
     dst_labels_dir: Optional[Path],
     case_ids: Set[str],
     prefix: str = "hippocampus_",
-    file_ending: str = ".nii.gz"
+    file_ending: str = ".nii.gz",
 ) -> int:
     """
     Copy and rename files from source to destination directories.
@@ -141,9 +139,7 @@ def copy_and_rename_files(
 
 
 def create_dataset_json(
-    output_dir: Path,
-    num_training: int,
-    file_ending: str = ".nii.gz"
+    output_dir: Path, num_training: int, file_ending: str = ".nii.gz"
 ):
     """
     Create simplified dataset.json file for nnUNet.
@@ -152,29 +148,23 @@ def create_dataset_json(
     """
 
     dataset_json = {
-        "channel_names": {
-            "0": "MRI"
-        },
-        "labels": {
-            "background": 0,
-            "Anterior": 1,
-            "Posterior": 2
-        },
+        "channel_names": {"0": "MRI"},
+        "labels": {"background": 0, "Anterior": 1, "Posterior": 2},
         "numTraining": num_training,
         "file_ending": file_ending,
         "name": "Hippocampus",
         "description": "Left and right hippocampus segmentation from MRI",
         "reference": "Vanderbilt University Medical Center - Medical Decathlon Task04",
-        "licence": "CC-BY-SA 4.0"
+        "licence": "CC-BY-SA 4.0",
     }
 
     json_path = output_dir / "dataset.json"
-    with open(json_path, 'w') as f:
+    with open(json_path, "w") as f:
         json.dump(dataset_json, f, indent=2)
 
     print(f"\nCreated dataset.json with {num_training} training cases")
-    print(f"Modality: MRI (3D volumes)")
-    print(f"Semantic classes: background (0), Anterior (1), Posterior (2)")
+    print("Modality: MRI (3D volumes)")
+    print("Semantic classes: background (0), Anterior (1), Posterior (2)")
     return json_path
 
 
@@ -214,7 +204,7 @@ def main():
     labels_tr_dir.mkdir(exist_ok=True)
     images_ts_dir.mkdir(exist_ok=True)
 
-    print(f"Created directories:")
+    print("Created directories:")
     print(f"  - {images_tr_dir.name}")
     print(f"  - {labels_tr_dir.name}")
     print(f"  - {images_ts_dir.name}")
@@ -228,11 +218,7 @@ def main():
 
     if train_cases:
         num_training = copy_and_rename_files(
-            src_images_tr,
-            src_labels_tr,
-            images_tr_dir,
-            labels_tr_dir,
-            train_cases
+            src_images_tr, src_labels_tr, images_tr_dir, labels_tr_dir, train_cases
         )
 
         print(f"Successfully converted {num_training} training cases")
@@ -253,7 +239,7 @@ def main():
                 None,  # No labels for test data
                 images_ts_dir,
                 None,  # No labels for test data
-                test_cases
+                test_cases,
             )
             print(f"Successfully converted {num_test} test cases")
     else:
@@ -264,10 +250,16 @@ def main():
     print("=" * 70)
 
     print("\nDirectory structure:")
-    print(f"  imagesTr/   - {len(list(images_tr_dir.glob('*_0000.nii.gz')))} training images (3D MRI)")
-    print(f"  labelsTr/   - {len(list(labels_tr_dir.glob('*.nii.gz')))} training semantic masks")
-    print(f"  imagesTs/   - {len(list(images_ts_dir.glob('*_0000.nii.gz')))} test images (3D MRI)")
-    print(f"  dataset.json - metadata file")
+    print(
+        f"  imagesTr/   - {len(list(images_tr_dir.glob('*_0000.nii.gz')))} training images (3D MRI)"
+    )
+    print(
+        f"  labelsTr/   - {len(list(labels_tr_dir.glob('*.nii.gz')))} training semantic masks"
+    )
+    print(
+        f"  imagesTs/   - {len(list(images_ts_dir.glob('*_0000.nii.gz')))} test images (3D MRI)"
+    )
+    print("  dataset.json - metadata file")
 
     print("\nFile format:")
     print("  - NIfTI (.nii.gz) - 3D volumetric MRI data")
