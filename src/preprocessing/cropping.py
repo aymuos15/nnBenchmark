@@ -36,15 +36,22 @@ def create_nonzero_mask(data: NDArray) -> NDArray:
         True/1 where any channel is non-zero, False/0 elsewhere.
     """
     # Determine if input has channel dimension
-    # Assume first dimension is channels if > 3 dimensions or obvious multi-channel pattern
+    # Format: (C, H, W) for 2D spatial or (C, H, W, D) for 3D spatial
     if data.ndim == 4:
-        # Clearly (C, H, W, D) format
+        # Clearly (C, H, W, D) format - 3D spatial with multiple channels
         channels_first = True
         n_channels = data.shape[0]
     elif data.ndim == 3:
-        # Could be single channel (H, W, D), treat as single channel
-        channels_first = False
-        n_channels = 1
+        # Could be (C, H, W) for 2D spatial, or (H, W, D) for 3D spatial single-channel
+        # Check if first dimension looks like channels (small value, typically 1-4)
+        if data.shape[0] <= 4:
+            # Likely (C, H, W) format - 2D spatial with channels
+            channels_first = True
+            n_channels = data.shape[0]
+        else:
+            # Likely (H, W, D) format - 3D spatial single channel
+            channels_first = False
+            n_channels = 1
     else:
         raise ValueError(f"Expected 3D or 4D array, got {data.ndim}D array")
 
@@ -137,37 +144,31 @@ def crop_to_nonzero(
 
     # Get bounding box from mask
     bbox = get_bbox_from_mask(mask)
+    n_spatial_dims = len(bbox)  # Number of spatial dimensions (2 for 2D, 3 for 3D)
 
-    # Determine if multi-channel (4D) or single channel (3D)
-    is_multichannel = data.ndim == 4
+    # Determine data format
+    # 4D: (C, H, W, D) - multi-channel 3D spatial data
+    # 3D: (C, H, W) - multi-channel 2D spatial data, or (H, W, D) - single-channel 3D spatial
+    is_multichannel = data.ndim == (n_spatial_dims + 1)
 
-    # Crop data to bounding box
+    # Build slicing indices based on number of spatial dimensions
     if is_multichannel:
-        # Format: (C, H, W, D)
-        cropped_data = data[
-            :, bbox[0][0] : bbox[0][1], bbox[1][0] : bbox[1][1], bbox[2][0] : bbox[2][1]
-        ]
-    else:
-        # Format: (H, W, D)
-        cropped_data = data[
-            bbox[0][0] : bbox[0][1], bbox[1][0] : bbox[1][1], bbox[2][0] : bbox[2][1]
-        ]
+        # Multi-channel format: skip first dimension (channels)
+        slices = [slice(None)]  # Keep all channels
+        for i in range(n_spatial_dims):
+            slices.append(slice(bbox[i][0], bbox[i][1]))
+        cropped_data = data[tuple(slices)]
 
-    # Crop segmentation if provided
-    cropped_seg = None
-    if seg is not None:
-        if is_multichannel:
-            cropped_seg = seg[
-                :,
-                bbox[0][0] : bbox[0][1],
-                bbox[1][0] : bbox[1][1],
-                bbox[2][0] : bbox[2][1],
-            ]
-        else:
-            cropped_seg = seg[
-                bbox[0][0] : bbox[0][1],
-                bbox[1][0] : bbox[1][1],
-                bbox[2][0] : bbox[2][1],
-            ]
+        if seg is not None:
+            cropped_seg = seg[tuple(slices)]
+    else:
+        # Single-channel format
+        slices = tuple(slice(bbox[i][0], bbox[i][1]) for i in range(n_spatial_dims))
+        cropped_data = data[slices]
+
+        if seg is not None:
+            cropped_seg = seg[slices]
+
+    cropped_seg = cropped_seg if seg is not None else None
 
     return cropped_data, cropped_seg, bbox

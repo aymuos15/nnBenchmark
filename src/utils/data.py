@@ -15,13 +15,13 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
     Build a mapping from case IDs to preprocessed image/label file paths.
 
     This helper eliminates code duplication between get_data_dicts and get_test_data_dicts.
-    REQUIRES preprocessed data (imagesTr_cropped/labelsTr_cropped) - preprocessing is mandatory.
+    Uses preprocessed data from nnUNet_preprocessed directory (imagesTr/labelsTr).
 
     The preprocessing step (crop to nonzero regions) must be completed via 'nnBench.plan'
     before training or inference. This ensures all data follows nnU-Net v2.4.1 preprocessing.
 
     Args:
-        data_dir: Dataset directory containing preprocessed imagesTr_cropped/ and labelsTr_cropped/ folders
+        data_dir: Dataset directory in nnUNet_raw (contains dataset.json and splits.json)
 
     Returns:
         Dictionary mapping case_id (filename) to {"image": path, "label": path}
@@ -29,11 +29,16 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
     Raises:
         FileNotFoundError: If preprocessed directories don't exist
     """
-    data_dir_path = Path(data_dir)
+    from src.config.paths import get_preprocessed_root
 
-    # REQUIRE cropped versions (preprocessing is mandatory)
-    images_dir = data_dir_path / "imagesTr_cropped"
-    labels_dir = data_dir_path / "labelsTr_cropped"
+    data_dir_path = Path(data_dir)
+    dataset_name = data_dir_path.name
+
+    # Get preprocessed directory from environment
+    preprocessed_root = get_preprocessed_root()
+    preprocessed_dir = preprocessed_root / dataset_name
+    images_dir = preprocessed_dir / "imagesTr"
+    labels_dir = preprocessed_dir / "labelsTr"
 
     if not images_dir.exists():
         raise FileNotFoundError(

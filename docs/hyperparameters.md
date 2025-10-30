@@ -244,15 +244,29 @@ is_anisotropic = bool(spacing_ratio > aniso_threshold and voxel_ratio < 0.25)
 
 | Parameter | nnBenchmark | nnU-Net v2.4.1 | Status |
 |-----------|-------------|----------------|--------|
-| **Crop to Nonzero** | `src/preprocessing/cropping.py:98-223` | [`cropping.py:21`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L21) (crop_to_nonzero) | ✅ |
-| **Nonzero Mask Creation** | `src/preprocessing/cropping.py:20-63` | [`cropping.py:8`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L8) (create_nonzero_mask) | ✅ |
-| **Morphological Hole-Filling** | `src/preprocessing/cropping.py:61` (binary_fill_holes) | [`cropping.py:17`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L17) (binary_fill_holes) | ✅ |
-| **Bounding Box Extraction** | `src/preprocessing/cropping.py:66-95` | [`acvl_utils`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L5) (get_bbox_from_mask) | ✅ |
+| **Crop to Nonzero** | `src/preprocessing/cropping.py:105-174` | [`cropping.py:21`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L21) (crop_to_nonzero) | ✅ |
+| **Nonzero Mask Creation** | `src/preprocessing/cropping.py:20-70` | [`cropping.py:8`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L8) (create_nonzero_mask) | ✅ |
+| **Morphological Hole-Filling** | `src/preprocessing/cropping.py:68` (binary_fill_holes) | [`cropping.py:17`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L17) (binary_fill_holes) | ✅ |
+| **Bounding Box Extraction** | `src/preprocessing/cropping.py:73-102` | [`acvl_utils`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L5) (get_bbox_from_mask) | ✅ |
 | **Multi-Channel Support** | ✅ (any C) | [`cropping.py:13`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py#L13) (shape (C, X, Y, Z)) | ✅ |
+| **2D Image Support** | `src/planning/fingerprinting/prepare_dataset.py:174-192` | Expects 4D (C, H, W, D) | ✅ Enhanced |
+| **Flexible Format Detection** | `src/preprocessing/cropping.py:149-160` | Strict 4D format | ✅ Enhanced |
 | **Mandatory Preprocessing** | `src/planning/run.py:128-165` | Default workflow | ✅ |
 | **Preprocessing in Planning** | `src/planning/fingerprinting/prepare_dataset.py` | `preprocessing_plans` | ✅ |
+| **Image Expansion** | `src/planning/fingerprinting/prepare_dataset.py:176,179` | (H,W) or (H,W,D) expansion | ✅ |
 | **Cropped Images Directory** | `imagesTr_cropped/` (created in line 145) | Implicit in preprocessing | ✅ |
 | **Cropped Labels Directory** | `labelsTr_cropped/` (created in line 155) | Implicit in preprocessing | ✅ |
+
+## 2D Image Handling
+
+| Parameter | nnBenchmark | nnU-Net v2.4.1 | Status |
+|-----------|-------------|----------------|--------|
+| **2D Image Expansion** | `src/planning/fingerprinting/prepare_dataset.py:174-176` (H, W) → (1, H, W) | Expects (C, H, W, D) always | ✅ |
+| **3D Image Expansion** | `src/planning/fingerprinting/prepare_dataset.py:177-179` (H, W, D) → (1, H, W, D) | Expects (C, H, W, D) always | ✅ |
+| **Segmentation 2D Expansion** | `src/planning/fingerprinting/prepare_dataset.py:187-189` (H, W) → (1, H, W) | Expects (C, H, W, D) always | ✅ |
+| **Segmentation 3D Expansion** | `src/planning/fingerprinting/prepare_dataset.py:190-192` (H, W, D) → (1, H, W, D) | Expects (C, H, W, D) always | ✅ |
+| **Format Detection** | `src/preprocessing/cropping.py:149-152` | Strict (C, H, W, D) format | ✅ |
+| **Multi-channel Slicing** | `src/preprocessing/cropping.py:155-160` | [`cropping.py`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/cropping/cropping.py) | ✅ |
 
 ## Data Properties Storage
 

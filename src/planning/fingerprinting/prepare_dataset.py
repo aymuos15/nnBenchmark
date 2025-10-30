@@ -170,17 +170,26 @@ def preprocess_and_crop_dataset(
         try:
             img_data, spacing = load_nifti_with_metadata(str(img_file))
 
-            # Ensure channel-first format (C, H, W, D)
-            if img_data.ndim == 3:
-                img_data = np.expand_dims(img_data, axis=0)
+            # Ensure channel-first format: (C, H, W) for 2D or (C, H, W, D) for 3D
+            if img_data.ndim == 2:
+                # 2D image (H, W) from PNG/JPG - add channel dimension only
+                img_data = np.expand_dims(img_data, axis=0)  # (1, H, W)
+            elif img_data.ndim == 3:
+                # 3D image (H, W, D) - add channel dimension
+                img_data = np.expand_dims(img_data, axis=0)  # (1, H, W, D)
             elif img_data.ndim != 4:
                 logger.warning(f"  ⚠ Unexpected image shape {img_data.shape}, skipping")
                 continue
 
             # Load segmentation
             seg_data, _ = load_nifti_with_metadata(str(label_path))
-            if seg_data.ndim == 3:
-                seg_data = np.expand_dims(seg_data, axis=0)
+            # Ensure segmentation has channel dimension and matches image dimensions
+            if seg_data.ndim == 2:
+                # 2D segmentation (H, W) - add channel dimension only
+                seg_data = np.expand_dims(seg_data, axis=0)  # (1, H, W)
+            elif seg_data.ndim == 3:
+                # 3D segmentation (H, W, D) - add channel dimension
+                seg_data = np.expand_dims(seg_data, axis=0)  # (1, H, W, D)
 
         except Exception as e:
             logger.warning(f"  ⚠ Failed to load {base_name}: {e}")
@@ -217,23 +226,64 @@ def preprocess_and_crop_dataset(
             }
             continue
 
-        # Save cropped image using nibabel (preserves NIfTI format)
+        # Save cropped image in original format (NIfTI or PNG/JPG)
         try:
-            # Get original NIfTI to preserve affine/metadata
-            orig_nib = nib.load(str(img_file))  # type: ignore[attr-defined]
+            if str(img_file).endswith((".nii", ".nii.gz")):
+                # For NIfTI: save as NIfTI with affine metadata
+                affine = None
+                try:
+                    orig_nib = nib.load(str(img_file))  # type: ignore[attr-defined]
+                    affine = (
+                        orig_nib.affine if hasattr(orig_nib, "affine") else np.eye(4)  # type: ignore[attr-defined]
+                    )
+                except Exception:
+                    affine = None
 
-            # Remove channel dimension for saving (if single channel)
-            save_img = cropped_img[0] if cropped_img.shape[0] == 1 else cropped_img
-            save_seg = cropped_seg[0] if cropped_seg.shape[0] == 1 else cropped_seg
+                if affine is None:
+                    affine = np.eye(4)
 
-            # Create new NIfTI with cropped data and original affine (scaled for new size)
-            # Cast to SpatialImage to access affine attribute
-            affine = orig_nib.affine if hasattr(orig_nib, "affine") else np.eye(4)  # type: ignore[attr-defined]
-            img_nib = nib.Nifti1Image(save_img, affine=affine)  # type: ignore[attr-defined]
-            seg_nib = nib.Nifti1Image(save_seg, affine=affine)  # type: ignore[attr-defined]
+                # Create new NIfTI with cropped data and affine
+                img_nib = nib.Nifti1Image(cropped_img, affine=affine)  # type: ignore[attr-defined]
+                seg_nib = nib.Nifti1Image(cropped_seg, affine=affine)  # type: ignore[attr-defined]
 
-            nib.save(img_nib, str(output_img_path))  # type: ignore[attr-defined]
-            nib.save(seg_nib, str(output_seg_path))  # type: ignore[attr-defined]
+                nib.save(img_nib, str(output_img_path))  # type: ignore[attr-defined]
+                nib.save(seg_nib, str(output_seg_path))  # type: ignore[attr-defined]
+            else:
+                # For PNG/JPG: save as PNG maintaining original format
+                from PIL import Image
+
+                # Remove channel dimension for image saving
+                # Format expects (H, W) or (H, W, C), we have (C, H, W) or (C, H, W, D)
+                if cropped_img.ndim == 3 and cropped_img.shape[0] == 1:
+                    # (1, H, W) → (H, W)
+                    img_to_save = cropped_img[0]
+                elif cropped_img.ndim == 4 and cropped_img.shape[0] == 1:
+                    # (1, H, W, D) → take first slice (H, W)
+                    img_to_save = cropped_img[0, :, :, 0]
+                else:
+                    img_to_save = cropped_img
+
+                if cropped_seg.ndim == 3 and cropped_seg.shape[0] == 1:
+                    seg_to_save = cropped_seg[0]
+                elif cropped_seg.ndim == 4 and cropped_seg.shape[0] == 1:
+                    seg_to_save = cropped_seg[0, :, :, 0]
+                else:
+                    seg_to_save = cropped_seg
+
+                # Convert image to uint8 (0-255 range for display)
+                if img_to_save.max() <= 1.0:
+                    img_to_save = (img_to_save * 255).astype(np.uint8)
+                else:
+                    img_to_save = img_to_save.astype(np.uint8)
+
+                # Convert segmentation to uint8 (preserve class indices, do NOT scale)
+                # Labels should remain as class indices [0, 1, 2, ...], not [0, 255]
+                seg_to_save = seg_to_save.astype(np.uint8)
+
+                # Save as PNG keeping original filename
+                Image.fromarray(img_to_save).save(str(output_img_path))
+                Image.fromarray(seg_to_save).save(str(output_seg_path))
+
             logger.info("  ✓ Saved cropped image and segmentation")
 
         except Exception as e:

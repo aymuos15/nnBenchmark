@@ -137,10 +137,12 @@ class SegmentationModule(LightningModule):
         outputs = self(inputs)
 
         # Handle deep supervision output format
-        # DynUNet with deep_supervision=True outputs shape: [B, num_outputs, C, H, W, D]
+        # DynUNet with deep_supervision=True outputs shape:
+        #   2D: [B, num_outputs, C, H, W] (5D)
+        #   3D: [B, num_outputs, C, H, W, D] (6D)
         # We need to extract each output and compute weighted loss
-        if self.deep_supervision and len(outputs.shape) == 6:
-            # DynUNet deep supervision format: [B, num_outputs, C, H, W, D]
+        if self.deep_supervision and len(outputs.shape) in (5, 6):
+            # DynUNet deep supervision format
             # Split into list of outputs for loss computation
             outputs_list = [outputs[:, i, ...] for i in range(outputs.shape[1])]
             loss = self._compute_deep_supervision_loss(outputs_list, labels)
@@ -197,8 +199,10 @@ class SegmentationModule(LightningModule):
         outputs = self(inputs)
 
         # Handle deep supervision output format
-        # DynUNet with deep_supervision=True outputs shape: [B, num_outputs, C, H, W, D]
-        if self.deep_supervision and len(outputs.shape) == 6:
+        # DynUNet with deep_supervision=True outputs shape:
+        #   2D: [B, num_outputs, C, H, W] (5D)
+        #   3D: [B, num_outputs, C, H, W, D] (6D)
+        if self.deep_supervision and len(outputs.shape) in (5, 6):
             # DynUNet format: use first output (final prediction)
             final_output = outputs[:, 0, ...]  # First output is final prediction
         elif self.deep_supervision and isinstance(outputs, list):
