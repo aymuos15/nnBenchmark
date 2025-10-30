@@ -1,0 +1,16 @@
+{
+  "channel_names": {
+    "0": "MRI"
+  },
+  "labels": {
+    "background": 0,
+    "Anterior": 1,
+    "Posterior": 2
+  },
+  "numTraining": 260,
+  "file_ending": ".nii.gz",
+  "name": "Hippocampus",
+  "description": "Left and right hippocampus segmentation from MRI",
+  "reference": "Vanderbilt University Medical Center - Medical Decathlon Task04",
+  "licence": "CC-BY-SA 4.0"
+}
