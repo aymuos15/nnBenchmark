@@ -1,67 +1,97 @@
 """
 Dataset and results paths configuration.
 
-EDIT THIS FILE: Paste your dataset root directory path below.
-This is where nnBenchmark will look for datasets and store results.
+This module uses environment variables to locate datasets, preprocessed data,
+and results, following nnUNet's convention. Set these environment variables:
+
+    export nnUNet_raw="/path/to/nnUNet_raw"
+    export nnUNet_preprocessed="/path/to/nnUNet_preprocessed"
+    export nnUNet_results="/path/to/nnUNet_results"
+
+Add these to your ~/.bashrc or ~/.zshrc for persistence.
 """
 
+from __future__ import annotations
+
+import os
 from pathlib import Path
 
-# ============================================================================
-# USER CONFIGURATION - EDIT THIS
-# ============================================================================
-# Paste your dataset root directory path here.
-# Examples:
-#   DATASETS_ROOT = Path("/mnt/data/datasets")
-#   DATASETS_ROOT = Path("/home/user/medical_data/datasets")
-#   DATASETS_ROOT = Path("./datasets")  # Relative to working directory
-#
-# This directory should contain subdirectories like:
-#   <DATASETS_ROOT>/Dataset001_Hippo/
-#   <DATASETS_ROOT>/Dataset002_Kits/
-#   etc.
 
-DATASETS_ROOT = Path("/home/localssk23/CAI4Soumya/nnUNet_raw")  # ← EDIT THIS PATH
+def _get_env_path(env_var: str, description: str) -> Path:
+    """
+    Get a required path from environment variable.
 
-# Results directory (where training outputs are saved)
-RESULTS_ROOT = Path("results")
+    Args:
+        env_var: Name of environment variable
+        description: Human-readable description for error messages
 
-# Configs directory (where auto-generated configs are saved)
-CONFIGS_ROOT = Path("configs")
+    Returns:
+        Path from environment variable
 
-# ============================================================================
-# END OF USER CONFIGURATION
-# ============================================================================
+    Raises:
+        RuntimeError: If environment variable is not set or path parent doesn't exist
+    """
+    value = os.environ.get(env_var)
+    if value is None:
+        raise RuntimeError(
+            f"Environment variable '{env_var}' is not set.\n"
+            f"This should point to your {description}.\n"
+            f"Set it with: export {env_var}='/path/to/{description}'\n"
+            f"Or add it to your ~/.bashrc or ~/.zshrc for persistence."
+        )
+
+    path = Path(value).expanduser().resolve()
+
+    # Only validate that parent exists (so users can point to new directories)
+    if not path.parent.exists():
+        raise RuntimeError(
+            f"Parent directory of {env_var}={path} does not exist.\n"
+            f"Please ensure the path is correct."
+        )
+
+    # Create the directory if it doesn't exist
+    path.mkdir(parents=True, exist_ok=True)
+
+    return path
 
 
 def get_datasets_root() -> Path:
     """
-    Get the datasets root directory.
+    Get the datasets root directory from nnUNet_raw environment variable.
 
     Returns:
         Path object pointing to the datasets root directory
+
+    Raises:
+        RuntimeError: If nnUNet_raw environment variable is not set
     """
-    return DATASETS_ROOT.expanduser().resolve()
+    return _get_env_path("nnUNet_raw", "nnUNet_raw")
+
+
+def get_preprocessed_root() -> Path:
+    """
+    Get the preprocessed data root directory from nnUNet_preprocessed.
+
+    Returns:
+        Path object pointing to the preprocessed root directory
+
+    Raises:
+        RuntimeError: If nnUNet_preprocessed environment variable is not set
+    """
+    return _get_env_path("nnUNet_preprocessed", "nnUNet_preprocessed")
 
 
 def get_results_root() -> Path:
     """
-    Get the results root directory.
+    Get the results root directory from nnUNet_results environment variable.
 
     Returns:
         Path object pointing to the results root directory
-    """
-    return RESULTS_ROOT.expanduser().resolve()
 
-
-def get_configs_root() -> Path:
+    Raises:
+        RuntimeError: If nnUNet_results environment variable is not set
     """
-    Get the configs root directory.
-
-    Returns:
-        Path object pointing to the configs root directory
-    """
-    return CONFIGS_ROOT.expanduser().resolve()
+    return _get_env_path("nnUNet_results", "nnUNet_results")
 
 
 def get_dataset_path(dataset_name: str) -> Path:

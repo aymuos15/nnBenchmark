@@ -1,22 +1,19 @@
 """Configuration module for nnBenchmark."""
 
+from __future__ import annotations
+
 from src.config.paths import (
-    CONFIGS_ROOT,
-    DATASETS_ROOT,
-    RESULTS_ROOT,
-    get_configs_root,
     get_dataset_path,
     get_datasets_root,
+    get_preprocessed_root,
     get_results_root,
 )
+from src.config.resolution import resolve_config_path
 
 __all__ = [
-    "DATASETS_ROOT",
-    "RESULTS_ROOT",
-    "CONFIGS_ROOT",
     "get_datasets_root",
+    "get_preprocessed_root",
     "get_results_root",
-    "get_configs_root",
     "get_dataset_path",
+    "resolve_config_path",
 ]
-

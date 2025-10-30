@@ -9,6 +9,7 @@ import numpy as np
 from monai.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
+from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
 from src.inference.evaluate import evaluate
 from src.lightning import SegmentationModule
@@ -61,11 +62,17 @@ def print_test_results(results: dict, metric_name: str) -> None:
 
 
 def run_testing(
-    config_path: str, model_path: str | None = None, use_test_set: bool = False
+    config_path: str,
+    model_path: str | None = None,
+    use_test_set: bool = False,
+    dataset: str | None = None,
 ) -> None:
+    # Resolve config path (handles both absolute and relative paths)
+    resolved_config_path = str(resolve_config_path(config_path, dataset))
+
     # Setup experiment (load config, setup device, paths)
     cfg, device, data_dir, results_dir, config_name = setup_experiment(
-        config_path, create_results_dir=False
+        resolved_config_path, create_results_dir=False
     )
 
     # Setup logger for testing

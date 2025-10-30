@@ -12,6 +12,7 @@ import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
+from src.config import resolve_config_path
 from src.config.validation import (
     validate_deep_supervision_config,
     validate_metrics_config,
@@ -45,16 +46,24 @@ warnings.filterwarnings(
 )
 
 
-def run_training(config_path: str, resume: bool = False) -> None:
+def run_training(
+    config_path: str, dataset: str | None = None, resume: bool = False
+) -> None:
     """
     Run training using PyTorch Lightning.
 
     Args:
-        config_path: Path to YAML config file
+        config_path: Path to YAML config file or relative path (e.g., fold_0.yaml)
+        dataset: Dataset name (required if config_path is relative)
         resume: Whether to resume from last checkpoint
     """
+    # Resolve config path (handles both absolute and relative paths)
+    resolved_config_path = str(resolve_config_path(config_path, dataset))
+
     # Setup experiment (load config, setup device, paths)
-    cfg, device, data_dir, results_dir, config_name = setup_experiment(config_path)
+    cfg, device, data_dir, results_dir, config_name = setup_experiment(
+        resolved_config_path
+    )
 
     seed: int = get_seed_from_config(cfg)
     set_random_seeds(seed)

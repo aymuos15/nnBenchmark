@@ -9,7 +9,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from src.config import get_datasets_root
+from src.config import get_datasets_root, get_preprocessed_root, get_results_root
 from src.logging import setup_verbose_logger
 from src.planning.fingerprinting.fingerprint import fingerprint_dataset
 from src.planning.fingerprinting.prepare_dataset import prepare_dataset
@@ -74,13 +74,16 @@ def run_planning(
 
     # Determine output path
     if output is None:
-        # Auto-generate output path: configs/<dataset_name>.yaml
+        # Auto-generate output path: nnUNet_results/<dataset_name>/fold_0/fold_0.yaml
         dataset_name = dataset_path.name
-        output_path = str(Path("configs") / f"{dataset_name.lower()}.yaml")
+        config_name = "fold_0"
+        output_path = str(
+            get_results_root() / dataset_name / config_name / f"{config_name}.yaml"
+        )
     else:
         output_path = output
 
-    # Create configs directory if it doesn't exist
+    # Create results directory if it doesn't exist
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
     # Detect GPU memory if not specified
@@ -128,10 +131,12 @@ def run_planning(
         # Step 0: Preprocessing (ALWAYS run, independent of dataset.json/splits.json)
         dataset_json_path = dataset_path / "dataset.json"
         splits_json_path = dataset_path / "splits.json"
-        images_cropped_dir = dataset_path / "imagesTr_cropped"
+        dataset_name = dataset_path.name
+        preprocessed_dir = get_preprocessed_root() / dataset_name
+        images_dir = preprocessed_dir / "imagesTr"
 
         # Check if preprocessing has already been done
-        if not images_cropped_dir.exists():
+        if not images_dir.exists():
             print("Step 0/5: Preprocessing dataset (crop to nonzero regions)...")
             print("  Applying nnU-Net v2.4.1 preprocessing (crop to nonzero)...")
             print("  (Detailed preprocessing logs available with --verbose flag)")
@@ -140,13 +145,17 @@ def run_planning(
                 preprocess_and_crop_dataset,
             )
 
-            preprocess_and_crop_dataset(dataset_path=str(dataset_path), force=False)
+            preprocess_and_crop_dataset(
+                dataset_path=str(dataset_path),
+                output_dir=str(preprocessed_dir),
+                force=False,
+            )
             print(
-                "  ✓ Preprocessing complete: cropped images saved to imagesTr_cropped/ and labelsTr_cropped/"
+                f"  ✓ Preprocessing complete: preprocessed images saved to {preprocessed_dir}/"
             )
             print()
         else:
-            print("Step 0/5: Dataset already preprocessed (imagesTr_cropped/ exists)")
+            print(f"Step 0/5: Dataset already preprocessed ({preprocessed_dir})")
             print()
 
         # Step 0b: Prepare dataset metadata if needed
@@ -264,7 +273,11 @@ def run_planning(
         print()
         print("Next steps:")
         print(f"  1. Review the generated config: {output_path}")
-        print(f"  2. Train the model: nnBench.train --config {output_path}")
+        dataset_name = dataset_path.name
+        config_name = Path(output_path).parent.name
+        print(
+            f"  2. Train the model: nnBench.train --config {config_name}.yaml --dataset {dataset_name}"
+        )
         print("=" * 80)
 
     except Exception as e:
