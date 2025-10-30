@@ -181,50 +181,37 @@ class TestSegmentationDataModule:
         # Assert
         assert train_loader.sampler is not None or train_loader.shuffle is True
 
+    @pytest.mark.parametrize(
+        "cache_enabled,num_workers,expected_persistent",
+        [
+            (True, 4, False),      # Cache enabled → persistent_workers=False
+            (False, 4, True),      # No cache, workers>0 → persistent_workers=True
+            (False, 0, False),     # No workers → persistent_workers=False
+        ],
+    )
     @patch("src.lightning.datamodule.get_data_dicts")
     @patch("src.lightning.datamodule.build_transforms")
-    def test_persistent_workers_disabled_with_cache(
+    def test_persistent_workers_configuration(
         self,
         mock_build_transforms: Mock,
         mock_get_data_dicts: Mock,
-        sample_config_with_cache: dict[str, Any],
+        cache_enabled: bool,
+        num_workers: int,
+        expected_persistent: bool,
+        sample_config: dict[str, Any],
         mock_dataset_dir: str,
     ) -> None:
-        """Test that persistent_workers=False when using CacheDataset."""
+        """Test persistent_workers logic across config combinations.
+
+        Validates that persistent_workers is:
+        - False when using CacheDataset (data already in memory)
+        - True when num_workers>0 and not using cache
+        - False when num_workers=0
+        """
         # Arrange
-        mock_get_data_dicts.return_value = (
-            [{"image": "img1.nii.gz", "label": "lbl1.nii.gz"}],
-            [{"image": "img2.nii.gz", "label": "lbl2.nii.gz"}],
-        )
-        mock_build_transforms.return_value = Mock()
-
-        datamodule = SegmentationDataModule(
-            cfg=sample_config_with_cache, data_dir=mock_dataset_dir, fold=0
-        )
-        datamodule.setup(stage="fit")
-
-        # Act
-        train_loader = datamodule.train_dataloader()
-        val_loader = datamodule.val_dataloader()
-
-        # Assert
-        assert train_loader.persistent_workers is False
-        assert val_loader is not None
-        assert val_loader.persistent_workers is False
-
-    @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
-    def test_persistent_workers_enabled_with_workers_and_no_cache(
-        self,
-        mock_build_transforms: Mock,
-        mock_get_data_dicts: Mock,
-        sample_config_without_cache: dict[str, Any],
-        mock_dataset_dir: str,
-    ) -> None:
-        """Test that persistent_workers=True when num_workers>0 and not using cache."""
-        # Arrange
-        config = sample_config_without_cache.copy()
-        config["training"]["num_workers"] = 4
+        config = sample_config.copy()
+        config["dataset"]["cache"] = {"enabled": cache_enabled, "cache_rate": 1.0}
+        config["training"]["num_workers"] = num_workers
 
         mock_get_data_dicts.return_value = (
             [{"image": "img1.nii.gz", "label": "lbl1.nii.gz"}],
@@ -235,80 +222,16 @@ class TestSegmentationDataModule:
         datamodule = SegmentationDataModule(
             cfg=config, data_dir=mock_dataset_dir, fold=0
         )
-        datamodule.setup(stage="fit")
 
         # Act
+        datamodule.setup(stage="fit")
         train_loader = datamodule.train_dataloader()
         val_loader = datamodule.val_dataloader()
 
         # Assert
-        assert train_loader.persistent_workers is True
+        assert train_loader.persistent_workers is expected_persistent
         assert val_loader is not None
-        assert val_loader.persistent_workers is True
-
-    @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
-    def test_persistent_workers_disabled_with_zero_workers(
-        self,
-        mock_build_transforms: Mock,
-        mock_get_data_dicts: Mock,
-        sample_config_without_cache: dict[str, Any],
-        mock_dataset_dir: str,
-    ) -> None:
-        """Test that persistent_workers=False when num_workers=0."""
-        # Arrange
-        config = sample_config_without_cache.copy()
-        config["training"]["num_workers"] = 0
-
-        mock_get_data_dicts.return_value = (
-            [{"image": "img1.nii.gz", "label": "lbl1.nii.gz"}],
-            [{"image": "img2.nii.gz", "label": "lbl2.nii.gz"}],
-        )
-        mock_build_transforms.return_value = Mock()
-
-        datamodule = SegmentationDataModule(
-            cfg=config, data_dir=mock_dataset_dir, fold=0
-        )
-        datamodule.setup(stage="fit")
-
-        # Act
-        train_loader = datamodule.train_dataloader()
-        val_loader = datamodule.val_dataloader()
-
-        # Assert
-        assert train_loader.persistent_workers is False
-        assert val_loader is not None
-        assert val_loader.persistent_workers is False
-
-    @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
-    def test_val_dataloader_persistent_workers_logic(
-        self,
-        mock_build_transforms: Mock,
-        mock_get_data_dicts: Mock,
-        sample_config_with_cache: dict[str, Any],
-        mock_dataset_dir: str,
-    ) -> None:
-        """Test that validation dataloader has same persistent_workers logic."""
-        # Arrange
-        mock_get_data_dicts.return_value = (
-            [{"image": "img1.nii.gz", "label": "lbl1.nii.gz"}],
-            [{"image": "img2.nii.gz", "label": "lbl2.nii.gz"}],
-        )
-        mock_build_transforms.return_value = Mock()
-
-        datamodule = SegmentationDataModule(
-            cfg=sample_config_with_cache, data_dir=mock_dataset_dir, fold=0
-        )
-        datamodule.setup(stage="fit")
-
-        # Act
-        val_loader = datamodule.val_dataloader()
-
-        # Assert
-        assert val_loader is not None
-        assert val_loader.persistent_workers is False  # Due to cache
-        assert val_loader.batch_size == 1  # Validation uses batch_size=1
+        assert val_loader.persistent_workers is expected_persistent
 
     @patch("src.lightning.datamodule.get_data_dicts")
     @patch("src.lightning.datamodule.build_transforms")

@@ -94,40 +94,41 @@ class TestSetupResultsDir:
     def test_setup_results_dir_returns_path(self, temp_dir: str) -> None:
         """Test that setup_results_dir returns a path."""
         # Temporarily change the working directory concept by using absolute paths
-        result = setup_results_dir("test_config", create=False)
+        result = setup_results_dir("test_config", "Dataset001_Test", create=False)
 
-        # Should return path with config name
+        # Should return path with dataset and config name
         assert "test_config" in result
-        assert "results" in result
+        assert "Dataset001_Test" in result
 
     def test_setup_results_dir_creates_directory(self, temp_dir: str) -> None:
         """Test that setup_results_dir creates directory when create=True."""
         # Use temp_dir as base
         config_name = "test_experiment"
+        dataset_name = "Dataset001_Test"
 
         # Since we can't control working directory, just test the function works
-        result = setup_results_dir(config_name, create=False)
+        result = setup_results_dir(config_name, dataset_name, create=False)
 
         assert "test_experiment" in result
-        assert "results" in result
+        assert "Dataset001_Test" in result
 
     def test_setup_results_dir_no_create(self) -> None:
         """Test setup_results_dir with create=False."""
-        result = setup_results_dir("my_config", create=False)
+        result = setup_results_dir("my_config", "Dataset001_Test", create=False)
 
         # Should return path even if directory doesn't exist
         assert "my_config" in result
-        assert "results" in result
+        assert "Dataset001_Test" in result
 
     def test_setup_results_dir_path_format(self) -> None:
         """Test that results dir path has correct format."""
         config_name = "dataset001_hippo"
-        result = setup_results_dir(config_name, create=False)
+        dataset_name = "Dataset001_Hippo"
+        result = setup_results_dir(config_name, dataset_name, create=False)
 
-        # Should be "results/dataset001_hippo"
-        assert result.endswith("dataset001_hippo") or result.endswith(
-            f"results{os.sep}dataset001_hippo"
-        )
+        # Should contain dataset and config names
+        assert config_name in result
+        assert dataset_name in result
 
 
 class TestSetupExperiment:
@@ -188,15 +189,18 @@ class TestSetupExperiment:
         else:
             assert device.type == "cpu"
 
-    def test_setup_experiment_results_dir_format(self, mock_config_file: str) -> None:
+    def test_setup_experiment_results_dir_format(
+        self, mock_config_file: str, sample_config: dict[str, Any]
+    ) -> None:
         """Test that setup_experiment returns correctly formatted results directory."""
         _, _, _, results_dir, config_name = setup_experiment(
             mock_config_file, create_results_dir=False
         )
 
-        # Results dir should contain config name
+        # Results dir should contain dataset name and config name
+        dataset_name = sample_config["dataset"]["name"]
         assert config_name in results_dir
-        assert "results" in results_dir
+        assert dataset_name in results_dir
 
     def test_setup_experiment_missing_config(self, temp_dir: str) -> None:
         """Test that setup_experiment raises error for missing config file."""

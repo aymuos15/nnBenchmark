@@ -8,7 +8,7 @@ from typing import Any
 
 import torch
 
-from src.config import get_datasets_root
+from src.config import get_datasets_root, get_results_root
 from src.config.load import load_config
 from src.utils.files import ensure_directory
 
@@ -45,19 +45,20 @@ def get_config_name(config_path: str) -> str:
     return config_file.stem
 
 
-def setup_results_dir(config_name: str, create: bool = True) -> str:
+def setup_results_dir(config_name: str, dataset_name: str, create: bool = True) -> str:
     """
-    Setup results directory path from config name.
+    Setup results directory path from config name and dataset name.
 
     Args:
         config_name: Name of the config (from get_config_name)
+        dataset_name: Name of the dataset
         create: If True, create the directory if it doesn't exist
 
     Returns:
         Path to results directory
 
     """
-    results_dir = str(Path("results") / config_name)
+    results_dir = str(get_results_root() / dataset_name / config_name)
     if create:
         return ensure_directory(results_dir)
     return results_dir
@@ -93,6 +94,8 @@ def setup_experiment(
     dataset_name = cfg["dataset"]["name"]
     data_dir = str(get_datasets_root() / dataset_name)
     config_name = get_config_name(config_path)
-    results_dir = setup_results_dir(config_name, create=create_results_dir)
+    results_dir = setup_results_dir(
+        config_name, dataset_name, create=create_results_dir
+    )
 
     return cfg, device, data_dir, results_dir, config_name

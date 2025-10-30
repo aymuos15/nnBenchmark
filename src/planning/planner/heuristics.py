@@ -32,26 +32,25 @@ def calculate_feature_channels(num_stages: int, is_2d: bool) -> list[int]:
     """
     Calculate feature channels per level following nnU-Net exact conventions.
 
-    For a UNet with num_stages pooling operations, there are num_stages+1 decoder levels:
-    - Input level (32 channels)
-    - After each pooling: double channels (64, 128, 256, ...)
+    For DynUNet with num_stages encoder stages, we need num_stages filter values:
+    - Each stage has its own filter count
     - Channels double each level, starting at 32 (UNet_base_num_features)
     - 2D: Cap at 512 (UNet_max_features_2d)
     - 3D: Cap at 320 (UNet_max_features_3d)
 
     Args:
-        num_stages: Number of pooling operations (encoder depth)
+        num_stages: Number of encoder stages (equals number of strides)
         is_2d: Whether this is 2D data
 
     Returns:
-        List of feature channels for each decoder level (num_stages + 1 values)
+        List of feature channels for each encoder stage (num_stages values)
     """
     base_features = 32  # UNet_base_num_features
     max_features = 512 if is_2d else 320  # UNet_max_features_2d/3d
 
     channels = []
-    # num_stages pooling ops means num_stages+1 decoder levels
-    for i in range(num_stages + 1):
+    # DynUNet: num_stages encoder stages means num_stages filter values
+    for i in range(num_stages):
         features = min(max_features, base_features * (2**i))
         channels.append(features)
 

@@ -7,8 +7,8 @@ from typing import Any
 
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from monai import losses, metrics, networks, transforms
+from monai import losses, metrics, transforms
+from monai.networks import nets as monai_nets
 
 
 def _initialize_weights(module: nn.Module) -> None:
@@ -46,24 +46,48 @@ def _extract_component_params(config: dict[str, Any]) -> dict[str, Any]:
 
 def build_model(cfg: dict[str, Any], device: torch.device) -> nn.Module:
     """
-    Build model from configuration with Kaiming (He) Normal initialization.
+    Build DynUNet model from configuration with Kaiming (He) Normal initialization.
 
-    Initializes weights using Kaiming Normal distribution to match nnU-Net v2.4.1.
-    This ensures better gradient flow through deep networks during training.
+    Builds MONAI DynUNet to exactly match nnU-Net PlainConvUNet architecture.
+    Uses Kaiming Normal initialization optimized for LeakyReLU activation.
 
     Args:
         cfg: Configuration dictionary with 'model' section
         device: torch device to place model on
 
     Returns:
-        Initialized model on specified device
+        Initialized DynUNet model on specified device
     """
-    model_cls = getattr(networks.nets, cfg["model"]["type"])  # type: ignore[attr-defined]
-    model_params = _extract_component_params(cfg["model"])
+    model_type = cfg["model"]["type"]
 
-    # Remove deep supervision parameters (handled separately in training, not in model)
-    model_params.pop("deep_supervision", None)
-    model_params.pop("ds_weights", None)
+    if model_type != "DynUNet":
+        raise ValueError(
+            f"Only DynUNet is supported (got {model_type}). "
+            "DynUNet exactly matches nnU-Net PlainConvUNet architecture."
+        )
+
+    model_cls = getattr(monai_nets, model_type)
+
+    # Extract DynUNet parameters
+    model_params = {
+        "spatial_dims": cfg["model"]["spatial_dims"],
+        "in_channels": cfg["model"]["in_channels"],
+        "out_channels": cfg["model"]["out_channels"],
+        "kernel_size": cfg["model"]["kernel_size"],
+        "strides": cfg["model"]["strides"],
+        "upsample_kernel_size": cfg["model"]["upsample_kernel_size"],
+        "filters": cfg["model"]["filters"],
+        "norm_name": tuple(cfg["model"]["norm_name"]),
+        "act_name": tuple(cfg["model"]["act_name"]),
+        "deep_supervision": cfg["model"].get("deep_supervision", False),
+        "deep_supr_num": cfg["model"].get("deep_supr_num", 1),
+        "res_block": cfg["model"].get("res_block", False),
+        "dropout": cfg["model"].get("dropout"),
+        "trans_bias": True,  # Enable bias for transpose convolutions (nnU-Net has bias)
+    }
+
+    # Remove ds_weights (handled separately in loss calculation)
+    # This is not a DynUNet parameter
 
     model = model_cls(**model_params).to(device)
 
@@ -88,7 +112,7 @@ def build_loss(cfg: dict[str, Any]) -> nn.Module:
     return loss_cls(**loss_params)
 
 
-def build_optimizer(model: nn.Module, cfg: dict[str, Any]) -> optim.Optimizer:
+def build_optimizer(model: nn.Module, cfg: dict[str, Any]) -> torch.optim.Optimizer:
     """
     Build optimizer from configuration.
 

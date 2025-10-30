@@ -188,11 +188,15 @@ class TrainingStepLogger(Callback):
         max_epochs = trainer.max_epochs
 
         # Get epoch loss from logged metrics
-        epoch_loss = trainer.callback_metrics.get("train_loss_epoch", None)
+        epoch_loss = trainer.callback_metrics.get("train_loss", None)
         loss_str = f"loss={epoch_loss:.4f}" if epoch_loss is not None else "loss=?"
 
-        # Build message with loss
-        msg = f"Epoch {current_epoch}/{max_epochs}: {loss_str}"
+        # Get learning rate from optimizer
+        current_lr = trainer.optimizers[0].param_groups[0]["lr"]
+        lr_str = f"lr={current_lr:.6f}"
+
+        # Build message with loss and learning rate
+        msg = f"Epoch {current_epoch}/{max_epochs}: {loss_str}, {lr_str}"
 
         # Separate mean metrics from per-class metrics
         mean_metrics = []

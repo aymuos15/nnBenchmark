@@ -12,6 +12,12 @@ def main() -> None:
         "--config", type=str, required=True, help="Path to config YAML file"
     )
     parser.add_argument(
+        "--dataset",
+        type=str,
+        default=None,
+        help="Dataset name (required for relative config paths, e.g., Dataset001_Hippo)",
+    )
+    parser.add_argument(
         "--continue",
         "-c",
         dest="resume",
@@ -19,7 +25,7 @@ def main() -> None:
         help="Resume training from last checkpoint",
     )
     args = parser.parse_args()
-    run_training(args.config, resume=args.resume)
+    run_training(args.config, dataset=args.dataset, resume=args.resume)
 
 
 if __name__ == "__main__":

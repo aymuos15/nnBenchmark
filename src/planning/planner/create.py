@@ -30,7 +30,9 @@ from src.planning.planner.topology import get_pool_and_conv_props
 class ExperimentPlan:
     """
     Configuration plan generated from dataset fingerprint.
-    Contains all parameters needed to generate a training config YAML.
+    Contains all parameters needed to generate a DynUNet training config YAML.
+
+    DynUNet is used to exactly match nnU-Net PlainConvUNet architecture.
     """
 
     # Dataset info
@@ -42,10 +44,13 @@ class ExperimentPlan:
     patch_size: tuple[int, ...]
     batch_size: int
 
-    # Network architecture
-    channels: list[int]  # Features per stage
-    strides: list[tuple[int, ...]]  # Pooling strides (supports anisotropic)
-    num_res_units: int  # Residual units per stage
+    # DynUNet architecture (matches nnU-Net PlainConvUNet exactly)
+    filters: list[int]  # Feature channels per stage (nnUNet: features_per_stage)
+    kernel_size: list[tuple[int, ...]]  # Kernel size per stage
+    strides: list[
+        tuple[int, ...]
+    ]  # Strides per stage (includes [1,1,1] at first level)
+    upsample_kernel_size: list[tuple[int, ...]]  # Upsample kernel sizes for decoder
 
     # Deep supervision (nnU-Net style, always enabled)
     deep_supervision: bool  # Always True following nnU-Net approach
@@ -106,23 +111,39 @@ def create_experiment_plan(
         max_numpool=999999,
     )
 
-    # Convert pool_op_kernel_sizes to list of tuples for strides
-    # Skip the first [1,1,1] since it's not a real stride, just a placeholder
-    strides = list(pool_op_kernel_sizes[1:])
-    num_stages = len(strides)  # Number of actual pooling stages
+    # Keep ALL strides including the first [1,1,1] for DynUNet (matches nnUNet exactly)
+    strides = list(pool_op_kernel_sizes)
+    num_stages = len(
+        strides
+    )  # Number of encoder stages (including first no-downsample stage)
     logger.info(f"Network topology: {num_stages} stages")
-    logger.info(f"Pool kernel sizes (strides): {pool_op_kernel_sizes}")
+    logger.info(f"Strides (includes [1,1,1] at first level): {strides}")
     logger.info(f"Conv kernel sizes: {conv_kernel_sizes}")
     logger.info(f"Adjusted patch size: {patch_size}")
     logger.info(f"Must be divisible by: {shape_must_be_divisible_by}")
 
     # Step 4: Calculate feature channels (nnU-Net exact)
-    channels = calculate_feature_channels(num_stages, fingerprint.is_2d)
-    logger.info(f"Feature channels: {channels}")
+    filters = calculate_feature_channels(num_stages, fingerprint.is_2d)
+    logger.info(f"Feature channels (filters): {filters}")
+
+    # Step 4b: Generate kernel sizes (all 3x3x3 for nnUNet)
+    kernel_sizes = [tuple([3] * ndim) for _ in range(num_stages)]
+    logger.info(f"Kernel sizes: {kernel_sizes}")
+
+    # Step 4c: Calculate upsample kernel sizes (inverse of downsampling strides)
+    # Skip first stride since there's no upsampling for the first level
+    upsample_kernel_sizes = [stride for stride in strides[1:]]
+    logger.info(f"Upsample kernel sizes: {upsample_kernel_sizes}")
 
     # Step 5: Calculate deep supervision weights (nnU-Net style)
-    ds_weights = calculate_deep_supervision_weights(num_stages)
-    logger.info(f"Deep supervision enabled with weights: {ds_weights}")
+    # For DynUNet, deep_supr_num=1 means we get 2 outputs (final + 1 intermediate)
+    # So we need ds_weights for 2 outputs, not all decoder stages
+    deep_supr_num = 1  # DynUNet default for nnU-Net compatibility
+    num_ds_outputs = deep_supr_num + 1  # final + intermediate outputs
+    ds_weights = calculate_deep_supervision_weights(num_ds_outputs)
+    logger.info(
+        f"Deep supervision enabled with {num_ds_outputs} outputs, weights: {ds_weights}"
+    )
 
     # Step 6: Calculate approximate total voxels in dataset
     num_cases = fingerprint.num_training_cases
@@ -163,12 +184,16 @@ def create_experiment_plan(
     # Convert numpy types to plain Python types
     patch_size_py = tuple(int(x) for x in patch_size)
     strides_py = [tuple(int(x) for x in stride) for stride in strides]
-    channels_py = [int(x) for x in channels]
+    filters_py = [int(x) for x in filters]
+    kernel_sizes_py = [tuple(int(x) for x in ks) for ks in kernel_sizes]
+    upsample_kernel_sizes_py = [
+        tuple(int(x) for x in uks) for uks in upsample_kernel_sizes
+    ]
 
-    # Verify constraints: len(strides) should equal len(channels) - 1
-    assert len(strides_py) == len(channels_py) - 1, (
-        f"Channel/stride mismatch: {len(channels_py)} channels requires "
-        f"{len(channels_py) - 1} strides, but got {len(strides_py)}"
+    # Verify constraints: For DynUNet, len(strides) == len(filters)
+    assert len(strides_py) == len(filters_py), (
+        f"Filter/stride mismatch: {len(filters_py)} filters requires "
+        f"{len(filters_py)} strides, but got {len(strides_py)}"
     )
 
     plan = ExperimentPlan(
@@ -177,9 +202,10 @@ def create_experiment_plan(
         is_2d=fingerprint.is_2d,
         patch_size=patch_size_py,
         batch_size=batch_size,
-        channels=channels_py,
+        filters=filters_py,
+        kernel_size=kernel_sizes_py,
         strides=strides_py,
-        num_res_units=0,  # nnU-Net uses plain convolutions, not residual units
+        upsample_kernel_size=upsample_kernel_sizes_py,
         deep_supervision=True,  # Always enabled following nnU-Net approach
         ds_weights=ds_weights,  # Exponential decay weights
         normalization_scheme=fingerprint.normalization_scheme,

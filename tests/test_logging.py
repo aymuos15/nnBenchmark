@@ -26,6 +26,28 @@ from src.logging.system import (
 )
 
 
+def _wait_for_log_message(log_path: str, message: str, timeout: float = 5.0) -> bool:
+    """Poll for a message in a log file with timeout.
+
+    Args:
+        log_path: Path to the log file
+        message: Message to search for
+        timeout: Maximum time to wait in seconds
+
+    Returns:
+        True if message found, False if timeout exceeded
+    """
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if os.path.exists(log_path):
+            with open(log_path, "r") as f:
+                content = f.read()
+            if message in content:
+                return True
+        time.sleep(0.01)
+    return False
+
+
 class TestSetupLogger:
     """Tests for setup_logger function."""
 
@@ -50,15 +72,11 @@ class TestSetupLogger:
         test_message = "Test log message"
         log.info(test_message)
 
-        # Give async logger time to flush
-        time.sleep(0.2)
-
-        # Verify message is in file
+        # Poll for message in log file (more reliable than fixed sleep)
         log_path = os.path.join(temp_dir, f"{log_name}.log")
-        with open(log_path, "r") as f:
-            content = f.read()
+        message_found = _wait_for_log_message(log_path, test_message)
 
-        assert test_message in content
+        assert message_found, f"Message '{test_message}' not found in log file"
 
     def test_setup_logger_resume_false_deletes_file(self, temp_dir: str) -> None:
         """Test that resume=False deletes existing log file before setup."""
@@ -68,17 +86,15 @@ class TestSetupLogger:
         log1 = setup_logger(temp_dir, log_name=log_name)
         log1.info("Initial message")
 
-        time.sleep(0.2)
-
         log_path = os.path.join(temp_dir, f"{log_name}.log")
-        assert os.path.exists(log_path)
+        assert _wait_for_log_message(log_path, "Initial message")
 
         # Create new logger with resume=False (default)
         logger.remove()  # Clear handlers before setup
         log2 = setup_logger(temp_dir, log_name=log_name)
         log2.info("New message")
 
-        time.sleep(0.2)
+        assert _wait_for_log_message(log_path, "New message")
 
         with open(log_path, "r") as f:
             content = f.read()
@@ -95,17 +111,15 @@ class TestSetupLogger:
         log1 = setup_logger(temp_dir, log_name=log_name)
         log1.info("Initial message")
 
-        time.sleep(0.2)
-
         log_path = os.path.join(temp_dir, f"{log_name}.log")
-        assert os.path.exists(log_path)
+        assert _wait_for_log_message(log_path, "Initial message")
 
         # Clear and create new logger with resume=True
         logger.remove()
         log2 = setup_logger(temp_dir, log_name=log_name, resume=True)
         log2.info("Appended message")
 
-        time.sleep(0.2)
+        assert _wait_for_log_message(log_path, "Appended message")
 
         with open(log_path, "r") as f:
             content = f.read()
@@ -124,10 +138,8 @@ class TestSetupTrainLogger:
 
         log.info("Training started")
 
-        time.sleep(0.2)
-
         log_path = os.path.join(temp_dir, "train.log")
-        assert os.path.exists(log_path)
+        assert _wait_for_log_message(log_path, "Training started")
 
     def test_setup_train_logger_with_resume(self, temp_dir: str) -> None:
         """Test setup_train_logger with resume parameter."""
@@ -135,16 +147,16 @@ class TestSetupTrainLogger:
         log1 = setup_train_logger(temp_dir)
         log1.info("First run")
 
-        time.sleep(0.2)
+        log_path = os.path.join(temp_dir, "train.log")
+        assert _wait_for_log_message(log_path, "First run")
 
         # Second logger resuming
         logger.remove()
         log2 = setup_train_logger(temp_dir, resume=True)
         log2.info("Resumed run")
 
-        time.sleep(0.2)
+        assert _wait_for_log_message(log_path, "Resumed run")
 
-        log_path = os.path.join(temp_dir, "train.log")
         with open(log_path, "r") as f:
             content = f.read()
 
@@ -161,10 +173,8 @@ class TestSetupTestLogger:
 
         log.info("Testing started")
 
-        time.sleep(0.2)
-
         log_path = os.path.join(temp_dir, "test.log")
-        assert os.path.exists(log_path)
+        assert _wait_for_log_message(log_path, "Testing started")
 
 
 class TestSetupVerboseLogger:
@@ -384,9 +394,10 @@ class TestLogGpuMemory:
         # Should not raise any errors
         log_gpu_memory(log, "Test context", device)
 
-        time.sleep(0.2)
-
         log_path = os.path.join(temp_dir, "gpu.log")
+        # For CPU, just check the file exists and wait for it to be written
+        assert _wait_for_log_message(log_path, "")  # Wait for file creation
+
         with open(log_path, "r") as f:
             content = f.read()
 
@@ -403,9 +414,10 @@ class TestLogGpuMemory:
 
             log_gpu_memory(log, "Test context", device)
 
-            time.sleep(0.2)
-
             log_path = os.path.join(temp_dir, "gpu2.log")
+            assert _wait_for_log_message(log_path, "GPU Memory")
+            assert _wait_for_log_message(log_path, "Test context")
+
             with open(log_path, "r") as f:
                 content = f.read()
 
@@ -428,9 +440,9 @@ class TestLogSystemInfo:
 
         log_system_info(log, device)
 
-        time.sleep(0.2)
-
         log_path = os.path.join(temp_dir, "sysinfo.log")
+        assert _wait_for_log_message(log_path, "SYSTEM INFO")
+
         with open(log_path, "r") as f:
             content = f.read()
 
@@ -450,9 +462,9 @@ class TestLogSystemInfo:
 
             log_system_info(log, device)
 
-            time.sleep(0.2)
-
             log_path = os.path.join(temp_dir, "sysinfo2.log")
+            assert _wait_for_log_message(log_path, "CUDA version")
+
             with open(log_path, "r") as f:
                 content = f.read()
 
