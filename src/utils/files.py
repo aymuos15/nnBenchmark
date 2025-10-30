@@ -175,21 +175,22 @@ def load_nifti_data(image_path: str) -> NDArray:
 
 def load_nifti_with_metadata(image_path: str) -> tuple[NDArray, tuple[float, ...]]:
     """
-    Load NIfTI image data and spacing using MONAI's LoadImaged transform.
+    Load image data and spacing using MONAI's LoadImaged transform.
 
+    Supports NIfTI (.nii, .nii.gz) and image formats (PNG, JPEG).
     Uses MONAI's robust image loading with proper metadata handling.
 
     Args:
-        image_path: Path to NIfTI file (.nii or .nii.gz)
+        image_path: Path to image file (NIfTI, PNG, or JPEG)
 
     Returns:
         Tuple of (image_data, spacing)
-        - image_data: NumPy array containing image data
+        - image_data: NumPy array containing image data in standard (H, W) or (H, W, D) format
         - spacing: Tuple of voxel spacings for each dimension
 
     Raises:
         FileNotFoundError: If the file doesn't exist
-        ValueError: If the file is not a valid NIfTI image or metadata is missing
+        ValueError: If the file is not a valid image or metadata is missing
     """
     if not Path(image_path).exists():
         raise FileNotFoundError(f"Image file not found: {image_path}")
@@ -198,6 +199,17 @@ def load_nifti_with_metadata(image_path: str) -> tuple[NDArray, tuple[float, ...
     loader = LoadImaged(keys=["image"], ensure_channel_first=False)
     data_dict = loader({"image": image_path})
     image_tensor = data_dict["image"]
+
+    # Detect file type to handle dimension ordering
+    file_type = detect_file_type(image_path)
+
+    # Convert to numpy after extracting metadata
+    image_data = image_tensor.numpy()
+
+    # MONAI may load 2D images (PNG/JPEG) in (W, H) order - need to transpose to (H, W)
+    if file_type in ["png", "jpeg"] and image_data.ndim == 2:
+        # Transpose from (W, H) to (H, W) for standard numpy convention
+        image_data = np.transpose(image_data, (1, 0))
 
     # Extract spacing from MONAI MetaTensor's affine matrix
     # MetaTensor stores affine as an attribute
@@ -210,10 +222,14 @@ def load_nifti_with_metadata(image_path: str) -> tuple[NDArray, tuple[float, ...
         # Compute spacing from affine matrix (norm of each column vector)
         spacing = tuple(float(np.linalg.norm(affine[:3, i])) for i in range(3))
     else:
-        # Fallback if no affine available (shouldn't happen with NIfTI)
-        spacing = (1.0, 1.0, 1.0)
-
-    # Convert to numpy after extracting metadata
-    image_data = image_tensor.numpy()
+        # Fallback for PNG/JPEG: standard isotropic spacing
+        if file_type in ["png", "jpeg"]:
+            if image_data.ndim == 2:
+                spacing = (1.0, 1.0)
+            else:
+                spacing = (1.0, 1.0, 1.0)
+        else:
+            # NIfTI without affine (shouldn't happen)
+            spacing = (1.0, 1.0, 1.0)
 
     return image_data, spacing
