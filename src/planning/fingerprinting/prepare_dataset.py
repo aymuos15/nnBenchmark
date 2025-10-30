@@ -179,7 +179,12 @@ def preprocess_and_crop_dataset(
 
             # Load segmentation
             seg_data, _ = load_nifti_with_metadata(str(label_path))
-            if seg_data.ndim == 3:
+            # Ensure segmentation has channel dimension
+            if seg_data.ndim == 2:
+                # 2D image (e.g., from PNG) - add channel dimension
+                seg_data = np.expand_dims(seg_data, axis=0)
+            elif seg_data.ndim == 3:
+                # 3D image - add channel dimension if needed
                 seg_data = np.expand_dims(seg_data, axis=0)
 
         except Exception as e:
