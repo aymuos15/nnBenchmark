@@ -152,6 +152,7 @@ def crop_to_nonzero(
     is_multichannel = data.ndim == (n_spatial_dims + 1)
 
     # Build slicing indices based on number of spatial dimensions
+    cropped_seg: Optional[NDArray] = None
     if is_multichannel:
         # Multi-channel format: skip first dimension (channels)
         slices = [slice(None)]  # Keep all channels
@@ -168,7 +169,5 @@ def crop_to_nonzero(
 
         if seg is not None:
             cropped_seg = seg[slices]
-
-    cropped_seg = cropped_seg if seg is not None else None
 
     return cropped_data, cropped_seg, bbox
