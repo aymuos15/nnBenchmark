@@ -172,6 +172,8 @@ class TestExperimentPlanner:
         fingerprint.percentile_10_spacing = (1.0, 1.0, 1.0)
         fingerprint.median_shape = (128, 128, 128)
         fingerprint.normalization_scheme = "CTNormalization"
+        fingerprint.intensity_mean = 50.0
+        fingerprint.intensity_std = 20.0
         fingerprint.intensity_percentile_00_5 = -200.0
         fingerprint.intensity_percentile_99_5 = 300.0
 
@@ -201,6 +203,8 @@ class TestExperimentPlanner:
         fingerprint.percentile_10_spacing = (1.0, 1.0)
         fingerprint.median_shape = (512, 512)
         fingerprint.normalization_scheme = "ZScoreNormalization"
+        fingerprint.intensity_mean = 50.0
+        fingerprint.intensity_std = 20.0
         fingerprint.intensity_percentile_00_5 = 0.0
         fingerprint.intensity_percentile_99_5 = 255.0
 
@@ -223,6 +227,9 @@ class TestYAMLGenerator:
             dataset_name="TestDataset",
             num_classes=2,
             is_2d=True,
+            median_shape=(256, 256),
+            median_spacing=(1.0, 1.0),
+            foreground_intensity_mean=50.0,
             patch_size=(256, 256),
             batch_size=2,
             filters=[32, 64, 128],
@@ -266,6 +273,9 @@ class TestYAMLGenerator:
             dataset_name="KiTS23_CT",
             num_classes=4,
             is_2d=False,
+            median_shape=(96, 96, 96),
+            median_spacing=(1.0, 1.0, 1.0),
+            foreground_intensity_mean=50.0,
             patch_size=(96, 96, 96),
             batch_size=2,
             filters=[32, 64, 128, 256],
@@ -319,6 +329,9 @@ class TestYAMLGenerator:
             dataset_name="BraTS_MRI",
             num_classes=5,
             is_2d=False,
+            median_shape=(128, 128, 128),
+            median_spacing=(1.0, 1.0, 1.0),
+            foreground_intensity_mean=50.0,
             patch_size=(128, 128, 128),
             batch_size=2,
             filters=[32, 64, 128, 256],
@@ -366,6 +379,9 @@ class TestYAMLGenerator:
             dataset_name="CustomCT",
             num_classes=2,
             is_2d=False,
+            median_shape=(64, 64, 64),
+            median_spacing=(1.5, 1.5, 3.0),
+            foreground_intensity_mean=50.0,
             patch_size=(64, 64, 64),
             batch_size=2,
             filters=[32, 64, 128],
@@ -410,9 +426,10 @@ class TestCTClippingApplication:
 
     def test_ct_clipping_with_scale_intensity(self):
         """Verify ScaleIntensityRanged with clip=True works correctly."""
-        from typing import Any, cast
+        from typing import Any
 
         import numpy as np
+        import torch
         from monai.transforms.intensity.dictionary import ScaleIntensityRanged
 
         # Create test data with outliers
@@ -436,7 +453,7 @@ class TestCTClippingApplication:
         result = clip_transform(data)
 
         # Verify clipping
-        clipped_value = cast(Any, result["image"])
+        clipped_value: np.ndarray | torch.Tensor = result["image"]
         if isinstance(clipped_value, np.ndarray):
             clipped = clipped_value
         elif hasattr(clipped_value, "numpy"):
@@ -460,6 +477,9 @@ class TestCTClippingApplication:
             dataset_name="CTTest",
             num_classes=2,
             is_2d=True,
+            median_shape=(64, 64),
+            median_spacing=(1.0, 1.0),
+            foreground_intensity_mean=50.0,
             patch_size=(64, 64),
             batch_size=1,
             filters=[32, 64, 128],

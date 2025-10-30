@@ -25,7 +25,7 @@ def get_shape_must_be_divisible_by(net_numpool_per_axis: list[int]) -> np.ndarra
 
 
 def pad_shape(
-    shape: tuple[int, ...], must_be_divisible_by: list[int] | np.ndarray
+    shape: tuple[int, ...], must_be_divisible_by: list[int] | np.ndarray | int
 ) -> np.ndarray:
     """
     Pad shape so that it is divisible by must_be_divisible_by.
@@ -37,7 +37,7 @@ def pad_shape(
     Returns:
         Padded shape that satisfies divisibility constraints
     """
-    if not isinstance(must_be_divisible_by, (tuple, list, np.ndarray)):  # type: ignore[redundant-isinstance]
+    if isinstance(must_be_divisible_by, int):
         must_be_divisible_by = [must_be_divisible_by] * len(shape)
     else:
         assert len(must_be_divisible_by) == len(shape)

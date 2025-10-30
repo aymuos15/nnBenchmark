@@ -170,7 +170,10 @@ class ConfigComparator:
             nnbenchmark_shapes = []
 
             if preprocessed_dir.exists():
-                image_files = sorted(list(preprocessed_dir.glob("*.png")) + list(preprocessed_dir.glob("*.nii.gz")))
+                image_files = sorted(
+                    list(preprocessed_dir.glob("*.png"))
+                    + list(preprocessed_dir.glob("*.nii.gz"))
+                )
                 for img_path in image_files:
                     try:
                         if img_path.suffix == ".png":
@@ -178,13 +181,17 @@ class ConfigComparator:
                             # PIL gives (width, height) but we want (height, width)
                             nnbenchmark_shapes.append((img.height, img.width))
                         # Can add .nii.gz support if needed
-                    except Exception as e:
+                    except Exception:
                         pass  # Skip problematic files
 
                 if nnbenchmark_shapes:
                     nnbenchmark_shapes_array = np.array(nnbenchmark_shapes)
-                    nnbenchmark_min_shape = tuple(int(x) for x in nnbenchmark_shapes_array.min(axis=0))
-                    nnbenchmark_max_shape = tuple(int(x) for x in nnbenchmark_shapes_array.max(axis=0))
+                    nnbenchmark_min_shape = tuple(
+                        int(x) for x in nnbenchmark_shapes_array.min(axis=0)
+                    )
+                    nnbenchmark_max_shape = tuple(
+                        int(x) for x in nnbenchmark_shapes_array.max(axis=0)
+                    )
                     nnbenchmark_num_images = len(nnbenchmark_shapes)
                 else:
                     nnbenchmark_min_shape = "Could not read"
@@ -200,22 +207,26 @@ class ConfigComparator:
                 "Number of Training Images",
                 num_images,
                 nnbenchmark_num_images,
-                note=f"Both use same preprocessed training images"
+                note="Both use same preprocessed training images",
             )
 
             # Compare cropped shape distributions
             self.add_result(
                 "Min Cropped Shape",
                 list(nnunet_min_shape),
-                list(nnbenchmark_min_shape) if isinstance(nnbenchmark_min_shape, tuple) else nnbenchmark_min_shape,
-                note=f"Minimum spatial dimensions after cropping"
+                list(nnbenchmark_min_shape)
+                if isinstance(nnbenchmark_min_shape, tuple)
+                else nnbenchmark_min_shape,
+                note="Minimum spatial dimensions after cropping",
             )
 
             self.add_result(
                 "Max Cropped Shape",
                 list(nnunet_max_shape),
-                list(nnbenchmark_max_shape) if isinstance(nnbenchmark_max_shape, tuple) else nnbenchmark_max_shape,
-                note=f"Maximum spatial dimensions after cropping"
+                list(nnbenchmark_max_shape)
+                if isinstance(nnbenchmark_max_shape, tuple)
+                else nnbenchmark_max_shape,
+                note="Maximum spatial dimensions after cropping",
             )
 
             # Verify median calculation matches
@@ -224,16 +235,20 @@ class ConfigComparator:
                     "Median Shape Calculation",
                     "Consistent",
                     "Consistent",
-                    note=f"nnUNet median {median_shape_calc} matches plans median {nnunet_median}"
+                    note=f"nnUNet median {median_shape_calc} matches plans median {nnunet_median}",
                 )
 
         # Foreground intensity properties
         nnunet_fg = self.fingerprint["foreground_intensity_properties_per_channel"]["0"]
-        nnbenchmark_fg_mean = self.config["dataset"].get("foreground_intensity_mean", "Not stored")
+        nnbenchmark_fg_mean = self.config["dataset"].get(
+            "foreground_intensity_mean", "Not stored"
+        )
         self.add_result(
             "FG Intensity - Mean",
             round(nnunet_fg["mean"], 2),
-            nnbenchmark_fg_mean if isinstance(nnbenchmark_fg_mean, str) else round(nnbenchmark_fg_mean, 2),
+            nnbenchmark_fg_mean
+            if isinstance(nnbenchmark_fg_mean, str)
+            else round(nnbenchmark_fg_mean, 2),
         )
 
     def compare_architecture(self) -> None:
@@ -256,7 +271,6 @@ class ConfigComparator:
         )
 
         # Spatial dims
-        nnunet_dims = "2d"
         nnbenchmark_dims = model["spatial_dims"]
         self.add_result("Spatial Dimensions", 2, nnbenchmark_dims)
 
@@ -287,7 +301,6 @@ class ConfigComparator:
         # Normalization
         nnunet_norm = arch_kwargs["norm_op"].split(".")[-1]
         nnbenchmark_norm = model["norm_name"][0]
-        norm_match = "InstanceNorm" in nnunet_norm and nnbenchmark_norm == "INSTANCE"
         self.add_result(
             "Normalization",
             nnunet_norm,
@@ -313,7 +326,9 @@ class ConfigComparator:
         # Negative slope
         nnunet_neg_slope = 0.01  # Default for LeakyReLU
         nnbenchmark_neg_slope = model["act_name"][1].get("negative_slope", 0.01)
-        self.add_result("LeakyReLU Negative Slope", nnunet_neg_slope, nnbenchmark_neg_slope)
+        self.add_result(
+            "LeakyReLU Negative Slope", nnunet_neg_slope, nnbenchmark_neg_slope
+        )
 
         # Residual blocks
         nnbenchmark_res = model.get("res_block", False)
@@ -461,12 +476,16 @@ class ConfigComparator:
             )
 
         # Rotation probability and range
-        rotation_transforms = [t for t in train_transforms if t.get("type") == "RandRotated"]
+        rotation_transforms = [
+            t for t in train_transforms if t.get("type") == "RandRotated"
+        ]
         if rotation_transforms:
             rot = rotation_transforms[0]
             nnunet_rot_prob = 0.2
             nnbenchmark_rot_prob = rot.get("prob", 0.0)
-            self.add_result("Rotation Probability", nnunet_rot_prob, nnbenchmark_rot_prob)
+            self.add_result(
+                "Rotation Probability", nnunet_rot_prob, nnbenchmark_rot_prob
+            )
 
             nnunet_rot_range = 0.5236  # 30 degrees in radians
             nnbenchmark_rot_range = rot.get("range_x", 0.0)
@@ -482,13 +501,17 @@ class ConfigComparator:
             zoom = zoom_transforms[0]
             nnunet_zoom_prob = 0.2
             nnbenchmark_zoom_prob = zoom.get("prob", 0.0)
-            self.add_result("Scaling Probability", nnunet_zoom_prob, nnbenchmark_zoom_prob)
+            self.add_result(
+                "Scaling Probability", nnunet_zoom_prob, nnbenchmark_zoom_prob
+            )
 
     def generate_summary(self) -> Tuple[int, int, int]:
         """Generate comparison summary."""
         total = len(self.results)
         matches = sum(1 for r in self.results if r.matches)
-        expected_diffs = sum(1 for r in self.results if r.expected_diff and not r.matches)
+        expected_diffs = sum(
+            1 for r in self.results if r.expected_diff and not r.matches
+        )
         mismatches = total - matches - expected_diffs
 
         print("\n" + "=" * 80)
@@ -522,7 +545,9 @@ class ConfigComparator:
         expected_diffs = [r for r in self.results if r.expected_diff and not r.matches]
         mismatches = [r for r in self.results if not r.matches and not r.expected_diff]
 
-        def print_section_table(results: List[ComparisonResult], title: str, color: str):
+        def print_section_table(
+            results: List[ComparisonResult], title: str, color: str
+        ):
             if not results:
                 return
 
@@ -536,10 +561,22 @@ class ConfigComparator:
 
             # Rows
             for r in results:
-                status_symbol = "✅" if r.matches else ("⚠️" if r.expected_diff else "❌")
-                param = r.param_name[:38] + ".." if len(r.param_name) > 40 else r.param_name
-                nnunet_str = str(r.nnunet_value)[:28] + ".." if len(str(r.nnunet_value)) > 30 else str(r.nnunet_value)
-                nnbench_str = str(r.nnbenchmark_value)[:28] + ".." if len(str(r.nnbenchmark_value)) > 30 else str(r.nnbenchmark_value)
+                status_symbol = (
+                    "✅" if r.matches else ("⚠️" if r.expected_diff else "❌")
+                )
+                param = (
+                    r.param_name[:38] + ".." if len(r.param_name) > 40 else r.param_name
+                )
+                nnunet_str = (
+                    str(r.nnunet_value)[:28] + ".."
+                    if len(str(r.nnunet_value)) > 30
+                    else str(r.nnunet_value)
+                )
+                nnbench_str = (
+                    str(r.nnbenchmark_value)[:28] + ".."
+                    if len(str(r.nnbenchmark_value)) > 30
+                    else str(r.nnbenchmark_value)
+                )
 
                 row = f"{param:<40} | {nnunet_str:<30} | {nnbench_str:<30} | {status_symbol}"
                 print(row)
@@ -554,17 +591,26 @@ class ConfigComparator:
             print_section_table(matches, "✅ MATCHES", Colors.GREEN)
 
         if expected_diffs:
-            print_section_table(expected_diffs, "⚠️  EXPECTED DIFFERENCES", Colors.YELLOW)
+            print_section_table(
+                expected_diffs, "⚠️  EXPECTED DIFFERENCES", Colors.YELLOW
+            )
 
         if mismatches:
-            print_section_table(mismatches, "❌ UNEXPECTED MISMATCHES (NEEDS ATTENTION)", Colors.RED)
+            print_section_table(
+                mismatches, "❌ UNEXPECTED MISMATCHES (NEEDS ATTENTION)", Colors.RED
+            )
 
     def run_comparison(self) -> int:
         """Run full comparison and return exit code."""
         print(colorize("\n" + "=" * 80, Colors.BOLD))
-        print(colorize("nnBenchmark vs nnUNet Configuration Comparison", Colors.BOLD + Colors.CYAN))
+        print(
+            colorize(
+                "nnBenchmark vs nnUNet Configuration Comparison",
+                Colors.BOLD + Colors.CYAN,
+            )
+        )
         print(colorize("=" * 80, Colors.BOLD))
-        print(f"Dataset: Dataset001_Cellpose")
+        print("Dataset: Dataset001_Cellpose")
         print(f"Fingerprint: {self.fingerprint_path}")
         print(f"Plans: {self.plans_path}")
         print(f"Config: {self.config_path}")
@@ -582,7 +628,7 @@ class ConfigComparator:
         self.print_table()
 
         # Generate summary
-        matches, expected_diffs, mismatches = self.generate_summary()
+        _, _, mismatches = self.generate_summary()
 
         # Return exit code (0 = success, 1 = mismatches)
         return 0 if mismatches == 0 else 1
@@ -596,19 +642,25 @@ def main():
     parser.add_argument(
         "--fingerprint",
         type=Path,
-        default=Path("/home/localssk23/CAI4Soumya/SegData/nnUNet_preprocessed/Dataset001_Cellpose/dataset_fingerprint.json"),
+        default=Path(
+            "/home/localssk23/CAI4Soumya/SegData/nnUNet_preprocessed/Dataset001_Cellpose/dataset_fingerprint.json"
+        ),
         help="Path to dataset_fingerprint.json",
     )
     parser.add_argument(
         "--plans",
         type=Path,
-        default=Path("/home/localssk23/CAI4Soumya/SegData/nnUNet_results/Dataset001_Cellpose/nnUNetTrainer_50epochs__nnUNetPlans__2d/plans.json"),
+        default=Path(
+            "/home/localssk23/CAI4Soumya/SegData/nnUNet_results/Dataset001_Cellpose/nnUNetTrainer_50epochs__nnUNetPlans__2d/plans.json"
+        ),
         help="Path to plans.json",
     )
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path("/home/localssk23/CAI4Soumya/SegData/nnUNet_results/Dataset001_Cellpose/fold_0/fold_0.yaml"),
+        default=Path(
+            "/home/localssk23/CAI4Soumya/SegData/nnUNet_results/Dataset001_Cellpose/fold_0/fold_0.yaml"
+        ),
         help="Path to nnBenchmark config YAML",
     )
     parser.add_argument(
@@ -639,8 +691,12 @@ def main():
         results_data = {
             "total": len(comparator.results),
             "matches": sum(1 for r in comparator.results if r.matches),
-            "expected_diffs": sum(1 for r in comparator.results if r.expected_diff and not r.matches),
-            "mismatches": sum(1 for r in comparator.results if not r.matches and not r.expected_diff),
+            "expected_diffs": sum(
+                1 for r in comparator.results if r.expected_diff and not r.matches
+            ),
+            "mismatches": sum(
+                1 for r in comparator.results if not r.matches and not r.expected_diff
+            ),
             "results": [
                 {
                     "param": r.param_name,

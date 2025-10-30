@@ -202,7 +202,7 @@ def create_experiment_plan(
     )
 
     # Convert fingerprint numpy arrays to Python tuples for serialization
-    median_shape_py = tuple(float(x) for x in fingerprint.median_shape)
+    median_shape_py = tuple(int(x) for x in fingerprint.median_shape)
     median_spacing_py = tuple(float(x) for x in fingerprint.median_spacing)
 
     plan = ExperimentPlan(

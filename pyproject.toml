@@ -103,6 +103,7 @@ ignore_names = [
     "dataloader_idx",        # Lightning callback parameter
     "return_value",          # Mock attribute
     "side_effect",           # Mock attribute
+    "_setup_nnunet_env_vars",  # pytest autouse fixture
 ]
 
 [tool.pyright]

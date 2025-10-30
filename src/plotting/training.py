@@ -6,6 +6,7 @@ Contains functions for plotting training loss curves.
 import matplotlib.pyplot as plt
 
 # Configure matplotlib styles on import
+# Configure matplotlib styles (side-effect import - must run before plotting)
 from src.plotting.styles import mpl  # noqa: F401
 
 

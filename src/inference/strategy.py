@@ -32,7 +32,7 @@ class InferenceStrategy(ABC):
         inputs: torch.Tensor,
         device: torch.device,
         use_amp: bool = False,
-    ) -> torch.Tensor:
+    ) -> torch.Tensor | tuple[torch.Tensor, ...] | dict[str, torch.Tensor]:
         """
         Perform inference on input data.
 
@@ -43,7 +43,10 @@ class InferenceStrategy(ABC):
             use_amp: Whether to use automatic mixed precision (FP16)
 
         Returns:
-            Output tensor from model
+            Output from model. Can be:
+            - torch.Tensor: Single output tensor
+            - tuple[torch.Tensor, ...]: Multiple output tensors
+            - dict[str, torch.Tensor]: Named output tensors
         """
         raise NotImplementedError
 
@@ -71,7 +74,7 @@ class FullVolumeInferer(InferenceStrategy):
         inputs: torch.Tensor,
         device: torch.device,
         use_amp: bool = False,
-    ) -> torch.Tensor:
+    ) -> torch.Tensor | tuple[torch.Tensor, ...] | dict[str, torch.Tensor]:
         """
         Perform direct full-volume inference.
 
@@ -82,7 +85,7 @@ class FullVolumeInferer(InferenceStrategy):
             use_amp: Whether to use automatic mixed precision
 
         Returns:
-            Output tensor from model with same spatial shape as input
+            Output from model with same spatial shape as input
         """
         with torch.no_grad():
             if use_amp:
@@ -91,31 +94,23 @@ class FullVolumeInferer(InferenceStrategy):
             else:
                 outputs = model(inputs)
 
-        return outputs
+        return outputs  # type: ignore[return-value]
 
 
 class SlidingWindowInferer(InferenceStrategy):
     """
-    Memory-efficient sliding window inference strategy.
+    Sliding window inference strategy using MONAI's SlidingWindowInferer.
 
-    Processes large volumes using overlapping patches with blending.
-    Implements MONAI's SlidingWindowInferer which is the industry standard
-    for medical imaging inference (used by nnU-Net, etc.).
-
-    Pros:
-    - Memory efficient: processes volume in manageable chunks
-    - Reduces boundary artifacts through overlapping and blending
-    - Production-ready standard approach
-    - Configurable overlap and blending modes
-
-    Cons:
-    - Slower than full-volume inference for small volumes
-    - Requires proper parameter tuning for best results
-
-    References:
-        https://docs.monai.io/en/stable/inferers.html#slidingwindowinferrer
-        https://github.com/NVIDIA/MONAI/blob/dev/monai/inferers/inferer.py
+    Processes large volumes in overlapping patches and blends results
+    to produce seamless output matching input shape.
     """
+
+    roi_size: tuple[int, ...] | list[int]
+    sw_batch_size: int
+    overlap: float
+    mode: str
+    padding_mode: str
+    inferer: MONAISlidingWindowInferer
 
     def __init__(
         self,
@@ -124,38 +119,25 @@ class SlidingWindowInferer(InferenceStrategy):
         overlap: float = 0.5,
         mode: str = "gaussian",
         padding_mode: str = "constant",
-    ):
+    ) -> None:
         """
-        Initialize sliding window inferer.
+        Initialize SlidingWindowInferer.
 
         Args:
-            roi_size: Region of interest (patch) size as tuple or list.
-                     Must match training patch size.
-            sw_batch_size: Batch size for processing patches internally.
-                          Higher values use more memory but may be faster.
-                          Default: 4 (adjust based on GPU memory)
-            overlap: Overlap ratio between patches (0.0 to 0.99).
-                    Higher overlap produces better quality but is slower.
-                    Default: 0.5 (50% overlap, standard in medical imaging)
-            mode: Blending mode for overlapping regions.
-                 Options: "gaussian" (recommended), "constant"
-                 Default: "gaussian" (smooth blending, reduces artifacts)
-            padding_mode: Padding mode for volume edges.
-                         Options: "constant", "edge", "reflect", "wrap"
-                         Default: "constant" (zero-padding, standard)
-
+            roi_size: Region of interest size for each sliding window patch
+            sw_batch_size: Number of sliding window patches to process in each batch
+            overlap: Overlap between patches as fraction (0-1)
+            mode: Blending mode for overlapping regions ("gaussian" or "constant")
+            padding_mode: Padding mode for edges ("constant", "edge", etc.)
         """
-        # Ensure roi_size is a tuple
-        if isinstance(roi_size, list):
-            roi_size = tuple(roi_size)
-
-        self.roi_size = roi_size
+        # Convert list to tuple if needed
+        self.roi_size = tuple(roi_size) if isinstance(roi_size, list) else roi_size
         self.sw_batch_size = sw_batch_size
         self.overlap = overlap
         self.mode = mode
         self.padding_mode = padding_mode
 
-        # Create MONAI inferer
+        # Initialize MONAI's SlidingWindowInferer
         self.inferer = MONAISlidingWindowInferer(
             roi_size=self.roi_size,
             sw_batch_size=self.sw_batch_size,
@@ -170,7 +152,7 @@ class SlidingWindowInferer(InferenceStrategy):
         inputs: torch.Tensor,
         device: torch.device,
         use_amp: bool = False,
-    ) -> torch.Tensor:
+    ) -> torch.Tensor | tuple[torch.Tensor, ...] | dict[str, torch.Tensor]:
         """
         Perform sliding window inference on input.
 
@@ -183,7 +165,10 @@ class SlidingWindowInferer(InferenceStrategy):
             use_amp: Whether to use automatic mixed precision (FP16)
 
         Returns:
-            Output tensor from model with same spatial shape as input [B, num_classes, H, W(, D)]
+            Output from model with same spatial shape as input. Can be:
+            - torch.Tensor: [B, num_classes, H, W(, D)]
+            - tuple[torch.Tensor, ...]: Multiple outputs from model
+            - dict[str, torch.Tensor]: Named outputs from model
 
         Note:
             The MONAI SlidingWindowInferer handles:
@@ -204,7 +189,7 @@ class SlidingWindowInferer(InferenceStrategy):
             else:
                 outputs = self.inferer(inputs, model)
 
-        return outputs  # type: ignore
+        return outputs
 
 
 def create_inferer(config: dict[str, Any]) -> InferenceStrategy:

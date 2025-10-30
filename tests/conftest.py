@@ -14,6 +14,35 @@ import pytest
 import yaml
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _setup_nnunet_env_vars(tmp_path_factory: pytest.TempPathFactory) -> None:  # noqa: ARG001
+    """
+    Set up nnUNet environment variables for testing.
+
+    Creates temporary directories and sets environment variables
+    required by the nnUNet pipeline. This fixture runs automatically
+    for all tests in the session.
+
+    Note: Named with leading underscore to indicate internal fixture.
+    Using autouse=True so it's automatically applied without being called.
+    """
+    # Create temporary base directory for nnUNet paths
+    base_tmp = tmp_path_factory.mktemp("nnunet_env")
+
+    # Create and set environment variables
+    nnunet_raw = base_tmp / "nnUNet_raw"
+    nnunet_preprocessed = base_tmp / "nnUNet_preprocessed"
+    nnunet_results = base_tmp / "nnUNet_results"
+
+    nnunet_raw.mkdir(exist_ok=True)
+    nnunet_preprocessed.mkdir(exist_ok=True)
+    nnunet_results.mkdir(exist_ok=True)
+
+    os.environ["nnUNet_raw"] = str(nnunet_raw)
+    os.environ["nnUNet_preprocessed"] = str(nnunet_preprocessed)
+    os.environ["nnUNet_results"] = str(nnunet_results)
+
+
 @pytest.fixture
 def mock_dataset_json() -> dict[str, Any]:
     """Mock dataset.json for testing (Hippo-style)."""
@@ -150,6 +179,9 @@ def mock_dataset_dir(
     """
     Create a mock dataset directory with dataset.json and splits.json.
 
+    Also creates corresponding preprocessed directories in nnUNet_preprocessed
+    to support tests that expect preprocessed data.
+
     Returns:
         Path to the mock dataset directory
     """
@@ -190,6 +222,30 @@ def mock_dataset_dir(
         label_cropped = label_path.replace("labelsTr/", "labelsTr_cropped/")
         open(img_cropped, "a").close()
         open(label_cropped, "a").close()
+
+    # Create preprocessed dataset structure in nnUNet_preprocessed
+    # This is required for get_data_dicts() to work
+    preprocessed_root = os.environ.get("nnUNet_preprocessed")
+    if preprocessed_root:
+        preprocessed_dataset_dir = os.path.join(preprocessed_root, "Dataset001_Hippo")
+        for subdir in ["imagesTr", "labelsTr"]:
+            os.makedirs(os.path.join(preprocessed_dataset_dir, subdir), exist_ok=True)
+
+        # Create splits.json in preprocessed location
+        splits_path = os.path.join(preprocessed_dataset_dir, "splits.json")
+        with open(splits_path, "w") as f:
+            json.dump(mock_splits_json, f, indent=2)
+
+        # Create empty placeholder files in preprocessed directories
+        for item in mock_dataset_json["training"]:
+            img_name = os.path.basename(item["image"])
+            label_name = os.path.basename(item["label"])
+
+            img_path = os.path.join(preprocessed_dataset_dir, "imagesTr", img_name)
+            label_path = os.path.join(preprocessed_dataset_dir, "labelsTr", label_name)
+
+            open(img_path, "a").close()
+            open(label_path, "a").close()
 
     return dataset_dir
 

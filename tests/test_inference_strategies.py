@@ -3,7 +3,15 @@ Unit tests for inference strategy classes.
 
 Tests both FullVolumeInferer and SlidingWindowInferer strategies,
 including configuration, parameter validation, and inference behavior.
-"""
+
+Note: The infer() method returns a union type for flexibility with different model outputs,
+but test models in this file all return torch.Tensor. Type narrowing via isinstance checks
+or explicit casting is used where needed.
+"""  # noqa: PYI
+
+from __future__ import annotations
+
+from typing import cast
 
 import pytest
 import torch
@@ -26,7 +34,7 @@ class SimpleMockModel(nn.Module):
 
     def __init__(self, num_channels: int = 2) -> None:
         super().__init__()
-        self.num_channels = num_channels  # type: ignore
+        self.num_channels: int = num_channels
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Return tensor with same spatial shape as input but specified num_channels.
@@ -61,6 +69,7 @@ class TestFullVolumeInferer:
 
         # Perform inference
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         # Check output shape
         assert outputs.shape == (1, 2, 32, 32, 32)
@@ -76,6 +85,7 @@ class TestFullVolumeInferer:
 
         # Perform inference
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         # Check output shape
         assert outputs.shape == (4, 3, 48, 48, 48)
@@ -99,6 +109,7 @@ class TestFullVolumeInferer:
         inputs = torch.randn(1, 1, 32, 32, 32, device=device)
 
         outputs = inferer.infer(model, inputs, device)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.device.type == "cpu"
         assert outputs.shape == (1, 2, 32, 32, 32)
@@ -155,6 +166,7 @@ class TestSlidingWindowInferer:
 
         # Perform inference
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         # Check output shape matches input spatial dims
         assert outputs.shape == (1, 2, 64, 64, 64)
@@ -172,6 +184,7 @@ class TestSlidingWindowInferer:
                 1, 1, spatial_size, spatial_size, spatial_size, device=device
             )
             outputs = inferer.infer(model, inputs, device, use_amp=False)
+            assert isinstance(outputs, torch.Tensor)
 
             # Output spatial dims should match input spatial dims
             expected_shape = (1, 3, spatial_size, spatial_size, spatial_size)
@@ -202,6 +215,7 @@ class TestSlidingWindowInferer:
 
         # Perform inference
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         # Check output shape
         assert outputs.shape == (2, 2, 64, 64, 64)
@@ -216,6 +230,7 @@ class TestSlidingWindowInferer:
             inferer = SlidingWindowInferer(roi_size=roi_size, overlap=overlap_val)
             inputs = torch.randn(1, 1, 64, 64, 64, device=device)
             outputs = inferer.infer(model, inputs, device, use_amp=False)
+            assert isinstance(outputs, torch.Tensor)
 
             assert outputs.shape == (1, 2, 64, 64, 64)
 
@@ -229,6 +244,7 @@ class TestSlidingWindowInferer:
             inferer = SlidingWindowInferer(roi_size=roi_size, mode=mode_val)
             inputs = torch.randn(1, 1, 64, 64, 64, device=device)
             outputs = inferer.infer(model, inputs, device, use_amp=False)
+            assert isinstance(outputs, torch.Tensor)
 
             assert outputs.shape == (1, 2, 64, 64, 64)
 
@@ -241,6 +257,7 @@ class TestSlidingWindowInferer:
 
         inputs = torch.randn(1, 1, 64, 64, 64, device=device)
         outputs = inferer.infer(model, inputs, device)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.device.type == "cpu"
         assert outputs.shape == (1, 2, 64, 64, 64)
@@ -360,7 +377,7 @@ class _FixedOutputModel(nn.Module):
 
     def __init__(self, value: float = 1.0) -> None:
         super().__init__()
-        self.value = value  # type: ignore
+        self.value: float = value
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Return tensor filled with fixed value."""
@@ -388,6 +405,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 16, 16, 16, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 16, 16, 16)
 
@@ -400,6 +418,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 32, 32, 32, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 32, 32, 32)
 
@@ -412,6 +431,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 128, 128, 128, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 128, 128, 128)
 
@@ -424,6 +444,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 64, 96, 64, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 64, 96, 64)
 
@@ -436,6 +457,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 128, 128, 32, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 128, 128, 32)
 
@@ -448,6 +470,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 8, 8, 8, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 8, 8, 8)
 
@@ -460,6 +483,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 32, 32, 32, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 32, 32, 32)
 
@@ -472,6 +496,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 64, 64, 64, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 64, 64, 64)
 
@@ -484,6 +509,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 32, 64, 128, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 32, 64, 128)
 
@@ -496,6 +522,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 64, 64, 64, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 64, 64, 64)
 
@@ -508,6 +535,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 64, 64, 64, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (1, 2, 64, 64, 64)
 
@@ -530,9 +558,9 @@ class TestSlidingWindowVolumeVariations:
             inputs = torch.randn(shape, device=device)
             outputs = inferer.infer(model, inputs, device, use_amp=False)
 
-            assert outputs.shape[0] == shape[0]
-            assert outputs.shape[1] == 2
-            assert outputs.shape[2:] == shape[2:]
+            assert outputs.shape[0] == shape[0]  # type: ignore[union-attr]
+            assert outputs.shape[1] == 2  # type: ignore[union-attr]
+            assert outputs.shape[2:] == shape[2:]  # type: ignore[union-attr]
 
     def test_output_values_range(self) -> None:
         """Test that output values are reasonable (not NaN or inf)."""
@@ -543,11 +571,12 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(1, 1, 64, 64, 64, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        outputs_tensor = cast(torch.Tensor, outputs)
 
-        assert not torch.isnan(outputs).any(), "Output contains NaN values"
-        assert not torch.isinf(outputs).any(), "Output contains inf values"
-        assert outputs.min() >= -1.0, "Output values too low"
-        assert outputs.max() <= 2.0, "Output values too high"
+        assert not torch.isnan(outputs_tensor).any(), "Output contains NaN values"  # type: ignore[arg-type]
+        assert not torch.isinf(outputs_tensor).any(), "Output contains inf values"  # type: ignore[arg-type]
+        assert outputs_tensor.min() >= -1.0, "Output values too low"
+        assert outputs_tensor.max() <= 2.0, "Output values too high"
 
     def test_overlap_consistency(self) -> None:
         """Test that increased overlap produces similar results."""
@@ -564,9 +593,9 @@ class TestSlidingWindowVolumeVariations:
             roi_size=roi_size, overlap=0.75, mode="gaussian"
         ).infer(model, inputs, device)
 
-        assert outputs_low_overlap.shape == outputs_high_overlap.shape
+        assert outputs_low_overlap.shape == outputs_high_overlap.shape  # type: ignore[union-attr]
 
-        diff = torch.abs(outputs_low_overlap - outputs_high_overlap).max()
+        diff = torch.abs(outputs_low_overlap - outputs_high_overlap).max()  # type: ignore[operator]
         assert diff < 1.0, (
             "High overlap overlap significantly different from low overlap"
         )
@@ -586,9 +615,9 @@ class TestSlidingWindowVolumeVariations:
             roi_size=roi_size, overlap=0.5, mode="constant"
         ).infer(model, inputs, device)
 
-        assert outputs_gaussian.shape == outputs_constant.shape
+        assert outputs_gaussian.shape == outputs_constant.shape  # type: ignore[union-attr]
 
-        mean_diff = torch.abs(outputs_gaussian - outputs_constant).mean()
+        mean_diff = torch.abs(outputs_gaussian - outputs_constant).mean()  # type: ignore[operator]
         assert mean_diff < 1.0, "Blending modes produce vastly different results"
 
     def test_large_batch_size(self) -> None:
@@ -600,6 +629,7 @@ class TestSlidingWindowVolumeVariations:
 
         inputs = torch.randn(8, 1, 48, 48, 48, device=device)
         outputs = inferer.infer(model, inputs, device, use_amp=False)
+        assert isinstance(outputs, torch.Tensor)
 
         assert outputs.shape == (8, 2, 48, 48, 48)
 
@@ -615,6 +645,6 @@ class TestSlidingWindowVolumeVariations:
         outputs1 = inferer.infer(model, inputs, device, use_amp=False)
         outputs2 = inferer.infer(model, inputs, device, use_amp=False)
 
-        assert torch.allclose(outputs1, outputs2), (
+        assert torch.allclose(outputs1, outputs2), (  # type: ignore[arg-type]
             "Sliding window inference not deterministic"
         )

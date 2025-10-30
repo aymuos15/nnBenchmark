@@ -22,7 +22,13 @@ class ImageProperties:
 
     shape: tuple[int, ...]
     spacing: tuple[float, ...]
-    foreground_intensities: np.ndarray  # Sampled foreground voxel intensities for pooling
+    foreground_intensities: (
+        np.ndarray
+    )  # Sampled foreground voxel intensities for pooling
+    intensity_mean: float  # Mean of foreground voxel intensities
+    intensity_std: float  # Standard deviation of foreground voxel intensities
+    intensity_percentile_00_5: float  # 0.5th percentile of foreground intensities
+    intensity_percentile_99_5: float  # 99.5th percentile of foreground intensities
 
 
 @dataclass
@@ -62,7 +68,9 @@ class DatasetFingerprint:
     normalization_scheme: str  # 'CTNormalization', 'ZScoreNormalization', etc.
 
 
-def _load_image_properties(image_path: str, label_path: str | None = None) -> ImageProperties:
+def _load_image_properties(
+    image_path: str, label_path: str | None = None
+) -> ImageProperties:
     """
     Load image and extract properties.
 
@@ -106,6 +114,7 @@ def _load_image_properties(image_path: str, label_path: str | None = None) -> Im
             label_data, _ = load_nifti_with_metadata(label_path)
         else:
             from PIL import Image
+
             label_data = np.array(Image.open(label_path))
 
         # Create foreground mask (all non-zero labels)
@@ -126,15 +135,27 @@ def _load_image_properties(image_path: str, label_path: str | None = None) -> Im
     if len(data_foreground) > num_samples:
         # Randomly sample to limit memory usage
         rng = np.random.RandomState(12345)
-        sampled_indices = rng.choice(len(data_foreground), size=num_samples, replace=False)
+        sampled_indices = rng.choice(
+            len(data_foreground), size=num_samples, replace=False
+        )
         sampled_intensities = data_foreground[sampled_indices]
     else:
         sampled_intensities = data_foreground
+
+    # Compute intensity statistics for this image
+    intensity_mean = float(np.mean(sampled_intensities))
+    intensity_std = float(np.std(sampled_intensities))
+    intensity_percentile_00_5 = float(np.percentile(sampled_intensities, 0.5))
+    intensity_percentile_99_5 = float(np.percentile(sampled_intensities, 99.5))
 
     return ImageProperties(
         shape=data.shape,
         spacing=spacing,
         foreground_intensities=sampled_intensities,
+        intensity_mean=intensity_mean,
+        intensity_std=intensity_std,
+        intensity_percentile_00_5=intensity_percentile_00_5,
+        intensity_percentile_99_5=intensity_percentile_99_5,
     )
 
 
@@ -294,7 +315,10 @@ def fingerprint_dataset(
         if "_" in label_name:
             # Remove the channel suffix (_0000, _0001, etc.)
             parts = label_name.split("_")
-            if len(parts) > 1 and parts[-1].replace(".png", "").replace(".nii.gz", "").isdigit():
+            if (
+                len(parts) > 1
+                and parts[-1].replace(".png", "").replace(".nii.gz", "").isdigit()
+            ):
                 # Reconstruct without channel suffix
                 label_name = "_".join(parts[:-1]) + Path(label_name).suffix
 
@@ -305,7 +329,9 @@ def fingerprint_dataset(
         else:
             # No label found, use None
             image_label_pairs.append((img_path, None))
-            logger.debug(f"No label found for {img_name}, using all voxels for intensity stats")
+            logger.debug(
+                f"No label found for {img_name}, using all voxels for intensity stats"
+            )
 
     # Extract properties from all images
     properties_list: list[ImageProperties] = []
@@ -367,7 +393,9 @@ def fingerprint_dataset(
 
     # Aggregate intensity statistics (nnUNet v2.4.1 style: pool all foreground voxels)
     # Concatenate all sampled intensities from all cases
-    all_foreground_intensities = np.concatenate([p.foreground_intensities for p in properties_list])
+    all_foreground_intensities = np.concatenate(
+        [p.foreground_intensities for p in properties_list]
+    )
 
     # Compute statistics on pooled data
     intensity_mean = float(np.mean(all_foreground_intensities))

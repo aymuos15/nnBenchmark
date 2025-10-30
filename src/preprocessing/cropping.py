@@ -67,7 +67,7 @@ def create_nonzero_mask(data: NDArray) -> NDArray:
     # This fills small holes in the foreground region
     mask = binary_fill_holes(mask)
 
-    return mask  # type: ignore[return-value]
+    return np.asarray(mask)
 
 
 def get_bbox_from_mask(mask: NDArray) -> list[list[int]]:

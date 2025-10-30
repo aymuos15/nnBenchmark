@@ -103,9 +103,9 @@ def evaluate(
 
             # Perform inference using appropriate strategy
             if inferer is not None and device is not None:
-                outputs: torch.Tensor = inferer.infer(
-                    model, inputs, device, use_amp=use_amp
-                )
+                outputs_raw = inferer.infer(model, inputs, device, use_amp=use_amp)
+                # Infer returns union type, but in practice it's always a Tensor for our models
+                outputs: torch.Tensor = outputs_raw  # type: ignore[assignment]
             else:
                 # Fallback to direct forward pass
                 if use_amp:
