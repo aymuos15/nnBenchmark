@@ -180,9 +180,9 @@ def run_planning(
                 "Dataset must contain a dataset.json file or have imagesTr/labelsTr directories"
             )
 
-        # Step 1: Fingerprint dataset
+        # Step 1: Fingerprint dataset (using preprocessed/cropped images)
         print("Step 1/4: Fingerprinting dataset...")
-        fingerprint = fingerprint_dataset(dataset_dir, num_workers=num_workers)
+        fingerprint = fingerprint_dataset(str(preprocessed_dir), num_workers=num_workers)
         print()
 
         # Step 2: Create experiment plan
@@ -194,11 +194,11 @@ def run_planning(
         print("Step 3/4: Generating YAML configuration...")
 
         # Update resource detection with actual dataset size for cache optimization
-        # Estimate dataset size from training files
-        images_dir = Path(dataset_dir) / "imagesTr"
+        # Estimate dataset size from preprocessed training files
+        images_dir_preprocessed = preprocessed_dir / "imagesTr"
         dataset_size_bytes = sum(
             f.stat().st_size
-            for f in images_dir.glob("**/*")
+            for f in images_dir_preprocessed.glob("**/*")
             if f.is_file() and not f.name.startswith("._")
         )
         dataset_size_mb = dataset_size_bytes / (1024 * 1024)

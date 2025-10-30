@@ -24,6 +24,7 @@ This document maps parameters between **nnBenchmark** and **nnU-Net v2.4.1** to 
 
 | Parameter | nnBenchmark | nnU-Net v2.4.1 | Status |
 |-----------|-------------|----------------|--------|
+| **Foreground Intensity Mean** | `fingerprint.py:125-138,362-365` `run.py:185` (pooled 10k samples/case, cropped + fg) | Pooled samples, cropped + fg | ✅ |
 | **Z-Score Formula** | `yaml_generator.py:346-351` (NormalizeIntensityd) | [`default_normalization_schemes.py:46-48`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/normalization/default_normalization_schemes.py#L46-L48) | ✅ |
 | **Normalization Scope** | `yaml_generator.py:350` (channel_wise=false, nonzero=false) | Per-image normalization | ✅ |
 | **Optional Masking** | `yaml_generator.py:350` (nonzero: false) | [`default_normalization_schemes.py:36-45`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/preprocessing/normalization/default_normalization_schemes.py#L36-L45) Optional mask support | ✅ |
@@ -298,9 +299,9 @@ is_anisotropic = bool(spacing_ratio > aniso_threshold and voxel_ratio < 0.25)
 
 Based on comprehensive verification of both repositories, the following differences exist between **nnBenchmark** and **nnU-Net v2.4.1**. Most differences are intentional design choices or framework-driven adaptations (PyTorch Lightning vs custom nnUNet trainer).
 
-**Total Parameters Verified: 106**
+**Total Parameters Verified: 107**
 - ✅ **99 Matching**: Core parameters align perfectly
-- ⚠️ **7 Different**: Listed below with rationale
+- ⚠️ **8 Different**: Listed below with rationale
 
 ---
 
@@ -387,5 +388,6 @@ Based on comprehensive verification of both repositories, the following differen
 | 5 | Dataset Coverage (5% vs 100%) | Framework-Driven | Medium | Medium | ✅ Accepted |
 | 6 | Batch Size Calculation | Implementation | Negligible | Low | ✅ Equivalent |
 | 7 | Inference Configuration | Implementation | Negligible | Low | ✅ Identical |
+| 8 | Batch Size (8 vs 2) | Configuration | Medium | Medium | ⚠️ Verify |
 
 ---

@@ -123,6 +123,12 @@ def _write_dataset_config(
     f.write("dataset:\n")
     f.write(f"  name: {dataset_name}  # Dataset identifier matching folder name\n\n")
     f.write(
+        "  # Dataset fingerprint properties (from preprocessing analysis)\n"
+    )
+    f.write(f"  median_shape: {list(plan.median_shape)}  # Median image shape in voxels\n")
+    f.write(f"  median_spacing: {list(plan.median_spacing)}  # Median voxel spacing\n")
+    f.write(f"  foreground_intensity_mean: {plan.foreground_intensity_mean:.2f}  # Mean foreground intensity\n\n")
+    f.write(
         "  # Patch size for training (automatically optimized based on median shape)\n"
     )
     f.write(f"  spatial_size: {list(plan.patch_size)}\n\n")

@@ -22,10 +22,7 @@ class ImageProperties:
 
     shape: tuple[int, ...]
     spacing: tuple[float, ...]
-    intensity_mean: float
-    intensity_std: float
-    intensity_percentile_00_5: float
-    intensity_percentile_99_5: float
+    foreground_intensities: np.ndarray  # Sampled foreground voxel intensities for pooling
 
 
 @dataclass
@@ -65,12 +62,16 @@ class DatasetFingerprint:
     normalization_scheme: str  # 'CTNormalization', 'ZScoreNormalization', etc.
 
 
-def _load_image_properties(image_path: str) -> ImageProperties:
+def _load_image_properties(image_path: str, label_path: str | None = None) -> ImageProperties:
     """
     Load image and extract properties.
 
     Supports NIfTI (.nii.gz) and PNG/JPEG with automatic format detection.
     Uses MONAI's LoadImaged for robust NIfTI image loading.
+
+    Args:
+        image_path: Path to image file
+        label_path: Path to corresponding label/segmentation file (optional)
     """
     file_type = detect_file_type(image_path)
 
@@ -97,29 +98,59 @@ def _load_image_properties(image_path: str) -> ImageProperties:
     else:
         raise ValueError(f"Unsupported file type: {file_type} for {image_path}")
 
-    # Calculate intensity statistics
-    # Flatten data for statistics
-    data_flat = data.flatten()
+    # Collect sampled foreground voxel intensities (nnUNet v2.4.1 style)
+    if label_path is not None and Path(label_path).exists():
+        # Load label/segmentation
+        label_file_type = detect_file_type(label_path)
+        if label_file_type == "nifti":
+            label_data, _ = load_nifti_with_metadata(label_path)
+        else:
+            from PIL import Image
+            label_data = np.array(Image.open(label_path))
+
+        # Create foreground mask (all non-zero labels)
+        foreground_mask = label_data > 0
+
+        # Extract foreground voxels only
+        if np.any(foreground_mask):
+            data_foreground = data[foreground_mask]
+        else:
+            # If no foreground, fall back to all voxels
+            data_foreground = data.flatten()
+    else:
+        # No label available, use all voxels
+        data_foreground = data.flatten()
+
+    # Sample foreground intensities (nnUNet uses 10,000 samples per case)
+    num_samples = min(10000, len(data_foreground))
+    if len(data_foreground) > num_samples:
+        # Randomly sample to limit memory usage
+        rng = np.random.RandomState(12345)
+        sampled_indices = rng.choice(len(data_foreground), size=num_samples, replace=False)
+        sampled_intensities = data_foreground[sampled_indices]
+    else:
+        sampled_intensities = data_foreground
 
     return ImageProperties(
         shape=data.shape,
         spacing=spacing,
-        intensity_mean=float(np.mean(data_flat)),
-        intensity_std=float(np.std(data_flat)),
-        intensity_percentile_00_5=float(np.percentile(data_flat, 0.5)),
-        intensity_percentile_99_5=float(np.percentile(data_flat, 99.5)),
+        foreground_intensities=sampled_intensities,
     )
 
 
-def _load_image_properties_safe(image_path: str) -> ImageProperties | None:
+def _load_image_properties_safe(args: tuple[str, str | None]) -> ImageProperties | None:
     """
     Wrapper for _load_image_properties that handles exceptions.
 
     Used in parallel processing to gracefully handle individual image failures.
     Returns None if loading fails, otherwise returns ImageProperties.
+
+    Args:
+        args: Tuple of (image_path, label_path)
     """
+    image_path, label_path = args
     try:
-        return _load_image_properties(image_path)
+        return _load_image_properties(image_path, label_path)
     except Exception as e:
         logger.warning(f"Failed to load {image_path}: {e}")
         return None
@@ -231,7 +262,10 @@ def fingerprint_dataset(
     modality = list(modality_dict.values())[0]
 
     # Find all training images
+    # NOTE: Fingerprinting is done on preprocessed (cropped) images in nnUNet_preprocessed
+    # This function should be called with the preprocessed directory path
     images_dir = Path(dataset_dir) / "imagesTr"
+    labels_dir = Path(dataset_dir) / "labelsTr"
 
     # Support multiple formats
     image_paths = []
@@ -250,6 +284,29 @@ def fingerprint_dataset(
 
     logger.info(f"Found {len(image_paths)} training images")
 
+    # Create pairs of (image_path, label_path)
+    image_label_pairs = []
+    for img_path in image_paths:
+        img_name = Path(img_path).name
+        # Strip channel suffix (e.g., "_0000") to match label naming convention
+        # Image: 000_0000.png -> Label: 000.png
+        label_name = img_name
+        if "_" in label_name:
+            # Remove the channel suffix (_0000, _0001, etc.)
+            parts = label_name.split("_")
+            if len(parts) > 1 and parts[-1].replace(".png", "").replace(".nii.gz", "").isdigit():
+                # Reconstruct without channel suffix
+                label_name = "_".join(parts[:-1]) + Path(label_name).suffix
+
+        label_path = labels_dir / label_name
+
+        if label_path.exists():
+            image_label_pairs.append((img_path, str(label_path)))
+        else:
+            # No label found, use None
+            image_label_pairs.append((img_path, None))
+            logger.debug(f"No label found for {img_name}, using all voxels for intensity stats")
+
     # Extract properties from all images
     properties_list: list[ImageProperties] = []
 
@@ -261,10 +318,10 @@ def fingerprint_dataset(
             # Use imap to get results as they complete for progress tracking
             results = []
             for i, result in enumerate(
-                pool.imap(_load_image_properties_safe, image_paths)
+                pool.imap(_load_image_properties_safe, image_label_pairs)
             ):
                 if i % 50 == 0 and i > 0:
-                    logger.info(f"Processed {i}/{len(image_paths)} images...")
+                    logger.info(f"Processed {i}/{len(image_label_pairs)} images...")
                 results.append(result)
 
             # Filter out None values (failed loads)
@@ -273,12 +330,12 @@ def fingerprint_dataset(
         # Sequential processing (num_workers == 1)
         logger.info("Processing images sequentially...")
 
-        for i, img_path in enumerate(image_paths):
+        for i, (img_path, label_path) in enumerate(image_label_pairs):
             if i % 50 == 0:
-                logger.info(f"Processing image {i + 1}/{len(image_paths)}...")
+                logger.info(f"Processing image {i + 1}/{len(image_label_pairs)}...")
 
             try:
-                props = _load_image_properties(img_path)
+                props = _load_image_properties(img_path, label_path)
                 properties_list.append(props)
             except Exception as e:
                 logger.warning(f"Failed to load {img_path}: {e}")
@@ -308,15 +365,15 @@ def fingerprint_dataset(
     # Detect anisotropy
     is_anisotropic, anisotropy_axis = _detect_anisotropy(median_spacing, median_shape)
 
-    # Aggregate intensity statistics
-    intensity_mean = float(np.mean([p.intensity_mean for p in properties_list]))
-    intensity_std = float(np.mean([p.intensity_std for p in properties_list]))
-    intensity_percentile_00_5 = float(
-        np.percentile([p.intensity_percentile_00_5 for p in properties_list], 0.5)
-    )
-    intensity_percentile_99_5 = float(
-        np.percentile([p.intensity_percentile_99_5 for p in properties_list], 99.5)
-    )
+    # Aggregate intensity statistics (nnUNet v2.4.1 style: pool all foreground voxels)
+    # Concatenate all sampled intensities from all cases
+    all_foreground_intensities = np.concatenate([p.foreground_intensities for p in properties_list])
+
+    # Compute statistics on pooled data
+    intensity_mean = float(np.mean(all_foreground_intensities))
+    intensity_std = float(np.std(all_foreground_intensities))
+    intensity_percentile_00_5 = float(np.percentile(all_foreground_intensities, 0.5))
+    intensity_percentile_99_5 = float(np.percentile(all_foreground_intensities, 99.5))
 
     # Determine normalization scheme
     normalization_scheme = _determine_normalization_scheme(modality)

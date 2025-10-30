@@ -63,7 +63,6 @@ wandb/
 mlruns/
 
 # Data directories (uncomment if you don't want to track datasets)
-datasets/
 data/
 *.nii
 *.nii.gz

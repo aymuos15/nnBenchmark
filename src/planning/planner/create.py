@@ -40,6 +40,11 @@ class ExperimentPlan:
     num_classes: int
     is_2d: bool
 
+    # Dataset fingerprint properties (for tracking)
+    median_shape: tuple[int, ...]  # Median image shape in voxels
+    median_spacing: tuple[float, ...]  # Median voxel spacing
+    foreground_intensity_mean: float  # Mean foreground intensity
+
     # Patch and batch configuration
     patch_size: tuple[int, ...]
     batch_size: int
@@ -196,10 +201,17 @@ def create_experiment_plan(
         f"{len(filters_py)} strides, but got {len(strides_py)}"
     )
 
+    # Convert fingerprint numpy arrays to Python tuples for serialization
+    median_shape_py = tuple(float(x) for x in fingerprint.median_shape)
+    median_spacing_py = tuple(float(x) for x in fingerprint.median_spacing)
+
     plan = ExperimentPlan(
         dataset_name=fingerprint.dataset_name,
         num_classes=fingerprint.num_classes,
         is_2d=fingerprint.is_2d,
+        median_shape=median_shape_py,
+        median_spacing=median_spacing_py,
+        foreground_intensity_mean=float(fingerprint.intensity_mean),
         patch_size=patch_size_py,
         batch_size=batch_size,
         filters=filters_py,
