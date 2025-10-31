@@ -440,6 +440,11 @@ class TestLogSystemInfo:
 
         log_system_info(log, device)
 
+        # Give a moment for async logging to complete
+        import time
+
+        time.sleep(0.1)
+
         log_path = os.path.join(temp_dir, "sysinfo.log")
         assert _wait_for_log_message(log_path, "SYSTEM INFO")
 

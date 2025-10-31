@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "nnBenchmark Team"}
+    {name = "Soumya Snigdha Kundu"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -59,7 +59,7 @@ dev = [
 "nnBench.plan" = "src.planning.cli:main"
 
 [tool.setuptools]
-packages = ["src", "src.config", "src.logging", "src.utils", "src.planning", "src.planning.fingerprinting", "src.planning.planner", "src.plotting", "src.lightning", "src.inference", "src.train", "src.preprocessing"]
+packages = ["src", "src.config", "src.factory", "src.factory.losses", "src.factory.metrics", "src.factory.models", "src.factory.optimizers", "src.factory.transforms", "src.logging", "src.utils", "src.planning", "src.planning.fingerprinting", "src.planning.planner", "src.plotting", "src.lightning", "src.inference", "src.train", "src.preprocessing"]
 
 [tool.setuptools.package-data]
 src = ["py.typed"]
@@ -104,6 +104,7 @@ ignore_names = [
     "return_value",          # Mock attribute
     "side_effect",           # Mock attribute
     "_setup_nnunet_env_vars",  # pytest autouse fixture
+    "unregister",            # Part of public registry API for all registries
 ]
 
 [tool.pyright]

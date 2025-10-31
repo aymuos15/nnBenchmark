@@ -95,8 +95,8 @@ def mock_training_history() -> dict[str, Any]:
         "epochs": [1, 2, 3],
         "train_loss": [0.5, 0.3, 0.2],
         "val_epochs": [2, 3],
-        "Dice_mean": [0.7, 0.8],
-        "Dice_per_class": {"Anterior": [0.65, 0.75], "Posterior": [0.75, 0.85]},
+        "DiceMetric_mean": [0.7, 0.8],
+        "DiceMetric_per_class": {"Anterior": [0.65, 0.75], "Posterior": [0.75, 0.85]},
     }
 
 
@@ -117,8 +117,8 @@ def sample_config() -> dict[str, Any]:
             "out_channels": 3,
             "filters": [16, 32, 64],
             "kernel_size": [[3, 3, 3], [3, 3, 3], [3, 3, 3]],
-            "strides": [[1, 1, 1], [2, 2, 2]],
-            "upsample_kernel_size": [[2, 2, 2]],
+            "strides": [[1, 1, 1], [2, 2, 2], [2, 2, 2]],
+            "upsample_kernel_size": [[2, 2, 2], [2, 2, 2]],
             "norm_name": ["INSTANCE", {"affine": True}],
             "act_name": ["leakyrelu", {"inplace": True, "negative_slope": 0.01}],
             "deep_supervision": False,
@@ -131,8 +131,8 @@ def sample_config() -> dict[str, Any]:
             "learning_rate": 0.0001,
             "val_interval": 2,
             "num_workers": 4,
-            "checkpoint_metric": "Dice",
-            "plot_metrics": ["Dice"],
+            "checkpoint_metric": "DiceMetric",
+            "plot_metrics": ["DiceMetric"],
         },
         "optimizer": {"type": "Adam", "weight_decay": 0.0001},
         "loss": {"type": "DiceCELoss", "to_onehot_y": True, "softmax": True},

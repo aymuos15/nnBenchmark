@@ -18,6 +18,7 @@ from src.config.validation import (
     validate_metrics_config,
     validate_required_field,
 )
+from src.factory import metric_registry
 from src.lightning import (
     GPUMemoryCallback,
     SegmentationDataModule,
@@ -27,7 +28,6 @@ from src.lightning import (
     ValidationVisualizationCallback,
 )
 from src.logging import log_and_print, log_header, log_system_info, setup_train_logger
-from src.utils.builders import build_metrics
 from src.utils.runner import setup_experiment
 from src.utils.seeding import (
     enable_cuda_determinism,
@@ -91,7 +91,7 @@ def run_training(
     use_amp: bool = cfg.get("training", {}).get("mixed_precision", False)
 
     # Build metrics for config validation (still needed for loss computation during training)
-    metric_fns = build_metrics(cfg)
+    metric_fns = metric_registry.build(cfg)
 
     if not training_all_data:
         checkpoint_metric, plot_metrics = validate_metrics_config(cfg, metric_fns)

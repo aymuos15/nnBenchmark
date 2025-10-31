@@ -4,9 +4,36 @@ Converts ExperimentPlan dataclass to YAML config matching nnBenchmark format.
 """
 
 from pathlib import Path
-from typing import TextIO
+from typing import Any, TextIO
 
 from src.planning.planner.create import ExperimentPlan
+
+
+def _derive_unet_params_from_dynunet(plan: ExperimentPlan) -> dict[str, Any]:
+    """Derive UNet parameters from DynUNet configuration.
+
+    UNet parameters are simplified versions of DynUNet:
+    - channels: Same as DynUNet filters
+    - strides: Simplified to single values (first element of each DynUNet stride)
+    - num_res_units: Fixed at 2 for reasonable residual connections
+
+    Args:
+        plan: ExperimentPlan with DynUNet parameters
+
+    Returns:
+        Dictionary of UNet-specific parameters
+    """
+    # UNet channels match DynUNet filters exactly
+    channels = plan.filters
+
+    # UNet strides: extract first element from each DynUNet stride, skip identity stride
+    # DynUNet: [[1,1,1], [2,2,2], [2,2,2]] -> UNet: [2, 2]
+    strides = [s[0] for s in plan.strides[1:]]  # Skip first [1,1,1] stride
+
+    # UNet uses simpler architecture with some residual units
+    num_res_units = 2
+
+    return {"channels": channels, "strides": strides, "num_res_units": num_res_units}
 
 
 def generate_config_yaml(
@@ -148,71 +175,79 @@ def _write_dataset_config(
 
 
 def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> None:
-    """Write model architecture configuration for DynUNet (exact nnUNet match)."""
+    """Write model architecture configuration with nested DynUNet and UNet options."""
     f.write(
         "# ============================================================================\n"
     )
-    f.write("# Model Architecture (DynUNet - Exact nnU-Net Match)\n")
+    f.write("# Model Architecture (Multi-Model Support)\n")
     f.write(
         "# ============================================================================\n"
     )
-    f.write("# DynUNet exactly replicates nnU-Net PlainConvUNet architecture.\n")
-    f.write("# First encoder level maintains full resolution (stride [1,1,1]).\n\n")
+    f.write("# This config includes both DynUNet and UNet architectures.\n")
+    f.write("# Change 'type' field to switch between models (default: DynUNet).\n")
+    f.write("# UNet params are auto-derived from DynUNet for architecture equivalence.\n\n")
     f.write("model:\n")
-    f.write("  type: DynUNet  # MONAI DynUNet for exact nnU-Net replication\n\n")
-    f.write(f"  # Spatial dimensions: {spatial_dims}D\n")
-    f.write(f"  spatial_dims: {spatial_dims}\n\n")
-    f.write("  # Input/output channels\n")
+    f.write("  # Model selection: DynUNet (default) or UNet\n")
+    f.write("  type: DynUNet  # monai.networks.nets.DynUNet (change to 'UNet' for monai.networks.nets.UNet)\n\n")
+
+    # Shared parameters
+    f.write("  # ========================================================================\n")
+    f.write("  # Shared Parameters (common to all models)\n")
+    f.write("  # ========================================================================\n")
+    f.write(f"  spatial_dims: {spatial_dims}  # {spatial_dims}D architecture\n")
     f.write("  in_channels: 1  # Single modality (grayscale)\n")
     f.write(f"  out_channels: {plan.num_classes}  # One channel per class\n\n")
-    f.write("  # Feature channels per encoder stage (nnU-Net: features_per_stage)\n")
-    f.write(f"  filters: {plan.filters}\n\n")
-    f.write("  # Kernel sizes per encoder stage (nnU-Net: all 3x3x3)\n")
-    f.write("  kernel_size:\n")
-    for ks in plan.kernel_size:
-        f.write(f"    - {list(ks)}\n")
-    f.write("\n")
-    f.write("  # Strides per encoder stage (nnU-Net exact)\n")
-    f.write("  # First stride [1,1,1] maintains full resolution at first level\n")
-    f.write("  # Subsequent strides downsample to bottleneck\n")
-    f.write("  strides:\n")
-    for stride in plan.strides:
-        f.write(f"    - {list(stride)}\n")
-    f.write("\n")
-    f.write("  # Upsample kernel sizes for decoder (inverse of downsampling)\n")
-    f.write("  upsample_kernel_size:\n")
-    for uks in plan.upsample_kernel_size:
-        f.write(f"    - {list(uks)}\n")
-    f.write("\n")
-    f.write("  # Normalization: InstanceNorm3d with affine=True (nnU-Net default)\n")
-    f.write("  norm_name: [INSTANCE, {affine: true}]\n\n")
-    f.write("  # Activation: LeakyReLU with slope=0.01 (nnU-Net default)\n")
-    f.write("  act_name: [leakyrelu, {inplace: true, negative_slope: 0.01}]\n\n")
-    f.write("  # Plain convolutions, no residual connections (nnU-Net default)\n")
-    f.write("  res_block: false\n\n")
-    f.write(
-        "  # ========================================================================\n"
-    )
+
+    # Deep supervision (shared)
     f.write("  # Deep Supervision (nnU-Net style)\n")
-    f.write(
-        "  # ========================================================================\n"
-    )
-    f.write("  # Deep supervision improves gradient flow and feature learning by\n")
-    f.write(
-        "  # computing loss at multiple decoder levels, not just the final output.\n"
-    )
-    f.write("  # This is enabled by default following nnU-Net approach.\n")
-    f.write("  #\n")
-    f.write("  # Weights follow exponential decay: [1.0, 0.5, 0.25, ...]\n")
-    f.write("  # - Higher weight on final output (stronger supervision)\n")
-    f.write("  # - Lower weights on intermediate outputs (regularization)\n")
-    f.write("  # - Number of weights must match number of decoder stages\n")
-    f.write("  #\n")
-    f.write("  # DynUNet's deep_supervision parameter enables this automatically.\n\n")
+    f.write("  # Note: DynUNet supports exposed deep supervision, UNet has internal DS\n")
     f.write(f"  deep_supervision: {str(plan.deep_supervision).lower()}\n")
-    f.write("  deep_supr_num: 1  # Number of deep supervision outputs\n\n")
-    f.write("  # Deep supervision weights (for loss calculation)\n")
-    f.write(f"  ds_weights: {plan.ds_weights}\n\n")
+    f.write("  deep_supr_num: 1  # Number of deep supervision outputs\n")
+    f.write(f"  ds_weights: {plan.ds_weights}  # Loss weights for DS levels\n\n")
+
+    # DynUNet-specific parameters
+    f.write("  # ========================================================================\n")
+    f.write("  # DynUNet-Specific Parameters (monai.networks.nets.DynUNet)\n")
+    f.write("  # ========================================================================\n")
+    f.write("  DynUNet:\n")
+    f.write("    # Feature channels per encoder stage\n")
+    f.write(f"    filters: {plan.filters}\n\n")
+    f.write("    # Kernel sizes per encoder stage (all 3x3x3)\n")
+    f.write("    kernel_size:\n")
+    for ks in plan.kernel_size:
+        f.write(f"      - {list(ks)}\n")
+    f.write("\n")
+    f.write("    # Strides per encoder stage\n")
+    f.write("    # First stride [1,1,1] maintains full resolution\n")
+    f.write("    strides:\n")
+    for stride in plan.strides:
+        f.write(f"      - {list(stride)}\n")
+    f.write("\n")
+    f.write("    # Upsample kernel sizes for decoder\n")
+    f.write("    upsample_kernel_size:\n")
+    for uks in plan.upsample_kernel_size:
+        f.write(f"      - {list(uks)}\n")
+    f.write("\n")
+    f.write("    # Normalization: InstanceNorm with affine=True\n")
+    f.write("    norm_name: [INSTANCE, {affine: true}]\n\n")
+    f.write("    # Activation: LeakyReLU with slope=0.01\n")
+    f.write("    act_name: [leakyrelu, {inplace: true, negative_slope: 0.01}]\n\n")
+    f.write("    # Plain convolutions (no residual connections)\n")
+    f.write("    res_block: false\n\n")
+
+    # UNet-specific parameters (derived)
+    unet_params = _derive_unet_params_from_dynunet(plan)
+    f.write("  # ========================================================================\n")
+    f.write("  # UNet-Specific Parameters (auto-derived from DynUNet)\n")
+    f.write("  # ========================================================================\n")
+    f.write("  # monai.networks.nets.UNet with parameters derived to match DynUNet.\n")
+    f.write("  UNet:\n")
+    f.write("    # Feature channels per stage (matches DynUNet filters)\n")
+    f.write(f"    channels: {unet_params['channels']}\n\n")
+    f.write("    # Downsampling strides (simplified from DynUNet)\n")
+    f.write(f"    strides: {unet_params['strides']}\n\n")
+    f.write("    # Number of residual units per stage\n")
+    f.write(f"    num_res_units: {unet_params['num_res_units']}\n\n")
 
 
 def _write_training_config(
@@ -245,11 +280,11 @@ def _write_training_config(
     f.write("  # Number of data loading workers (auto-optimized based on CPU cores)\n")
     f.write(f"  num_workers: {num_workers}\n\n")
     f.write("  # Metric to use for saving best checkpoint\n")
-    f.write("  checkpoint_metric: Dice\n\n")
+    f.write("  checkpoint_metric: DiceMetric\n\n")
     f.write("  # Metrics to plot during training\n")
     f.write("  plot_metrics:\n")
-    f.write("    - Dice          # Overlap-based metric\n")
-    f.write("    - SurfaceDice   # Surface distance metric\n\n")
+    f.write("    - DiceMetric        # Overlap-based metric\n")
+    f.write("    - SurfaceDiceMetric # Surface distance metric\n\n")
     f.write("  # Mixed precision training (FP16 for ~2x speedup, requires CUDA)\n")
     f.write("  # Set to true if you have a modern GPU with Tensor Cores\n")
     f.write("  # Matches nnUNet's automatic AMP usage on GPU\n")

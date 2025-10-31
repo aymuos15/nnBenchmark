@@ -1,6 +1,6 @@
 """
 LightningDataModule for segmentation datasets.
-Wraps existing data utilities (get_data_dicts, build_transforms) with Lightning interface.
+Wraps existing data utilities (get_data_dicts, transform_registry) with Lightning interface.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from monai.data.dataset import CacheDataset, Dataset
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
-from src.utils.builders import build_transforms
+from src.factory import transform_registry
 from src.utils.data import get_data_dicts
 
 
@@ -67,9 +67,9 @@ class SegmentationDataModule(LightningDataModule):
         # Get data dicts using existing utility
         train_data, val_data = get_data_dicts(self.data_dir, self.fold)
 
-        # Build transforms using existing builders
-        train_transforms = build_transforms(self.cfg, mode="train")
-        val_transforms = build_transforms(self.cfg, mode="val")
+        # Build transforms using factory registry
+        train_transforms = transform_registry.build(self.cfg, mode="train")
+        val_transforms = transform_registry.build(self.cfg, mode="val")
 
         # Check if caching is enabled in config
         cache_config = self.cfg.get("dataset", {}).get("cache", {})
