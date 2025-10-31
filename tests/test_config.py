@@ -75,27 +75,45 @@ class TestLoadTrainingHistory:
 class TestLoadSplits:
     """Tests for load_splits function."""
 
-    def test_load_valid_splits_fold_0(self, mock_dataset_dir: str) -> None:
-        """Test loading valid splits for fold 0."""
-        train_cases, val_cases = load_splits(mock_dataset_dir, fold=0)
+    @pytest.mark.parametrize(
+        "fold,expected_train,expected_val",
+        [
+            pytest.param(
+                0,
+                ["Hippo_001_0000.nii.gz", "Hippo_002_0000.nii.gz"],
+                ["Hippo_003_0000.nii.gz", "Hippo_004_0000.nii.gz"],
+                id="fold_0",
+            ),
+            pytest.param(
+                1,
+                ["Hippo_003_0000.nii.gz", "Hippo_004_0000.nii.gz"],
+                ["Hippo_001_0000.nii.gz", "Hippo_002_0000.nii.gz"],
+                id="fold_1",
+            ),
+        ],
+    )
+    def test_load_valid_splits_fold(
+        self,
+        mock_dataset_dir: str,
+        fold: int,
+        expected_train: list[str],
+        expected_val: list[str],
+    ) -> None:
+        """Test loading valid splits for different folds.
+
+        Parameters:
+        - fold: Fold number to load
+        - expected_train: Expected training cases
+        - expected_val: Expected validation cases
+        """
+        train_cases, val_cases = load_splits(mock_dataset_dir, fold=fold)
 
         assert len(train_cases) == 2
         assert len(val_cases) == 2
-        assert "Hippo_001_0000.nii.gz" in train_cases
-        assert "Hippo_002_0000.nii.gz" in train_cases
-        assert "Hippo_003_0000.nii.gz" in val_cases
-        assert "Hippo_004_0000.nii.gz" in val_cases
-
-    def test_load_valid_splits_fold_1(self, mock_dataset_dir: str) -> None:
-        """Test loading valid splits for fold 1."""
-        train_cases, val_cases = load_splits(mock_dataset_dir, fold=1)
-
-        assert len(train_cases) == 2
-        assert len(val_cases) == 2
-        assert "Hippo_003_0000.nii.gz" in train_cases
-        assert "Hippo_004_0000.nii.gz" in train_cases
-        assert "Hippo_001_0000.nii.gz" in val_cases
-        assert "Hippo_002_0000.nii.gz" in val_cases
+        for case in expected_train:
+            assert case in train_cases
+        for case in expected_val:
+            assert case in val_cases
 
     def test_load_missing_splits_file(self, temp_dir: str) -> None:
         """Test loading splits from directory without splits.json raises FileNotFoundError."""

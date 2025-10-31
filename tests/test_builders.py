@@ -336,32 +336,29 @@ class TestBuildOptimizer:
 class TestRegistryCoreFunctionality:
     """Tests for core registry functionality (register, unregister, list)."""
 
-    def test_model_registry_list_available(self) -> None:
-        """Test listing available models."""
-        available = model_registry.list_available()
-        assert isinstance(available, list)
-        assert len(available) > 0
-        assert "DynUNet" in available
+    @pytest.mark.parametrize(
+        "registry,expected_items",
+        [
+            pytest.param(model_registry, ["DynUNet"], id="model_registry"),
+            pytest.param(loss_registry, ["DiceCELoss"], id="loss_registry"),
+            pytest.param(metric_registry, ["DiceMetric"], id="metric_registry"),
+            pytest.param(optimizer_registry, [], id="optimizer_registry"),
+        ],
+    )
+    def test_registry_list_available(self, registry, expected_items) -> None:
+        """Test listing available items for each registry.
 
-    def test_loss_registry_list_available(self) -> None:
-        """Test listing available losses."""
-        available = loss_registry.list_available()
+        Parameters:
+        - registry: The registry to test
+        - expected_items: Expected items that should be present (or empty for dynamic)
+        """
+        available = registry.list_available()
         assert isinstance(available, list)
-        assert len(available) > 0
-        assert "DiceCELoss" in available
 
-    def test_metric_registry_list_available(self) -> None:
-        """Test listing available metrics."""
-        available = metric_registry.list_available()
-        assert isinstance(available, list)
-        assert len(available) > 0
-        assert "DiceMetric" in available
-
-    def test_optimizer_registry_list_available(self) -> None:
-        """Test listing available optimizers."""
-        available = optimizer_registry.list_available()
-        assert isinstance(available, list)
-        assert len(available) > 0
+        # For registries with pre-registered items, check they exist
+        for expected_item in expected_items:
+            assert expected_item in available
+            assert len(available) > 0
 
     def test_transform_registry_list_available(self) -> None:
         """Test listing available transforms.

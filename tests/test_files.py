@@ -22,68 +22,90 @@ from src.utils.files import (
 class TestExtractCaseId:
     """Tests for extract_case_id function."""
 
-    def test_nifti_with_channel_suffix_removed(self) -> None:
-        """Test NIfTI filename with channel suffix removed."""
-        result = extract_case_id("Hippo_001_0000.nii.gz", remove_channel_suffix=True)
-        assert result == "Hippo_001"
+    @pytest.mark.parametrize(
+        "filename,remove_suffix,expected",
+        [
+            pytest.param(
+                "Hippo_001_0000.nii.gz", True, "Hippo_001",
+                id="nifti_remove_suffix"
+            ),
+            pytest.param(
+                "Hippo_001_0000.nii.gz", False, "Hippo_001_0000",
+                id="nifti_keep_suffix"
+            ),
+            pytest.param(
+                "ISIC_0000000_0000.jpg", True, "ISIC_0000000",
+                id="jpg_remove_suffix"
+            ),
+            pytest.param(
+                "ISIC_0000000_0000.jpg", False, "ISIC_0000000_0000",
+                id="jpg_keep_suffix"
+            ),
+            pytest.param(
+                "/path/to/Hippo_001_0000.nii.gz", True, "Hippo_001",
+                id="full_path"
+            ),
+            pytest.param(
+                "case_001.nii.gz", True, "case_001",
+                id="no_channel_suffix"
+            ),
+            pytest.param(
+                "case_001_00.nii.gz", True, "case_001_00",
+                id="non_standard_suffix"
+            ),
+        ],
+    )
+    def test_extract_case_id(
+        self, filename: str, remove_suffix: bool, expected: str
+    ) -> None:
+        """Test extract_case_id with various filename patterns.
 
-    def test_nifti_with_channel_suffix_kept(self) -> None:
-        """Test NIfTI filename with channel suffix kept."""
-        result = extract_case_id("Hippo_001_0000.nii.gz", remove_channel_suffix=False)
-        assert result == "Hippo_001_0000"
-
-    def test_jpg_with_channel_suffix_removed(self) -> None:
-        """Test JPG filename with channel suffix removed."""
-        result = extract_case_id("ISIC_0000000_0000.jpg", remove_channel_suffix=True)
-        assert result == "ISIC_0000000"
-
-    def test_jpg_with_channel_suffix_kept(self) -> None:
-        """Test JPG filename with channel suffix kept."""
-        result = extract_case_id("ISIC_0000000_0000.jpg", remove_channel_suffix=False)
-        assert result == "ISIC_0000000_0000"
-
-    def test_full_path(self) -> None:
-        """Test with full path instead of just filename."""
-        result = extract_case_id("/path/to/Hippo_001_0000.nii.gz")
-        assert result == "Hippo_001"
-
-    def test_no_channel_suffix(self) -> None:
-        """Test filename without channel suffix pattern."""
-        result = extract_case_id("case_001.nii.gz")
-        assert result == "case_001"
-
-    def test_non_standard_suffix(self) -> None:
-        """Test filename with non-standard suffix (not 4 digits)."""
-        result = extract_case_id("case_001_00.nii.gz")
-        assert result == "case_001_00"
+        Parameters:
+        - filename: Input filename to extract case ID from
+        - remove_suffix: Whether to remove channel suffix (default True)
+        - expected: Expected case ID result
+        """
+        result = extract_case_id(filename, remove_channel_suffix=remove_suffix)
+        assert result == expected
 
 
 class TestExtractBaseNameForLabel:
     """Tests for extract_base_name_for_label function."""
 
-    def test_nifti_image(self) -> None:
-        """Test NIfTI image filename."""
-        base_name, label_ext = extract_base_name_for_label("Hippo_001_0000.nii.gz")
-        assert base_name == "Hippo_001"
-        assert label_ext == ".nii.gz"
+    @pytest.mark.parametrize(
+        "filename,expected_base,expected_ext",
+        [
+            pytest.param(
+                "Hippo_001_0000.nii.gz", "Hippo_001", ".nii.gz",
+                id="nifti"
+            ),
+            pytest.param(
+                "ISIC_0000000_0000.jpg", "ISIC_0000000", ".png",
+                id="jpg_returns_png"
+            ),
+            pytest.param(
+                "image_001_0000.jpeg", "image_001", ".png",
+                id="jpeg_returns_png"
+            ),
+            pytest.param(
+                "image_001_0000.png", "image_001", ".png",
+                id="png"
+            ),
+        ],
+    )
+    def test_extract_base_name_for_label(
+        self, filename: str, expected_base: str, expected_ext: str
+    ) -> None:
+        """Test extract_base_name_for_label with various image formats.
 
-    def test_jpg_image(self) -> None:
-        """Test JPG image filename (should return PNG for label)."""
-        base_name, label_ext = extract_base_name_for_label("ISIC_0000000_0000.jpg")
-        assert base_name == "ISIC_0000000"
-        assert label_ext == ".png"
-
-    def test_jpeg_image(self) -> None:
-        """Test JPEG image filename (should return PNG for label)."""
-        base_name, label_ext = extract_base_name_for_label("image_001_0000.jpeg")
-        assert base_name == "image_001"
-        assert label_ext == ".png"
-
-    def test_png_image(self) -> None:
-        """Test PNG image filename."""
-        base_name, label_ext = extract_base_name_for_label("image_001_0000.png")
-        assert base_name == "image_001"
-        assert label_ext == ".png"
+        Parameters:
+        - filename: Input filename
+        - expected_base: Expected base name without suffix and extension
+        - expected_ext: Expected label extension (images converted to PNG)
+        """
+        base_name, label_ext = extract_base_name_for_label(filename)
+        assert base_name == expected_base
+        assert label_ext == expected_ext
 
 
 class TestEnsureDirectory:

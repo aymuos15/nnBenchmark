@@ -177,29 +177,30 @@ class TestValidateSlidingWindowConfig:
         config = {"testing": {"sliding_window": {}}}
         validate_sliding_window_config(config)  # Should not raise
 
-    def test_valid_mode_gaussian(self) -> None:
-        """Test that 'gaussian' mode is accepted."""
-        config = {"testing": {"sliding_window": {"enabled": True, "mode": "gaussian"}}}
-        validate_sliding_window_config(config)
+    @pytest.mark.parametrize(
+        "mode,should_pass",
+        [
+            pytest.param("gaussian", True, id="valid_gaussian"),
+            pytest.param("constant", True, id="valid_constant"),
+            pytest.param("median", False, id="invalid_median"),
+            pytest.param("average", False, id="invalid_average"),
+            pytest.param("invalid", False, id="invalid_string"),
+            pytest.param("linear", False, id="invalid_linear"),
+        ],
+    )
+    def test_sliding_window_mode_validation(
+        self, mode: str, should_pass: bool
+    ) -> None:
+        """Test sliding_window mode validation with various modes.
 
-    def test_valid_mode_constant(self) -> None:
-        """Test that 'constant' mode is accepted."""
-        config = {"testing": {"sliding_window": {"enabled": True, "mode": "constant"}}}
-        validate_sliding_window_config(config)
-
-    def test_invalid_mode_median_rejected(self) -> None:
-        """Test that 'median' mode is rejected (not supported)."""
-        config = {"testing": {"sliding_window": {"enabled": True, "mode": "median"}}}
-        with pytest.raises(ValueError) as excinfo:
+        Parameters:
+        - mode: Mode to test
+        - should_pass: Whether validation should succeed
+        """
+        config = {"testing": {"sliding_window": {"enabled": True, "mode": mode}}}
+        if should_pass:
             validate_sliding_window_config(config)
-        assert "mode" in str(excinfo.value).lower()
-        assert "gaussian" in str(excinfo.value)
-        assert "constant" in str(excinfo.value)
-
-    def test_invalid_mode_other(self) -> None:
-        """Test that other invalid modes are rejected."""
-        for mode in ["average", "invalid", "linear"]:
-            config = {"testing": {"sliding_window": {"enabled": True, "mode": mode}}}
+        else:
             with pytest.raises(ValueError) as excinfo:
                 validate_sliding_window_config(config)
             assert "mode" in str(excinfo.value).lower()
@@ -229,27 +230,35 @@ class TestValidateSlidingWindowConfig:
             validate_sliding_window_config(config)
         assert "overlap" in str(excinfo.value).lower()
 
-    def test_sw_batch_size_positive(self) -> None:
-        """Test that positive sw_batch_size values are accepted."""
-        for size in [1, 2, 4, 8, 16]:
-            config = {
-                "testing": {"sliding_window": {"enabled": True, "sw_batch_size": size}}
-            }
-            validate_sliding_window_config(config)
+    @pytest.mark.parametrize(
+        "batch_size,should_pass",
+        [
+            pytest.param(1, True, id="positive_1"),
+            pytest.param(2, True, id="positive_2"),
+            pytest.param(8, True, id="positive_8"),
+            pytest.param(16, True, id="positive_16"),
+            pytest.param(0, False, id="zero"),
+            pytest.param(-4, False, id="negative"),
+        ],
+    )
+    def test_sw_batch_size_validation(
+        self, batch_size: int, should_pass: bool
+    ) -> None:
+        """Test sliding_window batch size validation.
 
-    def test_sw_batch_size_zero(self) -> None:
-        """Test that sw_batch_size of 0 is rejected."""
-        config = {"testing": {"sliding_window": {"enabled": True, "sw_batch_size": 0}}}
-        with pytest.raises(ValueError) as excinfo:
+        Parameters:
+        - batch_size: Batch size to test
+        - should_pass: Whether validation should succeed
+        """
+        config = {
+            "testing": {"sliding_window": {"enabled": True, "sw_batch_size": batch_size}}
+        }
+        if should_pass:
             validate_sliding_window_config(config)
-        assert "positive" in str(excinfo.value).lower()
-
-    def test_sw_batch_size_negative(self) -> None:
-        """Test that negative sw_batch_size is rejected."""
-        config = {"testing": {"sliding_window": {"enabled": True, "sw_batch_size": -4}}}
-        with pytest.raises(ValueError) as excinfo:
-            validate_sliding_window_config(config)
-        assert "positive" in str(excinfo.value).lower()
+        else:
+            with pytest.raises(ValueError) as excinfo:
+                validate_sliding_window_config(config)
+            assert "positive" in str(excinfo.value).lower()
 
     def test_padding_mode_valid_options(self) -> None:
         """Test that all valid padding modes are accepted."""
