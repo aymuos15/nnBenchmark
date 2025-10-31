@@ -8,9 +8,16 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+import torch
 from monai import losses, metrics, transforms
 
-from src.factory import loss_registry, metric_registry, transform_registry
+from src.factory import (
+    loss_registry,
+    metric_registry,
+    model_registry,
+    optimizer_registry,
+    transform_registry,
+)
 
 
 class TestBuildLoss:
@@ -143,3 +150,116 @@ class TestBuildTransforms:
 
         with pytest.raises(KeyError, match="Missing 'common' section"):
             transform_registry.build(invalid_config, mode="train")
+
+
+class TestBuildModel:
+    """Tests for model_registry."""
+
+    def test_dynunet_is_only_registered_model(self) -> None:
+        """Test that DynUNet is the only registered model."""
+        available = model_registry.list_available()
+        assert available == ["DynUNet"]
+
+    def test_build_invalid_model_type(self, sample_config: dict[str, Any]) -> None:
+        """Test that invalid model type raises KeyError."""
+        device = torch.device("cpu")
+        sample_config["model"]["type"] = "InvalidModelType"
+
+        with pytest.raises(KeyError):
+            model_registry.build(sample_config["model"], device)
+
+
+class TestBuildOptimizer:
+    """Tests for optimizer_registry."""
+
+    def test_build_optimizer_from_config(self, sample_config: dict[str, Any]) -> None:
+        """Test building optimizer from config."""
+        # Create a simple model for optimizer
+        model = torch.nn.Linear(10, 5)
+        optimizer = optimizer_registry.build(
+            sample_config["optimizer"],
+            model.parameters(),
+            learning_rate=0.01,
+        )
+
+        # Check optimizer is instantiated with correct learning rate
+        assert optimizer is not None
+        assert optimizer.param_groups[0]["lr"] == 0.01
+
+    def test_build_invalid_optimizer_type(self, sample_config: dict[str, Any]) -> None:
+        """Test that invalid optimizer type raises KeyError."""
+        model = torch.nn.Linear(10, 5)
+        sample_config["optimizer"]["type"] = "InvalidOptimizer"
+
+        with pytest.raises(KeyError):
+            optimizer_registry.build(
+                sample_config["optimizer"],
+                model.parameters(),
+                learning_rate=0.01,
+            )
+
+    def test_available_optimizers(self) -> None:
+        """Test that expected optimizers are available."""
+        available = optimizer_registry.list_available()
+
+        # Check common optimizers are registered
+        assert "SGD" in available
+        assert "Adam" in available
+        assert "AdamW" in available
+
+
+class TestRegistryCoreFunctionality:
+    """Tests for core registry functionality (register, unregister, list)."""
+
+    def test_model_registry_list_available(self) -> None:
+        """Test listing available models."""
+        available = model_registry.list_available()
+        assert isinstance(available, list)
+        assert len(available) > 0
+        assert "DynUNet" in available
+
+    def test_loss_registry_list_available(self) -> None:
+        """Test listing available losses."""
+        available = loss_registry.list_available()
+        assert isinstance(available, list)
+        assert len(available) > 0
+        assert "DiceCELoss" in available
+
+    def test_metric_registry_list_available(self) -> None:
+        """Test listing available metrics."""
+        available = metric_registry.list_available()
+        assert isinstance(available, list)
+        assert len(available) > 0
+        assert "DiceMetric" in available
+
+    def test_optimizer_registry_list_available(self) -> None:
+        """Test listing available optimizers."""
+        available = optimizer_registry.list_available()
+        assert isinstance(available, list)
+        assert len(available) > 0
+
+    def test_transform_registry_list_available(self) -> None:
+        """Test listing available transforms.
+
+        Note: TransformRegistry uses dynamic transform loading from MONAI,
+        so pre-registered transforms are empty. Actual transforms are loaded
+        dynamically during build().
+        """
+        available = transform_registry.list_available()
+        assert isinstance(available, list)
+        # Dynamic transforms - may be empty since not pre-registered
+        # This is expected behavior for MONAI transform discovery
+
+    def test_duplicate_registration_raises_error(self) -> None:
+        """Test that registering duplicate model name raises ValueError."""
+        with pytest.raises(ValueError, match="already registered"):
+            # Create a dummy model class for testing
+            class DummyModel(torch.nn.Module):
+                pass
+
+            model_registry.register("DynUNet", DummyModel)
+
+    def test_unregister_nonexistent_raises_error(self) -> None:
+        """Test that unregistering nonexistent model raises KeyError."""
+        with pytest.raises(KeyError, match="not registered"):
+            model_registry.unregister("NonexistentModel")
