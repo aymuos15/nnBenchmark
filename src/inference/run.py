@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
+from src.factory import metric_registry, transform_registry
 from src.inference.evaluate import evaluate
 from src.lightning import SegmentationModule
 from src.logging import (
@@ -20,7 +21,6 @@ from src.logging import (
     log_system_info,
     setup_test_logger,
 )
-from src.utils.builders import build_metrics, build_transforms
 from src.utils.data import get_test_data_dicts
 from src.utils.files import ensure_directory, save_json
 from src.utils.runner import setup_experiment
@@ -129,7 +129,7 @@ def run_testing(
     )
 
     # Transforms from config
-    test_transforms = build_transforms(cfg, mode="test")
+    test_transforms = transform_registry.build(cfg, mode="test")
 
     # Dataset and loader
     test_batch_size: int = cfg.get("testing", {}).get("batch_size", 1)
@@ -179,7 +179,7 @@ def run_testing(
         raise
 
     # Metrics from config
-    metric_fns = build_metrics(cfg)
+    metric_fns = metric_registry.build(cfg)
     metric_names = list(metric_fns.keys())
     log.info(f"Metrics: {', '.join(metric_names)}")
 

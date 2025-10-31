@@ -13,8 +13,13 @@ from monai.networks.utils import one_hot
 from pytorch_lightning import LightningModule
 
 from src.config.validation import validate_metrics_config
+from src.factory import (
+    loss_registry,
+    metric_registry,
+    model_registry,
+    optimizer_registry,
+)
 from src.lightning.lr_scheduler import PolyLRScheduler
-from src.utils.builders import build_loss, build_metrics, build_model, build_optimizer
 
 
 class SegmentationModule(LightningModule):
@@ -42,10 +47,10 @@ class SegmentationModule(LightningModule):
         # Save hyperparameters (enables checkpoint resumption)
         self.save_hyperparameters(cfg)
 
-        # Build components using existing builders
-        self.model: nn.Module = build_model(cfg, device)
-        self.loss_fn: nn.Module = build_loss(cfg)
-        self.metric_fns: dict[str, Any] = build_metrics(cfg)
+        # Build components using factory registries
+        self.model: nn.Module = model_registry.build(cfg["model"], device)
+        self.loss_fn: nn.Module = loss_registry.build(cfg["loss"])
+        self.metric_fns: dict[str, Any] = metric_registry.build(cfg)
 
         # Validate metrics and get checkpoint metric
         checkpoint_metric, plot_metrics = validate_metrics_config(cfg, self.metric_fns)
@@ -275,7 +280,7 @@ class SegmentationModule(LightningModule):
                 per_class_vals = None
 
             # Log mean to file only (no console progress bar) except for dice
-            prog_bar_val = name == "Dice"  # Show dice on console
+            prog_bar_val = name == "DiceMetric"  # Show dice on console
             self.log(
                 f"val_{name}",
                 mean_val,
@@ -284,7 +289,7 @@ class SegmentationModule(LightningModule):
             )
 
             # Track dice metric for console logging
-            if name == "Dice":
+            if name == "DiceMetric":
                 dice_found = True
                 # Update best val_dice if this is a new best
                 if mean_val > self.best_val_dice:
@@ -338,7 +343,11 @@ class SegmentationModule(LightningModule):
             This return format is valid per PyTorch Lightning documentation, but pyright
             doesn't recognize the dict return type as compatible with the base class signature.
         """
-        optimizer = build_optimizer(self.model, self.cfg)
+        optimizer = optimizer_registry.build(
+            self.cfg["optimizer"],
+            self.model.parameters(),
+            self.cfg["training"]["learning_rate"],
+        )
 
         # Get LR scheduler config (allows overriding defaults)
         lr_config = self.cfg.get("lr_scheduler", {})

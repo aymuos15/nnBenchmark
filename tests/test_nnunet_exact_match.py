@@ -11,7 +11,7 @@ import torch
 from monai.networks.nets.dynunet import DynUNet
 from torch.nn.modules.conv import Conv3d
 
-from src.utils.builders import build_model
+from src.factory import model_registry
 
 
 def test_dynunet_architecture_from_config():
@@ -36,7 +36,7 @@ def test_dynunet_architecture_from_config():
     }
 
     device = torch.device("cpu")
-    model = build_model(config, device)
+    model = model_registry.build(config["model"], device)
 
     assert isinstance(model, DynUNet)
     assert model.input_block is not None

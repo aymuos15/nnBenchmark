@@ -167,23 +167,24 @@ class TestDeepSupervisionLossComputation:
         cfg = {
             "dataset": {"num_classes": 3},
             "model": {
-                "type": "UNet",
+                "type": "DynUNet",
                 "deep_supervision": True,
                 "ds_weights": [1.0, 0.5, 0.25],
             },
             "optimizer": {"type": "Adam"},
             "loss": {"type": "DiceCELoss", "to_onehot_y": True},
-            "training": {"checkpoint_metric": "Dice", "plot_metrics": ["Dice"]},
+            "training": {"checkpoint_metric": "DiceMetric", "plot_metrics": ["DiceMetric"]},
             "metrics": [{"type": "DiceMetric"}],
         }
 
         device = torch.device("cpu")
 
         with (
-            patch("src.lightning.module.build_model"),
-            patch("src.lightning.module.build_loss"),
+            patch("src.factory.models.model_registry.build"),
+            patch("src.factory.losses.loss_registry.build"),
             patch(
-                "src.lightning.module.build_metrics", return_value={"Dice": MagicMock()}
+                "src.factory.metrics.metric_registry.build",
+                return_value={"DiceMetric": MagicMock()},
             ),
         ):
             module = SegmentationModule(cfg, device)
@@ -200,23 +201,24 @@ class TestDeepSupervisionLossComputation:
         cfg = {
             "dataset": {"num_classes": 3},
             "model": {
-                "type": "UNet",
+                "type": "DynUNet",
                 "deep_supervision": False,
                 "ds_weights": [],
             },
             "optimizer": {"type": "Adam"},
             "loss": {"type": "DiceCELoss", "to_onehot_y": True},
-            "training": {"checkpoint_metric": "Dice", "plot_metrics": ["Dice"]},
+            "training": {"checkpoint_metric": "DiceMetric", "plot_metrics": ["DiceMetric"]},
             "metrics": [{"type": "DiceMetric"}],
         }
 
         device = torch.device("cpu")
 
         with (
-            patch("src.lightning.module.build_model"),
-            patch("src.lightning.module.build_loss"),
+            patch("src.factory.models.model_registry.build"),
+            patch("src.factory.losses.loss_registry.build"),
             patch(
-                "src.lightning.module.build_metrics", return_value={"Dice": MagicMock()}
+                "src.factory.metrics.metric_registry.build",
+                return_value={"DiceMetric": MagicMock()},
             ),
         ):
             module = SegmentationModule(cfg, device)
@@ -233,23 +235,24 @@ class TestDeepSupervisionLossComputation:
         cfg = {
             "dataset": {"num_classes": 3},
             "model": {
-                "type": "UNet",
+                "type": "DynUNet",
                 "deep_supervision": True,
                 # Missing ds_weights
             },
             "optimizer": {"type": "Adam"},
             "loss": {"type": "DiceCELoss", "to_onehot_y": True},
-            "training": {"checkpoint_metric": "Dice", "plot_metrics": ["Dice"]},
+            "training": {"checkpoint_metric": "DiceMetric", "plot_metrics": ["DiceMetric"]},
             "metrics": [{"type": "DiceMetric"}],
         }
 
         device = torch.device("cpu")
 
         with (
-            patch("src.lightning.module.build_model"),
-            patch("src.lightning.module.build_loss"),
+            patch("src.factory.models.model_registry.build"),
+            patch("src.factory.losses.loss_registry.build"),
             patch(
-                "src.lightning.module.build_metrics", return_value={"Dice": MagicMock()}
+                "src.factory.metrics.metric_registry.build",
+                return_value={"DiceMetric": MagicMock()},
             ),
         ):
             with pytest.raises(ValueError, match="ds_weights"):
@@ -264,23 +267,24 @@ class TestDeepSupervisionLossComputation:
         cfg = {
             "dataset": {"num_classes": 3},
             "model": {
-                "type": "UNet",
+                "type": "DynUNet",
                 "deep_supervision": True,
                 "ds_weights": [1.0, 0.5],  # 2 weights
             },
             "optimizer": {"type": "Adam"},
             "loss": {"type": "DiceCELoss", "to_onehot_y": True},
-            "training": {"checkpoint_metric": "Dice", "plot_metrics": ["Dice"]},
+            "training": {"checkpoint_metric": "DiceMetric", "plot_metrics": ["DiceMetric"]},
             "metrics": [{"type": "DiceMetric"}],
         }
 
         device = torch.device("cpu")
 
         with (
-            patch("src.lightning.module.build_model"),
-            patch("src.lightning.module.build_loss"),
+            patch("src.factory.models.model_registry.build"),
+            patch("src.factory.losses.loss_registry.build"),
             patch(
-                "src.lightning.module.build_metrics", return_value={"Dice": MagicMock()}
+                "src.factory.metrics.metric_registry.build",
+                return_value={"DiceMetric": MagicMock()},
             ),
         ):
             module = SegmentationModule(cfg, device)

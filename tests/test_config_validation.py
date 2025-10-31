@@ -29,7 +29,9 @@ class TestValidateRequiredField:
     def test_missing_nested_field(self, sample_config: dict[str, Any]) -> None:
         """Test validation raises ValueError for missing nested field."""
         with pytest.raises(ValueError) as excinfo:
-            validate_required_field(sample_config, ["dataset", "missing_field"], "missing_field")
+            validate_required_field(
+                sample_config, ["dataset", "missing_field"], "missing_field"
+            )
 
         assert "'missing_field' parameter is required" in str(excinfo.value)
 
@@ -44,29 +46,21 @@ class TestValidateRequiredField:
 
     def test_deeply_nested_field(self) -> None:
         """Test validation with deeply nested path."""
-        config = {
-            "level1": {
-                "level2": {
-                    "level3": {
-                        "field": "value"
-                    }
-                }
-            }
-        }
+        config = {"level1": {"level2": {"level3": {"field": "value"}}}}
 
         # Should not raise
-        validate_required_field(config, ["level1", "level2", "level3", "field"], "deep field")
+        validate_required_field(
+            config, ["level1", "level2", "level3", "field"], "deep field"
+        )
 
     def test_missing_deeply_nested_section(self) -> None:
         """Test validation with missing deeply nested section."""
-        config = {
-            "level1": {
-                "level2": {}
-            }
-        }
+        config = {"level1": {"level2": {}}}
 
         with pytest.raises(ValueError) as excinfo:
-            validate_required_field(config, ["level1", "level2", "level3", "field"], "field")
+            validate_required_field(
+                config, ["level1", "level2", "level3", "field"], "field"
+            )
 
         assert "Missing section" in str(excinfo.value)
         assert "level1 -> level2 -> level3" in str(excinfo.value)
@@ -78,7 +72,7 @@ class TestValidateRequiredField:
                 sample_config,
                 ["dataset", "missing_param"],
                 "missing_param",
-                "missing_param: value"
+                "missing_param: value",
             )
 
         assert "missing_param: value" in str(excinfo.value)
@@ -89,27 +83,34 @@ class TestValidateMetricsConfig:
 
     def test_valid_metrics_config(self, sample_config: dict[str, Any]) -> None:
         """Test validation passes for valid metrics configuration."""
-        # Mock metric dictionary
-        metric_dict = {"Dice": "mock_metric"}
+        # Mock metric dictionary - use DiceMetric to match sample config
+        metric_dict = {"DiceMetric": "mock_metric"}
 
-        checkpoint_metric, plot_metrics = validate_metrics_config(sample_config, metric_dict)
+        checkpoint_metric, plot_metrics = validate_metrics_config(
+            sample_config, metric_dict
+        )
 
-        assert checkpoint_metric == "Dice"
-        assert plot_metrics == ["Dice"]
+        assert checkpoint_metric == "DiceMetric"
+        assert plot_metrics == ["DiceMetric"]
 
     def test_multiple_plot_metrics(self, sample_config: dict[str, Any]) -> None:
         """Test validation with multiple plot metrics."""
         # Modify config to have multiple metrics
-        sample_config["training"]["plot_metrics"] = ["Dice", "IoU"]
+        sample_config["training"]["plot_metrics"] = ["DiceMetric", "IoUMetric"]
+        sample_config["training"]["checkpoint_metric"] = "DiceMetric"
 
-        metric_dict = {"Dice": "mock_metric_1", "IoU": "mock_metric_2"}
+        metric_dict = {"DiceMetric": "mock_metric_1", "IoUMetric": "mock_metric_2"}
 
-        checkpoint_metric, plot_metrics = validate_metrics_config(sample_config, metric_dict)
+        checkpoint_metric, plot_metrics = validate_metrics_config(
+            sample_config, metric_dict
+        )
 
-        assert checkpoint_metric == "Dice"
-        assert plot_metrics == ["Dice", "IoU"]
+        assert checkpoint_metric == "DiceMetric"
+        assert plot_metrics == ["DiceMetric", "IoUMetric"]
 
-    def test_missing_checkpoint_metric_field(self, sample_config: dict[str, Any]) -> None:
+    def test_missing_checkpoint_metric_field(
+        self, sample_config: dict[str, Any]
+    ) -> None:
         """Test validation raises ValueError when checkpoint_metric field is missing."""
         del sample_config["training"]["checkpoint_metric"]
         metric_dict = {"Dice": "mock_metric"}
@@ -129,7 +130,9 @@ class TestValidateMetricsConfig:
 
         assert "Missing required field 'plot_metrics'" in str(excinfo.value)
 
-    def test_checkpoint_metric_not_in_defined_metrics(self, sample_config: dict[str, Any]) -> None:
+    def test_checkpoint_metric_not_in_defined_metrics(
+        self, sample_config: dict[str, Any]
+    ) -> None:
         """Test validation raises ValueError when checkpoint_metric not in defined metrics."""
         sample_config["training"]["checkpoint_metric"] = "InvalidMetric"
         metric_dict = {"Dice": "mock_metric"}
@@ -140,10 +143,13 @@ class TestValidateMetricsConfig:
         assert "checkpoint_metric 'InvalidMetric' not found" in str(excinfo.value)
         assert "Available metrics" in str(excinfo.value)
 
-    def test_plot_metric_not_in_defined_metrics(self, sample_config: dict[str, Any]) -> None:
+    def test_plot_metric_not_in_defined_metrics(
+        self, sample_config: dict[str, Any]
+    ) -> None:
         """Test validation raises ValueError when plot_metric not in defined metrics."""
-        sample_config["training"]["plot_metrics"] = ["Dice", "InvalidMetric"]
-        metric_dict = {"Dice": "mock_metric"}
+        sample_config["training"]["plot_metrics"] = ["DiceMetric", "InvalidMetric"]
+        sample_config["training"]["checkpoint_metric"] = "DiceMetric"
+        metric_dict = {"DiceMetric": "mock_metric"}
 
         with pytest.raises(ValueError) as excinfo:
             validate_metrics_config(sample_config, metric_dict)
@@ -172,29 +178,17 @@ class TestValidateSlidingWindowConfig:
 
     def test_valid_mode_gaussian(self) -> None:
         """Test that 'gaussian' mode is accepted."""
-        config = {
-            "testing": {
-                "sliding_window": {"enabled": True, "mode": "gaussian"}
-            }
-        }
+        config = {"testing": {"sliding_window": {"enabled": True, "mode": "gaussian"}}}
         validate_sliding_window_config(config)
 
     def test_valid_mode_constant(self) -> None:
         """Test that 'constant' mode is accepted."""
-        config = {
-            "testing": {
-                "sliding_window": {"enabled": True, "mode": "constant"}
-            }
-        }
+        config = {"testing": {"sliding_window": {"enabled": True, "mode": "constant"}}}
         validate_sliding_window_config(config)
 
     def test_invalid_mode_median_rejected(self) -> None:
         """Test that 'median' mode is rejected (not supported)."""
-        config = {
-            "testing": {
-                "sliding_window": {"enabled": True, "mode": "median"}
-            }
-        }
+        config = {"testing": {"sliding_window": {"enabled": True, "mode": "median"}}}
         with pytest.raises(ValueError) as excinfo:
             validate_sliding_window_config(config)
         assert "mode" in str(excinfo.value).lower()
@@ -204,11 +198,7 @@ class TestValidateSlidingWindowConfig:
     def test_invalid_mode_other(self) -> None:
         """Test that other invalid modes are rejected."""
         for mode in ["average", "invalid", "linear"]:
-            config = {
-                "testing": {
-                    "sliding_window": {"enabled": True, "mode": mode}
-                }
-            }
+            config = {"testing": {"sliding_window": {"enabled": True, "mode": mode}}}
             with pytest.raises(ValueError) as excinfo:
                 validate_sliding_window_config(config)
             assert "mode" in str(excinfo.value).lower()
@@ -217,9 +207,7 @@ class TestValidateSlidingWindowConfig:
         """Test that valid overlap values are accepted."""
         for overlap in [0.0, 0.25, 0.5, 0.75, 0.99]:
             config = {
-                "testing": {
-                    "sliding_window": {"enabled": True, "overlap": overlap}
-                }
+                "testing": {"sliding_window": {"enabled": True, "overlap": overlap}}
             }
             validate_sliding_window_config(config)
 
@@ -227,9 +215,7 @@ class TestValidateSlidingWindowConfig:
         """Test that overlap >= 1.0 is rejected."""
         for overlap in [1.0, 1.5, 2.0]:
             config = {
-                "testing": {
-                    "sliding_window": {"enabled": True, "overlap": overlap}
-                }
+                "testing": {"sliding_window": {"enabled": True, "overlap": overlap}}
             }
             with pytest.raises(ValueError) as excinfo:
                 validate_sliding_window_config(config)
@@ -237,11 +223,7 @@ class TestValidateSlidingWindowConfig:
 
     def test_overlap_negative(self) -> None:
         """Test that negative overlap is rejected."""
-        config = {
-            "testing": {
-                "sliding_window": {"enabled": True, "overlap": -0.5}
-            }
-        }
+        config = {"testing": {"sliding_window": {"enabled": True, "overlap": -0.5}}}
         with pytest.raises(ValueError) as excinfo:
             validate_sliding_window_config(config)
         assert "overlap" in str(excinfo.value).lower()
@@ -250,30 +232,20 @@ class TestValidateSlidingWindowConfig:
         """Test that positive sw_batch_size values are accepted."""
         for size in [1, 2, 4, 8, 16]:
             config = {
-                "testing": {
-                    "sliding_window": {"enabled": True, "sw_batch_size": size}
-                }
+                "testing": {"sliding_window": {"enabled": True, "sw_batch_size": size}}
             }
             validate_sliding_window_config(config)
 
     def test_sw_batch_size_zero(self) -> None:
         """Test that sw_batch_size of 0 is rejected."""
-        config = {
-            "testing": {
-                "sliding_window": {"enabled": True, "sw_batch_size": 0}
-            }
-        }
+        config = {"testing": {"sliding_window": {"enabled": True, "sw_batch_size": 0}}}
         with pytest.raises(ValueError) as excinfo:
             validate_sliding_window_config(config)
         assert "positive" in str(excinfo.value).lower()
 
     def test_sw_batch_size_negative(self) -> None:
         """Test that negative sw_batch_size is rejected."""
-        config = {
-            "testing": {
-                "sliding_window": {"enabled": True, "sw_batch_size": -4}
-            }
-        }
+        config = {"testing": {"sliding_window": {"enabled": True, "sw_batch_size": -4}}}
         with pytest.raises(ValueError) as excinfo:
             validate_sliding_window_config(config)
         assert "positive" in str(excinfo.value).lower()
@@ -282,12 +254,7 @@ class TestValidateSlidingWindowConfig:
         """Test that all valid padding modes are accepted."""
         for mode in ["constant", "edge", "reflect", "wrap"]:
             config = {
-                "testing": {
-                    "sliding_window": {
-                        "enabled": True,
-                        "padding_mode": mode
-                    }
-                }
+                "testing": {"sliding_window": {"enabled": True, "padding_mode": mode}}
             }
             validate_sliding_window_config(config)
 
@@ -295,12 +262,7 @@ class TestValidateSlidingWindowConfig:
         """Test that invalid padding modes are rejected."""
         for mode in ["invalid", "mirror", "replicate"]:
             config = {
-                "testing": {
-                    "sliding_window": {
-                        "enabled": True,
-                        "padding_mode": mode
-                    }
-                }
+                "testing": {"sliding_window": {"enabled": True, "padding_mode": mode}}
             }
             with pytest.raises(ValueError) as excinfo:
                 validate_sliding_window_config(config)

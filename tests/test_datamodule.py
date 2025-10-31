@@ -34,7 +34,7 @@ class TestSegmentationDataModule:
     """Tests for SegmentationDataModule."""
 
     @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
+    @patch("src.factory.transforms.transform_registry.build")
     def test_setup_with_caching(
         self,
         mock_build_transforms: Mock,
@@ -63,7 +63,7 @@ class TestSegmentationDataModule:
         assert datamodule._using_cache is True
 
     @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
+    @patch("src.factory.transforms.transform_registry.build")
     def test_setup_without_caching(
         self,
         mock_build_transforms: Mock,
@@ -94,7 +94,7 @@ class TestSegmentationDataModule:
         assert datamodule._using_cache is False
 
     @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
+    @patch("src.factory.transforms.transform_registry.build")
     def test_train_dataloader_batch_size(
         self,
         mock_build_transforms: Mock,
@@ -125,7 +125,7 @@ class TestSegmentationDataModule:
         )
 
     @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
+    @patch("src.factory.transforms.transform_registry.build")
     def test_val_dataloader_batch_size(
         self,
         mock_build_transforms: Mock,
@@ -154,7 +154,7 @@ class TestSegmentationDataModule:
         assert val_loader.batch_size == 1
 
     @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
+    @patch("src.factory.transforms.transform_registry.build")
     def test_train_dataloader_shuffle_enabled(
         self,
         mock_build_transforms: Mock,
@@ -184,13 +184,13 @@ class TestSegmentationDataModule:
     @pytest.mark.parametrize(
         "cache_enabled,num_workers,expected_persistent",
         [
-            (True, 4, False),      # Cache enabled → persistent_workers=False
-            (False, 4, True),      # No cache, workers>0 → persistent_workers=True
-            (False, 0, False),     # No workers → persistent_workers=False
+            (True, 4, False),  # Cache enabled → persistent_workers=False
+            (False, 4, True),  # No cache, workers>0 → persistent_workers=True
+            (False, 0, False),  # No workers → persistent_workers=False
         ],
     )
     @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
+    @patch("src.factory.transforms.transform_registry.build")
     def test_persistent_workers_configuration(
         self,
         mock_build_transforms: Mock,
@@ -234,7 +234,7 @@ class TestSegmentationDataModule:
         assert val_loader.persistent_workers is expected_persistent
 
     @patch("src.lightning.datamodule.get_data_dicts")
-    @patch("src.lightning.datamodule.build_transforms")
+    @patch("src.factory.transforms.transform_registry.build")
     def test_val_dataloader_none_when_no_validation_data(
         self,
         mock_build_transforms: Mock,
