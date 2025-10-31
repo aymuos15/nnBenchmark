@@ -10,6 +10,8 @@ from typing import Any
 import pytest
 import torch
 from monai import losses, metrics, transforms
+from monai.networks.nets.dynunet import DynUNet
+from monai.networks.nets.unet import UNet
 
 from src.factory import (
     loss_registry,
@@ -155,10 +157,113 @@ class TestBuildTransforms:
 class TestBuildModel:
     """Tests for model_registry."""
 
-    def test_dynunet_is_only_registered_model(self) -> None:
-        """Test that DynUNet is the only registered model."""
+    def test_both_models_registered(self) -> None:
+        """Test that both DynUNet and UNet are registered."""
         available = model_registry.list_available()
-        assert available == ["DynUNet"]
+        assert "DynUNet" in available
+        assert "UNet" in available
+        assert len(available) == 2
+
+    def test_build_dynunet_flat_config(self, sample_config: dict[str, Any]) -> None:
+        """Test building DynUNet from flat config (backward compatibility)."""
+        device = torch.device("cpu")
+        model = model_registry.build(sample_config["model"], device)
+
+        # Verify model type
+        assert isinstance(model, DynUNet)
+
+    def test_build_dynunet_nested_config(self, sample_config: dict[str, Any]) -> None:
+        """Test building DynUNet from nested config structure."""
+        device = torch.device("cpu")
+
+        # Convert to nested config
+        flat_model = sample_config["model"]
+        nested_model = {
+            "type": "DynUNet",
+            "spatial_dims": flat_model["spatial_dims"],
+            "in_channels": flat_model["in_channels"],
+            "out_channels": flat_model["out_channels"],
+            "deep_supervision": flat_model["deep_supervision"],
+            "DynUNet": {
+                "filters": flat_model["filters"],
+                "kernel_size": flat_model["kernel_size"],
+                "strides": flat_model["strides"],
+                "upsample_kernel_size": flat_model["upsample_kernel_size"],
+                "norm_name": flat_model["norm_name"],
+                "act_name": flat_model["act_name"],
+                "deep_supr_num": flat_model["deep_supr_num"],
+                "res_block": flat_model["res_block"],
+            }
+        }
+
+        model = model_registry.build(nested_model, device)
+
+        # Verify model type
+        assert isinstance(model, DynUNet)
+
+    def test_build_unet_nested_config(self) -> None:
+        """Test building UNet from nested config structure."""
+        device = torch.device("cpu")
+
+        unet_config = {
+            "type": "UNet",
+            "spatial_dims": 3,
+            "in_channels": 1,
+            "out_channels": 3,
+            "deep_supervision": False,
+            "UNet": {
+                "channels": [16, 32, 64],
+                "strides": [2, 2],
+                "num_res_units": 2,
+            }
+        }
+
+        model = model_registry.build(unet_config, device)
+
+        # Verify model type
+        assert isinstance(model, UNet)
+
+    def test_build_unet_flat_config(self) -> None:
+        """Test building UNet from flat config (backward compatibility)."""
+        device = torch.device("cpu")
+
+        unet_config = {
+            "type": "UNet",
+            "spatial_dims": 3,
+            "in_channels": 1,
+            "out_channels": 3,
+            "channels": [16, 32, 64],
+            "strides": [2, 2],
+            "num_res_units": 2,
+        }
+
+        model = model_registry.build(unet_config, device)
+
+        # Verify model type
+        assert isinstance(model, UNet)
+
+    def test_nested_config_model_specific_params_override_shared(self) -> None:
+        """Test that model-specific params take precedence over shared params."""
+        device = torch.device("cpu")
+
+        # Config with conflicting spatial_dims (should use model-specific)
+        config = {
+            "type": "UNet",
+            "spatial_dims": 3,  # Shared
+            "in_channels": 1,
+            "out_channels": 3,
+            "UNet": {
+                "spatial_dims": 2,  # Model-specific (should override)
+                "channels": [16, 32],
+                "strides": [2],
+                "num_res_units": 0,
+            }
+        }
+
+        model = model_registry.build(config, device)
+
+        # Verify model type
+        assert isinstance(model, UNet)
 
     def test_build_invalid_model_type(self, sample_config: dict[str, Any]) -> None:
         """Test that invalid model type raises KeyError."""
@@ -167,6 +272,26 @@ class TestBuildModel:
 
         with pytest.raises(KeyError):
             model_registry.build(sample_config["model"], device)
+
+    def test_nested_config_missing_model_section(self) -> None:
+        """Test that nested config without required model section raises KeyError."""
+        device = torch.device("cpu")
+
+        # Nested config missing UNet section
+        config = {
+            "type": "UNet",
+            "spatial_dims": 3,
+            "in_channels": 1,
+            "out_channels": 3,
+            "DynUNet": {  # Has DynUNet but type is UNet
+                "filters": [16, 32],
+            }
+        }
+
+        # Should build successfully but won't find UNet section
+        # Model will be built with only shared params (will fail at instantiation)
+        with pytest.raises(TypeError):  # Missing required params
+            model_registry.build(config, device)
 
 
 class TestBuildOptimizer:

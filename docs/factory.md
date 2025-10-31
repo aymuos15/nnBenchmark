@@ -52,13 +52,8 @@ Configuration File (YAML)
 **Purpose**: Creates segmentation models from configuration with proper weight initialization.
 
 **Registered Models**:
-- `DynUNet` - Dynamic UNet matching nnU-Net PlainConvUNet architecture
-- `UNet` - Basic UNet (lighter architecture from first commit)
-- `BasicUNet` - MONAI's BasicUNet variant
-- `SegResNet` - Residual segmentation network
-- `SwinUNETR` - Swin Transformer-based UNETR
-- `UNETR` - Vision transformer-based architecture
-- `AttentionUnet` - UNet with attention mechanisms
+- `DynUNet` - Dynamic UNet matching nnU-Net PlainConvUNet architecture (default)
+- `UNet` - MONAI UNet with simpler architecture for faster training
 
 **Key Features**:
 - Kaiming Normal weight initialization (nnU-Net style)
@@ -226,6 +221,45 @@ val_pipeline = transform_registry.build(config, mode="val")
 
 All factories use **native MONAI/PyTorch parameter names** - no translation layer. This means you use the exact parameter names from the original library documentation.
 
+### Nested Config Structure (Multi-Model Support)
+
+The planning pipeline now generates configs with **nested model-specific sections**, allowing configs to include parameters for multiple model architectures simultaneously. This makes it easy to switch between models by changing a single field.
+
+**Structure:**
+```yaml
+model:
+  type: DynUNet  # Change to 'UNet' to switch models
+
+  # Shared parameters (common to all models)
+  spatial_dims: 3
+  in_channels: 1
+  out_channels: 3
+  deep_supervision: true
+  ds_weights: [1.0, 0.5, 0.25]
+
+  # DynUNet-specific parameters
+  DynUNet:
+    filters: [32, 64, 128, 256]
+    kernel_size: [[3,3,3], [3,3,3], [3,3,3], [3,3,3]]
+    strides: [[1,1,1], [2,2,2], [2,2,2], [2,2,2]]
+    upsample_kernel_size: [[2,2,2], [2,2,2], [2,2,2]]
+    norm_name: [INSTANCE, {affine: true}]
+    act_name: [leakyrelu, {inplace: true, negative_slope: 0.01}]
+    res_block: false
+
+  # UNet-specific parameters (auto-derived from DynUNet)
+  UNet:
+    channels: [32, 64, 128, 256]  # Matches DynUNet filters
+    strides: [2, 2, 2]  # Simplified from DynUNet
+    num_res_units: 2
+```
+
+**Benefits:**
+- **Easy model switching**: Change one field (`type`) to try different architectures
+- **Architecture equivalence**: UNet params derived from DynUNet for fair comparison
+- **Single planning**: One `nnBench.plan` command generates configs for both models
+- **Backward compatible**: Flat configs (all params at top level) still work
+
 ### Model Configuration Examples
 
 #### UNet (Lighter Architecture)
@@ -283,24 +317,6 @@ model:
 - Medical imaging challenges
 - Exact nnU-Net replication
 - Deep supervision training
-
-#### SwinUNETR (Transformer Architecture)
-
-```yaml
-model:
-  type: SwinUNETR
-  img_size: [96, 96, 96]
-  in_channels: 1
-  out_channels: 3
-  feature_size: 48
-  use_checkpoint: true
-```
-
-**Use Cases**:
-- Large-scale 3D medical imaging
-- Global context modeling
-- Anisotropic data
-- When transformers outperform CNNs
 
 ### Loss Configuration Examples
 
@@ -493,7 +509,7 @@ transforms:
 | **Speed** | Faster | Slower |
 | **Memory** | Lower | Higher |
 | **Configuration** | Simple | Detailed |
-| **Deep Supervision** | ❌ | ✅ |
+| **Deep Supervision** | Internal (not exposed) | ✅ Exposed |
 | **nnU-Net Alignment** | ❌ | ✅ |
 | **Recommended For** | Quick experiments | State-of-the-art results |
 | **Typical Use** | Prototyping, baselines | Final models, competitions |
@@ -514,12 +530,7 @@ transforms:
 - Have sufficient compute resources
 - Dataset size >100 samples
 
-**Use SwinUNETR when:**
-- Working with large 3D volumes
-- Global context is critical
-- Have very large GPU (>24GB VRAM)
-- Dataset has >500 samples
-- Transformers perform better than CNNs
+**Note**: Only DynUNet and UNet are currently registered. Other MONAI models can be added using `model_registry.register()`.
 
 ## Adding Custom Components
 
@@ -643,19 +654,31 @@ model:
 **After (any registered model):**
 ```yaml
 model:
-  type: UNet  # or DynUNet, SwinUNETR, etc.
+  type: UNet  # or DynUNet
   # ... model-specific parameters
 ```
 
 ### Using Multiple Models
 
-You can now maintain separate configs for different architectures:
+With nested configs, you can switch models by changing a single field:
 
+```yaml
+# Try DynUNet (default, state-of-the-art)
+model:
+  type: DynUNet
+  # ... rest of config
+
+# Try UNet (faster alternative)
+model:
+  type: UNet
+  # ... rest of config
+```
+
+Alternatively, maintain separate config files:
 ```
 configs/
 ├── dataset001_hippo_dynunet.yaml   # State-of-the-art
-├── dataset001_hippo_unet.yaml      # Baseline
-└── dataset001_hippo_swinunetr.yaml # Transformer
+└── dataset001_hippo_unet.yaml      # Baseline / faster training
 ```
 
 ## Testing

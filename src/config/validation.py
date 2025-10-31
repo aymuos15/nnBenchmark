@@ -38,6 +38,130 @@ def validate_required_field(
         )
 
 
+def validate_model_config(config: dict[str, Any]) -> None:
+    """
+    Validate model configuration structure.
+
+    Supports both flat and nested config formats:
+    - Flat: All params at model level (backward compatibility)
+    - Nested: Shared params + model-specific nested sections
+
+    Ensures that:
+    1. model.type exists and is valid ("DynUNet" or "UNet")
+    2. Required shared parameters exist
+    3. For nested configs, appropriate model-specific section exists
+    4. Model-specific required parameters are present
+
+    Args:
+        config: Configuration dictionary with 'model' section
+
+    Raises:
+        ValueError: If validation fails
+    """
+    if "model" not in config:
+        raise ValueError("Missing 'model' section in configuration")
+
+    model_cfg = config["model"]
+
+    # Validate model type
+    if "type" not in model_cfg:
+        raise ValueError(
+            "Missing 'type' field in model config. "
+            "Please specify model type (e.g., type: DynUNet or type: UNet)"
+        )
+
+    model_type = model_cfg["type"]
+    valid_types = ["DynUNet", "UNet"]
+    if model_type not in valid_types:
+        raise ValueError(
+            f"Invalid model type '{model_type}'. "
+            f"Must be one of: {valid_types}"
+        )
+
+    # Determine if config is nested
+    nested_keys = {"DynUNet", "UNet"}
+    is_nested = any(key in model_cfg for key in nested_keys)
+
+    if is_nested:
+        # Nested config: validate shared params + model-specific section exists
+        if model_type not in model_cfg:
+            raise ValueError(
+                f"Nested config detected but '{model_type}' section not found. "
+                f"Please provide '{model_type}' section with model-specific parameters."
+            )
+
+        # Validate shared parameters exist
+        shared_required = ["spatial_dims", "in_channels", "out_channels"]
+        for param in shared_required:
+            if param not in model_cfg:
+                raise ValueError(
+                    f"Missing required shared parameter '{param}' in model config"
+                )
+
+        # Get model-specific params
+        model_specific = model_cfg[model_type]
+
+        # Validate model-specific required parameters
+        if model_type == "DynUNet":
+            _validate_dynunet_params(model_specific, is_nested=True)
+        elif model_type == "UNet":
+            _validate_unet_params(model_specific, is_nested=True)
+    else:
+        # Flat config: validate all required params at top level
+        required = ["spatial_dims", "in_channels", "out_channels"]
+        for param in required:
+            if param not in model_cfg:
+                raise ValueError(
+                    f"Missing required parameter '{param}' in model config"
+                )
+
+        # Validate model-specific params at top level
+        if model_type == "DynUNet":
+            _validate_dynunet_params(model_cfg, is_nested=False)
+        elif model_type == "UNet":
+            _validate_unet_params(model_cfg, is_nested=False)
+
+
+def _validate_dynunet_params(params: dict[str, Any], is_nested: bool) -> None:
+    """Validate DynUNet-specific parameters.
+
+    Args:
+        params: Parameter dictionary to validate
+        is_nested: Whether this is a nested model-specific section
+
+    Raises:
+        ValueError: If required parameters are missing
+    """
+    required = ["filters", "kernel_size", "strides", "upsample_kernel_size"]
+    section = "DynUNet section" if is_nested else "model config"
+
+    for param in required:
+        if param not in params:
+            raise ValueError(
+                f"Missing required DynUNet parameter '{param}' in {section}"
+            )
+
+
+def _validate_unet_params(params: dict[str, Any], is_nested: bool) -> None:
+    """Validate UNet-specific parameters.
+
+    Args:
+        params: Parameter dictionary to validate
+        is_nested: Whether this is a nested model-specific section
+
+    Raises:
+        ValueError: If required parameters are missing
+    """
+    required = ["channels", "strides"]
+    section = "UNet section" if is_nested else "model config"
+
+    for param in required:
+        if param not in params:
+            raise ValueError(
+                f"Missing required UNet parameter '{param}' in {section}"
+            )
+
+
 def validate_deep_supervision_config(config: dict[str, Any]) -> None:
     """
     Validate deep supervision configuration in model section.

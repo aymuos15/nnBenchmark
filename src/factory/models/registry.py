@@ -50,9 +50,9 @@ class ModelRegistry:
     def _register_default_models(self) -> None:
         """Register default MONAI segmentation models."""
         # DynUNet exactly replicates nnU-Net PlainConvUNet architecture
-        # Other models are not currently supported as the planning pipeline
-        # is tightly coupled to DynUNet parameter generation
         self.register("DynUNet", getattr(monai_nets, "DynUNet"))
+        # UNet provides a faster alternative with simpler architecture
+        self.register("UNet", getattr(monai_nets, "UNet"))
 
     def register(self, name: str, model_class: type[nn.Module]) -> None:
         """Register a model class with the given name.
@@ -103,10 +103,14 @@ class ModelRegistry:
 
         This method:
         1. Looks up the model class by type name
-        2. Extracts native MONAI parameters from config
+        2. Extracts and merges parameters (shared + model-specific if nested)
         3. Instantiates the model
         4. Applies Kaiming Normal weight initialization
         5. Moves model to specified device
+
+        Supports both flat and nested config formats:
+        - Flat: All params at top level (backward compatibility)
+        - Nested: Shared params at top level, model-specific in nested sections
 
         Args:
             config: Model configuration dictionary with 'type' field and
@@ -120,15 +124,17 @@ class ModelRegistry:
             KeyError: If model type is not registered
             TypeError: If config parameters don't match model signature
 
-        Example:
+        Example (nested config):
             >>> config = {
             ...     "type": "UNet",
             ...     "spatial_dims": 3,
             ...     "in_channels": 1,
             ...     "out_channels": 3,
-            ...     "channels": [16, 32, 64],
-            ...     "strides": [2, 2],
-            ...     "num_res_units": 0
+            ...     "UNet": {
+            ...         "channels": [16, 32, 64],
+            ...         "strides": [2, 2],
+            ...         "num_res_units": 0
+            ...     }
             ... }
             >>> model = registry.build(config, torch.device("cuda"))
         """
@@ -143,14 +149,37 @@ class ModelRegistry:
 
         model_class = self._registry[model_type]
 
-        # Extract parameters (everything except 'type' and non-model fields)
-        # Non-model fields are used by other parts of the system (e.g., ds_weights)
-        exclude_keys = {"type", "ds_weights"}
-        model_params = {k: v for k, v in config.items() if k not in exclude_keys}
+        # Determine if config is nested (has model-specific sections)
+        nested_keys = {"DynUNet", "UNet"}
+        is_nested = any(key in config for key in nested_keys)
 
-        # Special handling for DynUNet parameters that need tuple conversion
+        # Non-model fields that should never be passed to model constructors
+        non_model_fields = {"type", "ds_weights", "deep_supr_num"}
+
+        # Add deep_supervision to non-model fields for UNet (doesn't support it)
+        if model_type == "UNet":
+            non_model_fields.add("deep_supervision")
+
+        if is_nested:
+            # Extract shared parameters (exclude 'type', nested sections, and non-model fields)
+            exclude_keys = non_model_fields | nested_keys
+            shared_params = {k: v for k, v in config.items() if k not in exclude_keys}
+
+            # Get model-specific parameters from nested section
+            model_specific = config.get(model_type, {})
+
+            # Merge: shared + model-specific (model-specific takes precedence)
+            model_params = {**shared_params, **model_specific}
+        else:
+            # Flat config (backward compatibility)
+            # Extract parameters (everything except 'type' and non-model fields)
+            model_params = {k: v for k, v in config.items() if k not in non_model_fields}
+
+        # Model-specific parameter preparation
         if model_type == "DynUNet":
             model_params = self._prepare_dynunet_params(model_params)
+        elif model_type == "UNet":
+            model_params = self._prepare_unet_params(model_params)
 
         # Instantiate and move to device
         model = model_class(**model_params).to(device)
@@ -186,6 +215,24 @@ class ModelRegistry:
             processed["trans_bias"] = True  # nnU-Net has bias in transpose convs
 
         return processed
+
+    def _prepare_unet_params(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Prepare UNet-specific parameters.
+
+        UNet has simpler parameter requirements than DynUNet:
+        - No tuple conversions needed (norm/act names are strings)
+        - No special kernel size or stride processing required
+        - Parameters are used directly as provided in config
+
+        Args:
+            params: Raw parameter dictionary from config
+
+        Returns:
+            Processed parameters ready for UNet instantiation
+        """
+        # UNet parameters are straightforward - just return a copy
+        # No special processing needed unlike DynUNet
+        return params.copy()
 
 
 # Create a global registry instance

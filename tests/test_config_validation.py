@@ -11,6 +11,7 @@ import pytest
 
 from src.config.validation import (
     validate_metrics_config,
+    validate_model_config,
     validate_required_field,
     validate_sliding_window_config,
 )
@@ -267,3 +268,186 @@ class TestValidateSlidingWindowConfig:
             with pytest.raises(ValueError) as excinfo:
                 validate_sliding_window_config(config)
             assert "padding_mode" in str(excinfo.value).lower()
+
+
+class TestValidateModelConfig:
+    """Tests for validate_model_config function."""
+
+    def test_flat_dynunet_config_valid(self, sample_config: dict[str, Any]) -> None:
+        """Test validation passes for flat DynUNet config."""
+        # sample_config already has flat DynUNet config
+        validate_model_config(sample_config)
+
+    def test_nested_dynunet_config_valid(self) -> None:
+        """Test validation passes for nested DynUNet config."""
+        config = {
+            "model": {
+                "type": "DynUNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 3,
+                "DynUNet": {
+                    "filters": [16, 32],
+                    "kernel_size": [[3, 3, 3]],
+                    "strides": [[1, 1, 1]],
+                    "upsample_kernel_size": [[2, 2, 2]],
+                }
+            }
+        }
+        validate_model_config(config)
+
+    def test_nested_unet_config_valid(self) -> None:
+        """Test validation passes for nested UNet config."""
+        config = {
+            "model": {
+                "type": "UNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 3,
+                "UNet": {
+                    "channels": [16, 32, 64],
+                    "strides": [2, 2],
+                    "num_res_units": 2,
+                }
+            }
+        }
+        validate_model_config(config)
+
+    def test_flat_unet_config_valid(self) -> None:
+        """Test validation passes for flat UNet config."""
+        config = {
+            "model": {
+                "type": "UNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 3,
+                "channels": [16, 32, 64],
+                "strides": [2, 2],
+                "num_res_units": 2,
+            }
+        }
+        validate_model_config(config)
+
+    def test_missing_model_section(self) -> None:
+        """Test validation raises error when model section is missing."""
+        config: dict[str, Any] = {}
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "Missing 'model' section" in str(excinfo.value)
+
+    def test_missing_type_field(self) -> None:
+        """Test validation raises error when type field is missing."""
+        config = {"model": {"spatial_dims": 3}}
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "Missing 'type' field" in str(excinfo.value)
+
+    def test_invalid_model_type(self) -> None:
+        """Test validation raises error for invalid model type."""
+        config = {"model": {"type": "InvalidModel"}}
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "Invalid model type" in str(excinfo.value)
+        assert "InvalidModel" in str(excinfo.value)
+
+    def test_nested_config_missing_shared_params(self) -> None:
+        """Test validation raises error when shared params are missing in nested config."""
+        config = {
+            "model": {
+                "type": "DynUNet",
+                # Missing spatial_dims, in_channels, out_channels
+                "DynUNet": {
+                    "filters": [16, 32],
+                    "kernel_size": [[3, 3, 3]],
+                    "strides": [[1, 1, 1]],
+                    "upsample_kernel_size": [[2, 2, 2]],
+                }
+            }
+        }
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "spatial_dims" in str(excinfo.value)
+
+    def test_nested_config_missing_model_section(self) -> None:
+        """Test validation raises error when model-specific section is missing."""
+        config = {
+            "model": {
+                "type": "UNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 3,
+                "DynUNet": {  # Has DynUNet but type is UNet
+                    "filters": [16, 32],
+                }
+            }
+        }
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "UNet" in str(excinfo.value)
+        assert "section not found" in str(excinfo.value)
+
+    def test_dynunet_missing_required_params_flat(self) -> None:
+        """Test validation raises error when DynUNet params are missing (flat config)."""
+        config = {
+            "model": {
+                "type": "DynUNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 3,
+                # Missing filters, kernel_size, strides, upsample_kernel_size
+            }
+        }
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "filters" in str(excinfo.value)
+
+    def test_dynunet_missing_required_params_nested(self) -> None:
+        """Test validation raises error when DynUNet params are missing (nested config)."""
+        config = {
+            "model": {
+                "type": "DynUNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 3,
+                "DynUNet": {
+                    "filters": [16, 32],
+                    # Missing kernel_size, strides, upsample_kernel_size
+                }
+            }
+        }
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "kernel_size" in str(excinfo.value)
+
+    def test_unet_missing_required_params_flat(self) -> None:
+        """Test validation raises error when UNet params are missing (flat config)."""
+        config = {
+            "model": {
+                "type": "UNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 3,
+                # Missing channels, strides
+            }
+        }
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "channels" in str(excinfo.value)
+
+    def test_unet_missing_required_params_nested(self) -> None:
+        """Test validation raises error when UNet params are missing (nested config)."""
+        config = {
+            "model": {
+                "type": "UNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 3,
+                "UNet": {
+                    "channels": [16, 32],
+                    # Missing strides
+                }
+            }
+        }
+        with pytest.raises(ValueError) as excinfo:
+            validate_model_config(config)
+        assert "strides" in str(excinfo.value)
