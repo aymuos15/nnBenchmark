@@ -268,7 +268,7 @@ class TestCreateInferer:
 
     def test_create_full_volume_inferer_default(self) -> None:
         """Test creating full-volume inferer with default config."""
-        config = {"testing": {}}
+        config = {"inference": {}}
 
         inferer = create_inferer(config)
 
@@ -276,7 +276,7 @@ class TestCreateInferer:
 
     def test_create_full_volume_inferer_disabled(self) -> None:
         """Test creating full-volume inferer when sliding window is disabled."""
-        config = {"testing": {"sliding_window": {"enabled": False}}}
+        config = {"inference": {"sliding_window": {"enabled": False}}}
 
         inferer = create_inferer(config)
 
@@ -286,7 +286,7 @@ class TestCreateInferer:
         """Test creating sliding window inferer when enabled."""
         config = {
             "dataset": {"spatial_size": [32, 48, 32]},
-            "testing": {"sliding_window": {"enabled": True}},
+            "inference": {"sliding_window": {"enabled": True}},
         }
 
         inferer = create_inferer(config)
@@ -297,7 +297,7 @@ class TestCreateInferer:
     def test_create_sliding_window_inferer_with_explicit_roi_size(self) -> None:
         """Test creating sliding window inferer with explicit roi_size."""
         config = {
-            "testing": {
+            "inference": {
                 "sliding_window": {
                     "enabled": True,
                     "roi_size": [64, 64, 64],
@@ -314,7 +314,7 @@ class TestCreateInferer:
         """Test creating sliding window inferer with custom parameters."""
         config = {
             "dataset": {"spatial_size": [32, 48, 32]},
-            "testing": {
+            "inference": {
                 "sliding_window": {
                     "enabled": True,
                     "sw_batch_size": 2,
@@ -336,7 +336,7 @@ class TestCreateInferer:
     def test_create_sliding_window_inferer_missing_roi_size(self) -> None:
         """Test error when roi_size is not provided and cannot be inferred."""
         config = {
-            "testing": {
+            "inference": {
                 "sliding_window": {
                     "enabled": True,
                     "roi_size": None,
@@ -350,7 +350,7 @@ class TestCreateInferer:
     def test_create_sliding_window_inferer_invalid_roi_size_type(self) -> None:
         """Test error when roi_size has invalid type."""
         config = {
-            "testing": {
+            "inference": {
                 "sliding_window": {
                     "enabled": True,
                     "roi_size": "invalid",

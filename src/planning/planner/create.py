@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import numpy as np
 from loguru import logger
 
+from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.fingerprinting.fingerprint import DatasetFingerprint
 from src.planning.planner.heuristics import (
     calculate_deep_supervision_weights,
@@ -70,6 +71,9 @@ class ExperimentPlan:
     target_spacing: tuple[float, ...]
 
 
+# DOC: EXPERIMENT_PLAN_CREATION | Category: Constant+Adaptive | Documentation: docs/planning.md
+# Description: 8-step process calculating all architecture parameters from fingerprint
+# Function: create_experiment_plan | Documentation: docs/planning.md Step 2
 def create_experiment_plan(
     fingerprint: DatasetFingerprint, gpu_memory_gb: float = 8.0
 ) -> ExperimentPlan:
@@ -108,8 +112,10 @@ def create_experiment_plan(
     )
     logger.info(f"Initial patch size: {initial_patch}")
 
-    # Step 3: Get network topology via get_pool_and_conv_props (nnU-Net exact)
-    unet_featuremap_min_edge_length = 4  # nnU-Net constant
+    # Step 3: Get model topology via get_pool_and_conv_props (nnU-Net exact)
+    unet_featuremap_min_edge_length = (
+        PLANNING_CONSTANTS.MIN_FEATURE_MAP_SIZE
+    )  # nnU-Net constant
     (
         num_pool_per_axis,
         pool_op_kernel_sizes,
@@ -128,7 +134,7 @@ def create_experiment_plan(
     num_stages = len(
         strides
     )  # Number of encoder stages (including first no-downsample stage)
-    logger.info(f"Network topology: {num_stages} stages")
+    logger.info(f"Model topology: {num_stages} stages")
     logger.info(f"Strides (includes [1,1,1] at first level): {strides}")
     logger.info(f"Conv kernel sizes: {conv_kernel_sizes}")
     logger.info(f"Adjusted patch size: {patch_size}")
@@ -163,7 +169,7 @@ def create_experiment_plan(
     logger.debug(f"Approximate dataset voxels: {approximate_n_voxels_dataset:.0f}")
 
     # Step 7: Calculate batch size (nnU-Net exact formula)
-    num_input_channels = 1  # Assume single modality for now
+    num_input_channels = 1  # Assume single channel for now
     batch_size = calculate_batch_size(
         patch_size=patch_size,
         num_pool_per_axis=num_pool_per_axis,

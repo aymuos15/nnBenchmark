@@ -218,7 +218,7 @@ def validate_sliding_window_config(config: dict[str, Any]) -> None:
     """
     Validate sliding window inference configuration.
 
-    Ensures that if sliding_window is enabled in testing config:
+    Ensures that if sliding_window is enabled in inference config:
     1. All required parameters are present
     2. overlap is a float between 0.0 and 0.99
     3. sw_batch_size is a positive integer
@@ -226,13 +226,13 @@ def validate_sliding_window_config(config: dict[str, Any]) -> None:
     5. padding_mode is one of: constant, edge, reflect, wrap
 
     Args:
-        config: Configuration dictionary with optional 'testing.sliding_window' section
+        config: Configuration dictionary with optional 'inference.sliding_window' section
 
     Raises:
         ValueError: If sliding_window is enabled but invalid
     """
-    testing_cfg = config.get("testing", {})
-    sliding_window_cfg = testing_cfg.get("sliding_window", {})
+    inference_cfg = config.get("inference", {})
+    sliding_window_cfg = inference_cfg.get("sliding_window", {})
 
     # If sliding_window section doesn't exist or is empty, validation passes
     if not sliding_window_cfg:

@@ -16,7 +16,7 @@ def _initialize_weights(module: nn.Module) -> None:
     """
     Initialize weights using Kaiming (He) Normal distribution.
 
-    Matches nnU-Net v2.4.1 initialization strategy for deep networks.
+    Matches nnU-Net v2.4.1 initialization strategy for deep models.
     Applied to Conv/ConvTranspose layers with a=0.01 (LeakyReLU slope).
 
     Args:

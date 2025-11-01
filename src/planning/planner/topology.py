@@ -1,11 +1,9 @@
 """
-Network topology determination following nnU-Net heuristics.
+Model topology determination following nnU-Net heuristics.
 Calculates pooling operations and convolution kernel sizes.
 """
 
 from __future__ import annotations
-
-from copy import deepcopy
 
 import numpy as np
 
@@ -54,36 +52,9 @@ def pad_shape(
     return new_shp
 
 
-def _determine_network_topology(
-    patch_size: tuple[int, ...], target_spacing: tuple[float, ...], is_2d: bool
-) -> tuple[list[tuple[int, ...]], int]:
-    """
-    Determine network topology (strides/pooling and number of stages).
-
-    This is a wrapper around get_pool_and_conv_props for backward compatibility.
-
-    Args:
-        patch_size: Input patch size
-        target_spacing: Voxel spacing per axis
-        is_2d: Whether this is 2D data
-
-    Returns:
-        tuple of:
-        - strides: List of pooling kernel sizes per stage (as tuples)
-        - num_stages: Number of decoder stages
-    """
-    unet_featuremap_min_edge_length = 4  # nnU-Net constant
-    _, pool_op_kernel_sizes, _, _, _ = get_pool_and_conv_props(
-        spacing=target_spacing,
-        patch_size=patch_size,
-        min_feature_map_size=unet_featuremap_min_edge_length,
-        max_numpool=999999,
-    )
-    # pool_op_kernel_sizes is already a list of tuples
-    num_stages = len(pool_op_kernel_sizes)
-    return list(pool_op_kernel_sizes), num_stages
-
-
+# DOC: MODEL_TOPOLOGY_DETERMINATION | Category: Constant+Adaptive | Documentation: docs/planning.md
+# Description: Iteratively determines strides, pooling, kernels based on spacing ratios
+# Function: get_pool_and_conv_props | Constants: min_feature_map=4, spacing_ratio<2, pool_kernel=2or1, conv_kernel=3 | Documentation: docs/planning.md Step 2
 def get_pool_and_conv_props(
     spacing: tuple[float, ...],
     patch_size: tuple[int, ...],
@@ -91,9 +62,9 @@ def get_pool_and_conv_props(
     max_numpool: int,
 ) -> tuple[list[int], tuple, tuple, tuple[int, ...], np.ndarray]:
     """
-    Determine network pooling/convolution properties (exact nnU-Net implementation).
+    Determine model pooling/convolution properties (exact nnU-Net implementation).
 
-    This is the core nnU-Net algorithm for determining network topology.
+    This is the core nnU-Net algorithm for determining model topology.
 
     Args:
         spacing: Voxel spacing per axis
@@ -111,8 +82,8 @@ def get_pool_and_conv_props(
     """
     dim = len(spacing)
 
-    current_spacing = deepcopy(list(spacing))
-    current_size = deepcopy(list(patch_size))
+    current_spacing = list(spacing)
+    current_size = list(patch_size)
 
     pool_op_kernel_sizes = [[1] * len(spacing)]
     conv_kernel_sizes = []
@@ -144,9 +115,7 @@ def get_pool_and_conv_props(
         ]
 
         if len(valid_axes_for_pool) == 1:
-            if current_size[valid_axes_for_pool[0]] >= 3 * min_feature_map_size:
-                pass
-            else:
+            if current_size[valid_axes_for_pool[0]] < 3 * min_feature_map_size:
                 break
         if len(valid_axes_for_pool) < 1:
             break
@@ -173,7 +142,7 @@ def get_pool_and_conv_props(
             pool_kernel_sizes[nv] = 1
 
         pool_op_kernel_sizes.append(pool_kernel_sizes)
-        conv_kernel_sizes.append(deepcopy(kernel_size))
+        conv_kernel_sizes.append(list(kernel_size))
 
     must_be_divisible_by = get_shape_must_be_divisible_by(num_pool_per_axis)
     patch_size_padded = tuple(pad_shape(patch_size, must_be_divisible_by))

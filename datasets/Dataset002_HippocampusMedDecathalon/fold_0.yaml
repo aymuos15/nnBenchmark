@@ -69,7 +69,7 @@ model:
   # Shared Parameters (common to all models)
   # ========================================================================
   spatial_dims: 3  # 3D architecture
-  in_channels: 1  # Single modality (grayscale)
+  in_channels: 1  # Single channel (grayscale)
   out_channels: 3  # One channel per class
 
   # Deep Supervision (nnU-Net style)
@@ -172,7 +172,7 @@ training:
 optimizer:
   type: SGD  # Stochastic Gradient Descent
 
-  # L2 regularization (nnU-Net default: 3e-5)
+  # L2 regularization (nnU-Net default: 0.00003)
   weight_decay: 0.00003
 
   # Momentum coefficient (nnU-Net default: 0.99)
@@ -376,10 +376,10 @@ transforms:
       roi_size: [40, 56, 40]
 
 # ============================================================================
-# Testing Configuration
+# Inference Configuration
 # ============================================================================
-# Settings for inference/testing phase.
+# Settings for inference phase.
 
-testing:
-  # Batch size for inference (typically 1 for full-resolution testing)
+inference:
+  # Batch size for inference (typically 1 for full-resolution inference)
   batch_size: 1

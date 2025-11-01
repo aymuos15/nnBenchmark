@@ -62,7 +62,7 @@ def get_seed_from_config(cfg: dict[str, Any]) -> int:
     Checks for seed in the following priority:
     1. Top-level 'seed' key
     2. 'training.seed' key
-    3. 'testing.seed' key
+    3. 'inference.seed' key
     4. Default value of 12345
 
     Args:
@@ -74,6 +74,6 @@ def get_seed_from_config(cfg: dict[str, Any]) -> int:
     return (
         cfg.get("seed")
         or cfg.get("training", {}).get("seed")
-        or cfg.get("testing", {}).get("seed")
+        or cfg.get("inference", {}).get("seed")
         or 12345
     )

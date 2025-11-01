@@ -53,7 +53,7 @@ dev = [
 
 [project.scripts]
 "nnBench.train" = "src.train.cli:main"
-"nnBench.test" = "src.inference.cli:main"
+"nnBench.inference" = "src.inference.cli:main"
 "nnBench.plot" = "src.plotting.cli:main"
 "nnBench.plan" = "src.planning.cli:main"
 

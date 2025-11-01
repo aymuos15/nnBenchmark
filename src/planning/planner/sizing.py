@@ -7,7 +7,12 @@ from __future__ import annotations
 import numpy as np
 from loguru import logger
 
+from src.planning.constants import PLANNING_CONSTANTS
 
+
+# DOC: PATCH_SIZE_NORMALIZATION | Category: Constant+Adaptive | Documentation: docs/planning.md
+# Description: 3D uses 256³, 2D uses 2048², scaled by spacing and clipped to median shape
+# Function: calculate_initial_patch_size | Constants: norm_3d=256, norm_2d=2048 | Documentation: docs/planning.md Step 2
 def calculate_initial_patch_size(
     spacing: tuple[float, ...], median_shape: tuple[int, ...], is_2d: bool
 ) -> tuple[int, ...]:
@@ -23,11 +28,15 @@ def calculate_initial_patch_size(
 
     if len(spacing) == 3:
         initial_patch_size = [
-            round(i) for i in tmp * (256**3 / np.prod(tmp)) ** (1 / 3)
+            round(i)
+            for i in tmp
+            * (PLANNING_CONSTANTS.PATCH_NORM_3D**3 / np.prod(tmp)) ** (1 / 3)
         ]
     elif len(spacing) == 2:
         initial_patch_size = [
-            round(i) for i in tmp * (2048**2 / np.prod(tmp)) ** (1 / 2)
+            round(i)
+            for i in tmp
+            * (PLANNING_CONSTANTS.PATCH_NORM_2D**2 / np.prod(tmp)) ** (1 / 2)
         ]
     else:
         raise RuntimeError(f"Unsupported dimensionality: {len(spacing)}")
@@ -39,6 +48,9 @@ def calculate_initial_patch_size(
     return tuple(initial_patch_size)
 
 
+# DOC: BATCH_SIZE_CALCULATION | Category: Constant+Adaptive | Documentation: docs/planning.md
+# Description: VRAM-scaled with reference values, capped at 5% dataset coverage
+# Function: calculate_batch_size | Constants: ref_val_3d=560M, ref_val_2d=85M, ref_bs_3d=2, ref_bs_2d=12, ref_gpu=8GB, dataset_cap=5%, min_bs=2 | Documentation: docs/planning.md Step 2
 def calculate_batch_size(
     patch_size: tuple[int, ...],
     num_pool_per_axis: list[int],
@@ -68,30 +80,21 @@ def calculate_batch_size(
     3. batch_size = round((reference / estimate) * ref_bs)
     4. batch_size = max(min(batch_size, bs_5_percent), min_batch_size)
     """
-    # nnU-Net constants
-    unet_reference_val_3d = 560000000
-    unet_reference_val_2d = 85000000
-    unet_reference_val_corresp_gb = 8
-    unet_reference_val_corresp_bs_3d = 2
-    unet_reference_val_corresp_bs_2d = 12
-    max_dataset_covered = 0.05
-    unet_min_batch_size = 2
-
     # Get reference values based on dimensionality
     if is_2d:
-        unet_reference_val = unet_reference_val_2d
-        ref_bs = unet_reference_val_corresp_bs_2d
+        unet_reference_val = PLANNING_CONSTANTS.UNET_REFERENCE_VAL_2D
+        ref_bs = PLANNING_CONSTANTS.UNET_REFERENCE_CORRESP_BS_2D
     else:
-        unet_reference_val = unet_reference_val_3d
-        ref_bs = unet_reference_val_corresp_bs_3d
+        unet_reference_val = PLANNING_CONSTANTS.UNET_REFERENCE_VAL_3D
+        ref_bs = PLANNING_CONSTANTS.UNET_REFERENCE_CORRESP_BS_3D
 
     # Calculate reference scaled to target GPU memory
     reference = unet_reference_val * (
-        gpu_memory_target_gb / unet_reference_val_corresp_gb
+        gpu_memory_target_gb / PLANNING_CONSTANTS.UNET_REFERENCE_CORRESP_GB
     )
 
-    # Estimate VRAM complexity (simplified - nnU-Net instantiates network)
-    # This is a rough approximation of network complexity
+    # Estimate VRAM complexity (simplified - nnU-Net instantiates model)
+    # This is a rough approximation of model complexity
     patch_voxels = np.prod(patch_size)
     num_pool_total = sum(num_pool_per_axis)
     # Rough estimate based on patch size and pooling depth
@@ -103,13 +106,14 @@ def calculate_batch_size(
     # Cap to 5% of dataset coverage
     bs_corresponding_to_5_percent = round(
         approximate_n_voxels_dataset
-        * max_dataset_covered
+        * PLANNING_CONSTANTS.MAX_DATASET_COVERED
         / np.prod(patch_size, dtype=np.float64)
     )
 
     # Apply constraints
     batch_size = max(
-        min(batch_size, bs_corresponding_to_5_percent), unet_min_batch_size
+        min(batch_size, bs_corresponding_to_5_percent),
+        PLANNING_CONSTANTS.UNET_MIN_BATCH_SIZE,
     )
 
     logger.debug(

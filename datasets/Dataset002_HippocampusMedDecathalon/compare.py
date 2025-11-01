@@ -256,7 +256,7 @@ class ConfigComparator:
         )
 
     def compare_architecture(self) -> None:
-        """Compare network architecture."""
+        """Compare model architecture."""
 
         plans_3d = self.plans["configurations"]["3d_fullres"]
         arch = plans_3d["architecture"]
@@ -264,11 +264,11 @@ class ConfigComparator:
 
         model = self.config["model"]
 
-        # Network type
+        # Model type
         nnunet_net = arch["network_class_name"].split(".")[-1]
         nnbenchmark_net = model["type"]
         self.add_result(
-            "Network Type",
+            "Model Type",
             nnunet_net,
             nnbenchmark_net,
             note="PlainConvUNet (nnUNet) == DynUNet (MONAI)",
@@ -390,7 +390,7 @@ class ConfigComparator:
         self.add_result("Optimizer Type", "SGD", optimizer["type"])
 
         # Weight decay
-        nnunet_wd = 3e-5
+        nnunet_wd = 0.00003
         nnbenchmark_wd = optimizer["weight_decay"]
         self.add_result("Weight Decay", nnunet_wd, nnbenchmark_wd)
 

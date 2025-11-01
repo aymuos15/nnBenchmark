@@ -97,11 +97,11 @@ def save_validation_visualizations(
     spatial_dims: int,
 ) -> None:
     """
-    Save visualization of first batch: image, ground truth, and prediction in one row.
+    Save visualization of first batch: image, reference label, and prediction in one row.
 
     Args:
         images: Input images tensor (B, C, H, W) for 2D or (B, C, D, H, W) for 3D
-        labels: Ground truth labels tensor
+        labels: Reference label tensor
         predictions: Model predictions tensor
         save_dir: Directory to save visualizations
         epoch: Current epoch number
@@ -126,15 +126,15 @@ def save_validation_visualizations(
         labels_np = labels_np[:, :, depth_idx, :, :]
         predictions_np = predictions_np[:, :, depth_idx, :, :]
 
-    # Create figure with subplots: 3 columns (image, GT, pred) x batch_size rows
+    # Create figure with subplots: 3 columns (image, Ref, pred) x batch_size rows
     fig, axes = plt.subplots(batch_size, 3, figsize=(15, 5 * batch_size))
 
-    # Handle single sample case
+    # Handle single case
     if batch_size == 1:
         axes = axes.reshape(1, -1)
 
     for idx in range(batch_size):
-        # Get single sample
+        # Get single case
         image = images_np[idx]  # (C, H, W)
         label = labels_np[idx]  # (1, H, W) or (C, H, W)
         pred = predictions_np[idx]  # (1, H, W) or (C, H, W)
@@ -162,9 +162,9 @@ def save_validation_visualizations(
         axes[idx, 0].set_title(f"Sample {idx + 1}: Input Image")
         axes[idx, 0].axis("off")
 
-        # Plot ground truth
+        # Plot reference label
         axes[idx, 1].imshow(label_display, cmap="jet", interpolation="nearest")
-        axes[idx, 1].set_title(f"Sample {idx + 1}: Ground Truth")
+        axes[idx, 1].set_title(f"Sample {idx + 1}: Reference Label")
         axes[idx, 1].axis("off")
 
         # Plot prediction

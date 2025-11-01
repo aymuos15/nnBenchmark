@@ -23,4 +23,4 @@
 - **src/**: Main package (config, lightning, train, inference, planning, plotting, utils, logging, preprocessing)
 - **tests/**: Unit tests mirror src/ structure
 - **datasets/**: nnUNet-style datasets (Dataset001_Name format)
-- **CLI**: nnBench.train, nnBench.test, nnBench.plot, nnBench.plan
+- **CLI**: nnBench.train, nnBench.inference, nnBench.plot, nnBench.plan

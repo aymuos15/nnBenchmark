@@ -1,14 +1,14 @@
 """
-CLI entry point for inference/testing functionality.
+CLI entry point for inference functionality.
 """
 
 import argparse
 
-from src.inference.run import run_testing
+from src.inference.run import run_inference
 
 
 def main() -> None:
-    """Entry point for nnBench.test CLI command."""
+    """Entry point for nnBench.inference CLI command."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config", type=str, required=True, help="Path to config YAML file"
@@ -28,7 +28,7 @@ def main() -> None:
     args = parser.parse_args()
     # Default is to use test set (use_test_set=True), unless --use-val-split is specified
     use_test_set = not args.use_val_split
-    run_testing(args.config, args.model, use_test_set, dataset=args.dataset)
+    run_inference(args.config, args.model, use_test_set, dataset=args.dataset)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """
 Unit tests for plotting functions.
-Tests plot generation for training, validation, and testing modules.
+Tests plot generation for training, validation, and inference modules.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ import os
 import pytest
 import torch
 
-from src.plotting.testing import plot_classwise_scores
+from src.plotting.inference import plot_classwise_scores
 from src.plotting.training import plot_training_loss
 from src.plotting.validation import (
     plot_validation_metric,
@@ -242,8 +242,8 @@ class TestSaveValidationVisualizations:
         assert os.path.exists(vis_file)
 
 
-class TestTestingPlots:
-    """Tests for src.plotting.testing module."""
+class TestInferencePlots:
+    """Tests for src.plotting.inference module."""
 
     def test_plot_classwise_scores_with_valid_data(self, temp_dir: str) -> None:
         """Test plot_classwise_scores creates violin plot with valid test history."""

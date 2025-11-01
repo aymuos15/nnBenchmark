@@ -13,22 +13,17 @@ from typing import Any
 import numpy as np
 from loguru import logger
 
-from src.utils.files import detect_file_type, load_json, load_nifti_with_metadata
-
-
-@dataclass
-class ImageProperties:
-    """Properties extracted from a single image."""
-
-    shape: tuple[int, ...]
-    spacing: tuple[float, ...]
-    foreground_intensities: (
-        np.ndarray
-    )  # Sampled foreground voxel intensities for pooling
-    intensity_mean: float  # Mean of foreground voxel intensities
-    intensity_std: float  # Standard deviation of foreground voxel intensities
-    intensity_percentile_00_5: float  # 0.5th percentile of foreground intensities
-    intensity_percentile_99_5: float  # 99.5th percentile of foreground intensities
+from src.planning.fingerprinting.loading import (
+    ImageProperties,
+    load_image_properties,
+    load_image_properties_safe,
+)
+from src.planning.fingerprinting.metadata import (
+    determine_normalization_scheme,
+    scan_unique_label_values,
+)
+from src.planning.fingerprinting.spacing import detect_anisotropy
+from src.utils.files import load_json
 
 
 @dataclass
@@ -39,7 +34,7 @@ class DatasetFingerprint:
     dataset_name: str
     num_training_cases: int
     num_classes: int
-    modality: str
+    channel: str
 
     # Dimensionality
     is_2d: bool  # True if dataset is 2D, False if 3D
@@ -64,234 +59,13 @@ class DatasetFingerprint:
     intensity_percentile_00_5: float
     intensity_percentile_99_5: float
 
-    # Normalization scheme determined from modality
+    # Normalization scheme determined from channel
     normalization_scheme: str  # 'CTNormalization', 'ZScoreNormalization', etc.
 
 
-def _load_image_properties(
-    image_path: str, label_path: str | None = None
-) -> ImageProperties:
-    """
-    Load image and extract properties.
-
-    Supports NIfTI (.nii.gz) and PNG/JPEG with automatic format detection.
-    Uses MONAI's LoadImaged for robust NIfTI image loading.
-
-    Args:
-        image_path: Path to image file
-        label_path: Path to corresponding label/segmentation file (optional)
-    """
-    file_type = detect_file_type(image_path)
-
-    if file_type == "nifti":
-        # Load NIfTI with MONAI for robust, consistent handling
-        data, spacing = load_nifti_with_metadata(image_path)
-
-    elif file_type in ["png", "jpeg"]:
-        # Load image with PIL, assume spacing [1.0, 1.0]
-        from PIL import Image
-
-        img = Image.open(image_path)
-        data = np.array(img)
-
-        # Handle grayscale vs RGB - ensure channel-first format
-        if len(data.shape) == 2:
-            # Grayscale image: (H, W) -> (1, H, W)
-            data = data[np.newaxis, :]
-            spacing = (1.0, 1.0)
-        elif len(data.shape) == 3:
-            # RGB image: (H, W, C) -> (C, H, W)
-            data = np.transpose(data, (2, 0, 1))
-            spacing = (1.0, 1.0)
-        else:
-            raise ValueError(f"Unexpected PNG/JPEG shape: {data.shape}")
-
-    else:
-        raise ValueError(f"Unsupported file type: {file_type} for {image_path}")
-
-    # Collect sampled foreground voxel intensities (nnUNet v2.4.1 style)
-    if label_path is not None and Path(label_path).exists():
-        # Load label/segmentation
-        label_file_type = detect_file_type(label_path)
-        if label_file_type == "nifti":
-            label_data, _ = load_nifti_with_metadata(label_path)
-        else:
-            from PIL import Image
-
-            label_data = np.array(Image.open(label_path))
-            # Ensure channel-first format for labels if 2D
-            if len(label_data.shape) == 2:
-                # (H, W) -> (1, H, W)
-                label_data = label_data[np.newaxis, :]
-            elif len(label_data.shape) == 3 and label_data.shape[2] <= 4:
-                # If last dimension is small (channels), transpose to channel-first
-                # (H, W, C) -> (C, H, W)
-                label_data = np.transpose(label_data, (2, 0, 1))
-
-        # Create foreground mask (all non-zero labels)
-        foreground_mask = label_data > 0
-
-        # Extract foreground voxels only
-        if np.any(foreground_mask):
-            data_foreground = data[foreground_mask]
-        else:
-            # If no foreground, fall back to all voxels
-            data_foreground = data.flatten()
-    else:
-        # No label available, use all voxels
-        data_foreground = data.flatten()
-
-    # Sample foreground intensities (nnUNet uses 10,000 samples per case)
-    num_samples = min(10000, len(data_foreground))
-    if len(data_foreground) > num_samples:
-        # Randomly sample to limit memory usage
-        rng = np.random.RandomState(12345)
-        sampled_indices = rng.choice(
-            len(data_foreground), size=num_samples, replace=False
-        )
-        sampled_intensities = data_foreground[sampled_indices]
-    else:
-        sampled_intensities = data_foreground
-
-    # Compute intensity statistics for this image
-    intensity_mean = float(np.mean(sampled_intensities))
-    intensity_std = float(np.std(sampled_intensities))
-    intensity_percentile_00_5 = float(np.percentile(sampled_intensities, 0.5))
-    intensity_percentile_99_5 = float(np.percentile(sampled_intensities, 99.5))
-
-    return ImageProperties(
-        shape=data.shape,
-        spacing=spacing,
-        foreground_intensities=sampled_intensities,
-        intensity_mean=intensity_mean,
-        intensity_std=intensity_std,
-        intensity_percentile_00_5=intensity_percentile_00_5,
-        intensity_percentile_99_5=intensity_percentile_99_5,
-    )
-
-
-def _load_image_properties_safe(args: tuple[str, str | None]) -> ImageProperties | None:
-    """
-    Wrapper for _load_image_properties that handles exceptions.
-
-    Used in parallel processing to gracefully handle individual image failures.
-    Returns None if loading fails, otherwise returns ImageProperties.
-
-    Args:
-        args: Tuple of (image_path, label_path)
-    """
-    image_path, label_path = args
-    try:
-        return _load_image_properties(image_path, label_path)
-    except Exception as e:
-        logger.warning(f"Failed to load {image_path}: {e}")
-        return None
-
-
-def _determine_normalization_scheme(modality: str) -> str:
-    """
-    Determine normalization scheme based on modality.
-
-    Following nnU-Net conventions:
-    - CT → CTNormalization (percentile clipping + dataset-wide z-score)
-    - Other modalities → ZScoreNormalization (per-case z-score)
-    """
-    modality_lower = modality.lower()
-
-    if "ct" in modality_lower:
-        return "CTNormalization"
-    else:
-        return "ZScoreNormalization"
-
-
-def _detect_anisotropy(
-    median_spacing: tuple[float, ...], median_shape: tuple[int, ...]
-) -> tuple[bool, int | None]:
-    """
-    Detect if dataset is anisotropic following nnU-Net heuristics.
-
-    Returns:
-        (is_anisotropic, anisotropy_axis)
-
-    nnU-Net considers dataset anisotropic if:
-    - Worst spacing axis > 3× better axes spacing AND
-    - Worst axis has < 25% voxels of better axes in median shape
-    """
-    if len(median_spacing) < 2:
-        return False, None
-
-    # Find worst (largest) spacing axis
-    worst_axis = int(np.argmax(median_spacing))
-    worst_spacing = median_spacing[worst_axis]
-
-    # Get better axes
-    other_axes = [i for i in range(len(median_spacing)) if i != worst_axis]
-    better_spacings = [median_spacing[i] for i in other_axes]
-    better_shapes = [median_shape[i] for i in other_axes]
-
-    # Check if worst axis is 3x worse than better axes
-    spacing_ratio = worst_spacing / np.median(better_spacings)
-
-    # Check if worst axis has < 25% voxels
-    voxel_ratio = median_shape[worst_axis] / np.median(better_shapes)
-
-    aniso_threshold = 3.0  # nnUNet v2 ANISO_THRESHOLD
-    is_anisotropic = bool(spacing_ratio > aniso_threshold and voxel_ratio < 0.25)
-
-    return is_anisotropic, worst_axis if is_anisotropic else None
-
-
-def _scan_unique_label_values(label_paths: list[str], num_samples: int = 50) -> int:
-    """
-    Scan label files to determine the actual number of unique classes.
-
-    Samples a subset of label files to find unique label values.
-    Returns the maximum label value + 1 (assuming 0-indexed classes).
-
-    Args:
-        label_paths: List of paths to label files
-        num_samples: Number of label files to sample (default: 50)
-
-    Returns:
-        Number of classes (max_label_value + 1)
-    """
-    if not label_paths:
-        return 0
-
-    # Sample up to num_samples files
-    import random
-    sample_paths = random.sample(label_paths, min(num_samples, len(label_paths)))
-
-    unique_values = set()
-    for label_path in sample_paths:
-        try:
-            file_type = detect_file_type(label_path)
-            if file_type == "nifti":
-                label_data, _ = load_nifti_with_metadata(label_path)
-            else:
-                from PIL import Image
-                label_data = np.array(Image.open(label_path))
-
-            # Get unique values from this label file
-            unique_values.update(np.unique(label_data).tolist())
-        except Exception as e:
-            logger.warning(f"Failed to read label file {label_path}: {e}")
-            continue
-
-    if not unique_values:
-        logger.warning("No unique label values found in sampled files")
-        return 0
-
-    # Number of classes = max label value + 1 (assuming 0-indexed)
-    max_label = int(max(unique_values))
-    num_classes = max_label + 1
-
-    logger.info(f"Scanned {len(sample_paths)} label files, found {len(unique_values)} unique label values: {sorted(unique_values)}")
-    logger.info(f"Determined num_classes = {num_classes} (max label value: {max_label})")
-
-    return num_classes
-
-
+# DOC: DATASET_FINGERPRINTING | Category: Adaptive | Documentation: docs/planning.md Step 1
+# Description: Parallel analysis of preprocessed images to extract statistical properties
+# Function: fingerprint_dataset | Documentation: docs/planning.md Step 1
 def fingerprint_dataset(
     dataset_dir: str, num_workers: int | None = None
 ) -> DatasetFingerprint:
@@ -340,9 +114,9 @@ def fingerprint_dataset(
     dataset_name = dataset_info.get("name", "Unknown")
     # num_classes will be determined by scanning actual label files
 
-    # Get modality (first modality if multiple)
-    modality_dict = dataset_info.get("modality", {"0": "Unknown"})
-    modality = list(modality_dict.values())[0]
+    # Get channel (first channel if multiple)
+    channel_dict = dataset_info.get("modality", {"0": "Unknown"})
+    channel = list(channel_dict.values())[0]
 
     # Find all training images
     # NOTE: Fingerprinting is done on preprocessed (cropped) images in nnUNet_preprocessed
@@ -403,11 +177,13 @@ def fingerprint_dataset(
     # Determine num_classes by scanning actual label files
     label_paths_for_scanning = [lp for _, lp in image_label_pairs if lp is not None]
     if label_paths_for_scanning:
-        num_classes = _scan_unique_label_values(label_paths_for_scanning)
+        num_classes = scan_unique_label_values(label_paths_for_scanning)
     else:
         # Fallback to dataset.json if no labels found
         num_classes = len(dataset_info.get("labels", {}))
-        logger.warning(f"No label files found, using num_classes from dataset.json: {num_classes}")
+        logger.warning(
+            f"No label files found, using num_classes from dataset.json: {num_classes}"
+        )
 
     # Extract properties from all images
     properties_list: list[ImageProperties] = []
@@ -420,7 +196,7 @@ def fingerprint_dataset(
             # Use imap to get results as they complete for progress tracking
             results = []
             for i, result in enumerate(
-                pool.imap(_load_image_properties_safe, image_label_pairs)
+                pool.imap(load_image_properties_safe, image_label_pairs)
             ):
                 if i % 50 == 0 and i > 0:
                     logger.info(f"Processed {i}/{len(image_label_pairs)} images...")
@@ -437,7 +213,7 @@ def fingerprint_dataset(
                 logger.info(f"Processing image {i + 1}/{len(image_label_pairs)}...")
 
             try:
-                props = _load_image_properties(img_path, label_path)
+                props = load_image_properties(img_path, label_path)
                 properties_list.append(props)
             except Exception as e:
                 logger.warning(f"Failed to load {img_path}: {e}")
@@ -471,7 +247,7 @@ def fingerprint_dataset(
     is_2d = len(spatial_shape) == 2
 
     # Detect anisotropy
-    is_anisotropic, anisotropy_axis = _detect_anisotropy(median_spacing, median_shape)
+    is_anisotropic, anisotropy_axis = detect_anisotropy(median_spacing, median_shape)
 
     # Aggregate intensity statistics (nnUNet v2.4.1 style: pool all foreground voxels)
     # Concatenate all sampled intensities from all cases
@@ -486,13 +262,13 @@ def fingerprint_dataset(
     intensity_percentile_99_5 = float(np.percentile(all_foreground_intensities, 99.5))
 
     # Determine normalization scheme
-    normalization_scheme = _determine_normalization_scheme(modality)
+    normalization_scheme = determine_normalization_scheme(channel)
 
     fingerprint = DatasetFingerprint(
         dataset_name=dataset_name,
         num_training_cases=len(properties_list),
         num_classes=num_classes,
-        modality=modality,
+        channel=channel,
         is_2d=is_2d,
         median_shape=median_shape,
         percentile_10_shape=percentile_10_shape,
@@ -510,7 +286,7 @@ def fingerprint_dataset(
     )
 
     logger.info("Dataset fingerprinting complete!")
-    logger.info(f"  Modality: {fingerprint.modality}")
+    logger.info(f"  Channel: {fingerprint.channel}")
     logger.info(f"  2D/3D: {'2D' if fingerprint.is_2d else '3D'}")
     logger.info(f"  Median shape: {fingerprint.median_shape}")
     logger.info(f"  Median spacing: {fingerprint.median_spacing}")

@@ -220,7 +220,7 @@ Critical distinction between competition and baseline performance:
 |-----------|-------------------|--------------------------------|
 | **nnU-Net** | Dataset path, dataset ID | Preprocessing, architecture selection, hyperparameters, augmentation, training, inference |
 | **Auto3DSeg** | Data path, **modality in YAML** | Dataset analysis, algorithm selection (ensemble), hyperparameters, training, inference |
-| **nnBenchmark** | Dataset path only | Dataset fingerprinting, modality detection, patch size, network topology, batch size, YAML generation |
+| **nnBenchmark** | Dataset path only | Dataset fingerprinting, imaging technique detection, patch size, model topology, batch size, YAML generation |
 
 #### 4.2 Manual Configuration Effort
 
@@ -240,9 +240,9 @@ nnUNetv2_plan_and_preprocess -d 001
 nnUNetv2_train 001 3d_fullres 0
 # No file creation needed
 ```
-✅ Zero manual config  
-✅ Single pipeline  
-✅ Fully automated modality detection
+✅ Zero manual config
+✅ Single pipeline
+✅ Fully automated imaging technique detection
 
 ---
 
@@ -253,13 +253,13 @@ nnBench.plan --dataset datasets/Dataset001_Hippo      # Auto-generates config an
 nnBench.train --config configs/dataset001_hippo.yaml
 
 # Optional post-processing:
-nnBench.test --config configs/dataset001_hippo.yaml
+nnBench.inference --config configs/dataset001_hippo.yaml
 nnBench.plot --config configs/dataset001_hippo.yaml
 ```
 ✅ Zero manual file creation
 ✅ Human-readable YAML generated automatically
 ✅ Optional: Can review and modify config before training
-✅ Fully automated modality detection
+✅ Fully automated imaging technique detection
 ✅ Split generation is automatic, then plan+train = 2 core commands
 
 ---
@@ -442,8 +442,8 @@ nnBench.plan --dataset Dataset001_Hippo
 # 3. Train model
 nnBench.train --config configs/dataset001_hippo.yaml
 
-# 4. Test model
-nnBench.test --config configs/dataset001_hippo.yaml --use-val-split
+# 4. Run inference
+nnBench.inference --config configs/dataset001_hippo.yaml --use-val-split
 
 # 5. Generate comprehensive plots
 nnBench.plot --config configs/dataset001_hippo.yaml
@@ -456,9 +456,9 @@ nnBench.plot --config configs/dataset001_hippo.yaml
 **What nnBenchmark does automatically:**
 - Generates cross-validation splits with reproducible seeding
 - Fingerprints dataset (spacing, shape, intensity statistics) with optional parallel processing
-- Detects modality (CT vs MRI) and anisotropy
+- Detects imaging technique (CT vs MRI) and anisotropy
 - Calculates optimal patch size and target spacing
-- Determines network topology (stages, channels, strides)
+- Determines model topology (stages, channels, strides)
 - Configures deep supervision with auto-calculated weights
 - Optimizes batch size based on GPU memory
 - Generates complete YAML config with all hyperparameters

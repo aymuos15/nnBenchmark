@@ -7,18 +7,16 @@ from unittest.mock import Mock
 
 import yaml
 
-from src.planning.fingerprinting.fingerprint import (
-    DatasetFingerprint,
-    _detect_anisotropy,
-    _determine_normalization_scheme,
-)
+from src.planning.fingerprinting.fingerprint import DatasetFingerprint
+from src.planning.fingerprinting.metadata import determine_normalization_scheme
+from src.planning.fingerprinting.spacing import detect_anisotropy
 from src.planning.planner.create import ExperimentPlan, create_experiment_plan
 from src.planning.planner.heuristics import (
     calculate_feature_channels,
     calculate_target_spacing,
 )
 from src.planning.planner.topology import (
-    _determine_network_topology,
+    get_pool_and_conv_props,
 )
 from src.planning.yaml_generator import generate_config_yaml
 
@@ -27,17 +25,17 @@ class TestNormalizationScheme:
     """Test normalization scheme detection."""
 
     def test_ct_normalization(self):
-        """CT modality should use CTNormalization."""
-        assert _determine_normalization_scheme("CT") == "CTNormalization"
-        assert _determine_normalization_scheme("ct") == "CTNormalization"
+        """CT channel should use CTNormalization."""
+        assert determine_normalization_scheme("CT") == "CTNormalization"
+        assert determine_normalization_scheme("ct") == "CTNormalization"
 
     def test_mri_normalization(self):
-        """MRI modality should use ZScoreNormalization."""
-        assert _determine_normalization_scheme("MRI") == "ZScoreNormalization"
+        """MRI channel should use ZScoreNormalization."""
+        assert determine_normalization_scheme("MRI") == "ZScoreNormalization"
 
     def test_unknown_normalization(self):
-        """Unknown modality should default to ZScoreNormalization."""
-        assert _determine_normalization_scheme("Unknown") == "ZScoreNormalization"
+        """Unknown channel should default to ZScoreNormalization."""
+        assert determine_normalization_scheme("Unknown") == "ZScoreNormalization"
 
 
 class TestAnisotropyDetection:
@@ -47,7 +45,7 @@ class TestAnisotropyDetection:
         """Isotropic spacing should not be detected as anisotropic."""
         spacing = (1.0, 1.0, 1.0)
         shape = (100, 100, 100)
-        is_aniso, axis = _detect_anisotropy(spacing, shape)
+        is_aniso, axis = detect_anisotropy(spacing, shape)
         assert not is_aniso
         assert axis is None
 
@@ -55,7 +53,7 @@ class TestAnisotropyDetection:
         """Anisotropic spacing should be detected (4x worse + <25% voxels)."""
         spacing = (5.0, 1.0, 1.0)  # First axis is 5x worse
         shape = (20, 100, 100)  # First axis has 20% voxels
-        is_aniso, axis = _detect_anisotropy(spacing, shape)
+        is_aniso, axis = detect_anisotropy(spacing, shape)
         assert is_aniso
         assert axis == 0
 
@@ -63,7 +61,7 @@ class TestAnisotropyDetection:
         """Anisotropic spacing but enough voxels should not trigger."""
         spacing = (5.0, 1.0, 1.0)  # First axis is 5x worse
         shape = (100, 100, 100)  # But has enough voxels
-        is_aniso, _ = _detect_anisotropy(spacing, shape)
+        is_aniso, _ = detect_anisotropy(spacing, shape)
         assert not is_aniso
 
 
@@ -145,16 +143,21 @@ class TestTargetSpacing:
         assert spacing == (2.0, 1.0, 1.0)
 
 
-class TestNetworkTopology:
-    """Test network topology determination."""
+class TestModelTopology:
+    """Test model topology determination."""
 
     def test_small_patch_2d(self):
         """Small 2D patch should have fewer stages."""
         patch_size = (64, 64)
         target_spacing = (1.0, 1.0)
-        strides, num_stages = _determine_network_topology(
-            patch_size, target_spacing, is_2d=True
+        _, pool_op_kernel_sizes, _, _, _ = get_pool_and_conv_props(
+            spacing=target_spacing,
+            patch_size=patch_size,
+            min_feature_map_size=4,
+            max_numpool=999999,
         )
+        strides = list(pool_op_kernel_sizes)
+        num_stages = len(strides)
 
         assert isinstance(strides, list)
         assert len(strides) == num_stages
@@ -166,9 +169,14 @@ class TestNetworkTopology:
         """Large 3D patch should have more stages."""
         patch_size = (128, 128, 128)
         target_spacing = (1.0, 1.0, 1.0)
-        strides, num_stages = _determine_network_topology(
-            patch_size, target_spacing, is_2d=False
+        _, pool_op_kernel_sizes, _, _, _ = get_pool_and_conv_props(
+            spacing=target_spacing,
+            patch_size=patch_size,
+            min_feature_map_size=4,
+            max_numpool=999999,
         )
+        strides = list(pool_op_kernel_sizes)
+        num_stages = len(strides)
 
         assert isinstance(strides, list)
         assert len(strides) == num_stages
@@ -181,9 +189,13 @@ class TestNetworkTopology:
         # High-res in xy, low-res in z (typical CT)
         patch_size = (64, 64, 32)
         target_spacing = (1.0, 1.0, 5.0)  # z-axis is 5x coarser
-        strides, _ = _determine_network_topology(
-            patch_size, target_spacing, is_2d=False
+        _, pool_op_kernel_sizes, _, _, _ = get_pool_and_conv_props(
+            spacing=target_spacing,
+            patch_size=patch_size,
+            min_feature_map_size=4,
+            max_numpool=999999,
         )
+        strides = list(pool_op_kernel_sizes)
 
         # The main test is that strides are tuples (anisotropic pooling support)
         assert all(isinstance(s, tuple) for s in strides)

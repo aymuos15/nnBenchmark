@@ -20,7 +20,9 @@ from typing import Any
 import nibabel as nib
 import numpy as np
 from loguru import logger
+from PIL import Image
 
+from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.splits import create_splits, save_splits
 from src.preprocessing.cropping import crop_to_nonzero
 from src.utils.files import extract_case_id, load_nifti_with_metadata
@@ -97,6 +99,9 @@ def extract_test_cases(dataset_path: str | Path) -> list[str]:
     return test_cases
 
 
+# DOC: METADATA_PRESERVATION | Category: Adaptive | Documentation: docs/planning.md
+# Description: Stores original shape, cropped shape, voxel spacing, affine transforms
+# Function: preprocess_and_crop_dataset | Documentation: docs/planning.md Step 0
 def preprocess_and_crop_dataset(
     dataset_path: str | Path,
     output_dir: str | Path | None = None,
@@ -250,8 +255,6 @@ def preprocess_and_crop_dataset(
                 nib.save(seg_nib, str(output_seg_path))  # type: ignore[attr-defined]
             else:
                 # For PNG/JPG: save as PNG maintaining original format
-                from PIL import Image
-
                 # Remove channel dimension for image saving
                 # Format expects (H, W) or (H, W, C), we have (C, H, W) or (C, H, W, D)
                 if cropped_img.ndim == 3 and cropped_img.shape[0] == 1:
@@ -305,7 +308,7 @@ def preprocess_and_crop_dataset(
 def prepare_dataset(
     dataset_path: str | Path,
     dataset_name: str | None = None,
-    modality: str = "Unknown",
+    channel: str = "Unknown",
     num_classes: int = 2,
     description: str = "",
     force: bool = False,
@@ -338,7 +341,7 @@ def prepare_dataset(
     Args:
         dataset_path: Path to dataset directory
         dataset_name: Name of the dataset (defaults to directory name)
-        modality: Image modality (e.g., 'MRI', 'CT')
+        channel: Channel type (e.g., 'MRI', 'CT')
         num_classes: Number of output classes (including background)
         description: Dataset description
         force: Overwrite existing files
@@ -368,12 +371,16 @@ def prepare_dataset(
     dataset_json: dict[str, Any] = {
         "name": dataset_name,
         "description": description,
-        "modality": {"0": modality},
+        "modality": {"0": channel},
         "labels": {str(i): f"class_{i}" for i in range(num_classes)},
     }
 
     # Save dataset.json
-    dataset_json_path = dataset_path / "dataset.json"
+    if preprocessed_dir is None:
+        dataset_json_path = dataset_path / "dataset.json"
+    else:
+        dataset_json_path = Path(preprocessed_dir) / "dataset.json"
+        Path(preprocessed_dir).mkdir(parents=True, exist_ok=True)
 
     if dataset_json_path.exists() and not force:
         logger.warning(f"dataset.json already exists: {dataset_json_path}")
@@ -403,9 +410,9 @@ def prepare_dataset(
     # Create 5-fold cross-validation splits
     splits = create_splits(
         case_identifiers=case_identifiers,
-        n_folds=5,
+        n_folds=PLANNING_CONSTANTS.N_FOLDS,
         stratified=False,
-        seed=12345,
+        seed=PLANNING_CONSTANTS.RANDOM_SEED,
     )
 
     # Save splits
@@ -438,7 +445,7 @@ if __name__ == "__main__":
     parser.add_argument("dataset_path", help="Path to dataset directory")
     parser.add_argument("--name", help="Dataset name (default: directory name)")
     parser.add_argument(
-        "--modality", default="Unknown", help="Image modality (e.g., MRI, CT)"
+        "--channel", default="Unknown", help="Channel type (e.g., MRI, CT)"
     )
     parser.add_argument(
         "--num-classes", type=int, default=2, help="Number of classes (default: 2)"
@@ -457,7 +464,7 @@ if __name__ == "__main__":
     prepare_dataset(
         dataset_path=args.dataset_path,
         dataset_name=args.name,
-        modality=args.modality,
+        channel=args.channel,
         num_classes=args.num_classes,
         description=args.description,
         force=args.force,
