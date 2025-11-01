@@ -19,17 +19,6 @@ class MetricRegistry:
     Unlike other registries that return single instances, this registry
     returns a dictionary of metrics since evaluation typically uses multiple
     metrics simultaneously.
-
-    Example:
-        >>> registry = MetricRegistry()
-        >>> config = {
-        ...     "metrics": [
-        ...         {"type": "DiceMetric", "include_background": False},
-        ...         {"type": "SurfaceDiceMetric", "include_background": False}
-        ...     ]
-        ... }
-        >>> metric_dict = registry.build(config)
-        >>> # Returns: {"DiceMetric": DiceMetric(...), "SurfaceDiceMetric": SurfaceDiceMetric(...)}
     """
 
     def __init__(self) -> None:
@@ -112,30 +101,10 @@ class MetricRegistry:
 
         Returns:
             Dictionary mapping metric type names to metric instances.
-            Example: {"DiceMetric": DiceMetric(...), "SurfaceDiceMetric": SurfaceDiceMetric(...)}
 
         Raises:
             KeyError: If a metric type is not registered
             TypeError: If config parameters don't match metric signature
-
-        Example:
-            >>> config = {
-            ...     "metrics": [
-            ...         {
-            ...             "type": "DiceMetric",
-            ...             "include_background": False,
-            ...             "reduction": "mean_batch",
-            ...             "num_classes": 3
-            ...         },
-            ...         {
-            ...             "type": "SurfaceDiceMetric",
-            ...             "include_background": False,
-            ...             "reduction": "mean_batch",
-            ...             "class_thresholds": [2.0, 2.0]
-            ...         }
-            ...     ]
-            ... }
-            >>> metric_dict = registry.build(config)
         """
         metric_dict: dict[str, Any] = {}
 

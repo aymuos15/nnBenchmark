@@ -130,9 +130,9 @@ def run_planning(
     try:
         # Step 0: Preprocessing (ALWAYS run, independent of dataset.json/splits.json)
         dataset_json_path = dataset_path / "dataset.json"
-        splits_json_path = dataset_path / "splits.json"
         dataset_name = dataset_path.name
         preprocessed_dir = get_preprocessed_root() / dataset_name
+        splits_json_path = preprocessed_dir / "splits.json"
         images_dir = preprocessed_dir / "imagesTr"
 
         # Check if preprocessing has already been done
@@ -170,6 +170,7 @@ def run_planning(
                 description="",
                 force=False,
                 preprocess=False,  # Skip preprocessing (already done above)
+                preprocessed_dir=str(preprocessed_dir),  # Save splits to preprocessed folder
             )
             print()
 
@@ -246,7 +247,9 @@ def run_planning(
             stratified=False,
             seed=12345,
         )
-        splits_output_path = str(dataset_path / "splits.json")
+        # Save splits to preprocessed directory instead of raw dataset directory
+        preprocessed_dir.mkdir(parents=True, exist_ok=True)
+        splits_output_path = str(preprocessed_dir / "splits.json")
         save_splits(splits, splits_output_path)
         print()
 

@@ -1379,7 +1379,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "scikit-learn" },
     { name = "torch" },
-    { name = "tqdm" },
 ]
 
 [package.optional-dependencies]
@@ -1418,7 +1417,6 @@ requires-dist = [
     { name = "torch", specifier = ">=2.0.0" },
     { name = "tox", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "tox-uv", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "tqdm", specifier = ">=4.65.0" },
     { name = "ty", marker = "extra == 'dev'", specifier = ">=0.0.1a1" },
     { name = "vulture", marker = "extra == 'dev'", specifier = ">=2.7.0" },
 ]

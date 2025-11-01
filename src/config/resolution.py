@@ -37,8 +37,7 @@ def resolve_config_path(config: str, dataset: str | None = None) -> Path:
     # If relative path, search in results directory with dataset name
     if dataset is None:
         raise ValueError(
-            f"Relative config path '{config}' requires --dataset argument.\n"
-            f"Usage: nnBench.train --config {config} --dataset <dataset_name>"
+            f"Relative config path '{config}' requires --dataset argument."
         )
 
     # Config should be in: nnUNet_results/<dataset>/<config_name>/<config>

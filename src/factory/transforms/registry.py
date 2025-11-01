@@ -15,21 +15,6 @@ class TransformRegistry:
     The registry handles building MONAI transform pipelines by combining
     common transforms with mode-specific transforms. The composition logic
     is simplified: common transforms followed by mode-specific transforms.
-
-    Example:
-        >>> registry = TransformRegistry()
-        >>> config = {
-        ...     "transforms": {
-        ...         "common": [
-        ...             {"type": "LoadImaged", "keys": ["image", "label"]},
-        ...             {"type": "ToTensord", "keys": ["image", "label"]}
-        ...         ],
-        ...         "train": [
-        ...             {"type": "RandFlipd", "keys": ["image", "label"], "prob": 0.5}
-        ...         ]
-        ...     }
-        ... }
-        >>> pipeline = registry.build(config, mode="train")
     """
 
     def __init__(self) -> None:
@@ -107,26 +92,6 @@ class TransformRegistry:
 
         Raises:
             KeyError: If required sections ('common' or mode) are missing
-
-        Example:
-            >>> config = {
-            ...     "transforms": {
-            ...         "common": [
-            ...             {"type": "LoadImaged", "keys": ["image", "label"]},
-            ...             {"type": "NormalizeIntensityd", "keys": ["image"]},
-            ...             {"type": "ToTensord", "keys": ["image", "label"]}
-            ...         ],
-            ...         "train": [
-            ...             {"type": "RandSpatialCropd", "keys": ["image", "label"], "roi_size": [64, 64, 64]},
-            ...             {"type": "RandFlipd", "keys": ["image", "label"], "prob": 0.5, "spatial_axis": 0}
-            ...         ],
-            ...         "val": [
-            ...             {"type": "CenterSpatialCropd", "keys": ["image", "label"], "roi_size": [64, 64, 64]}
-            ...         ]
-            ...     }
-            ... }
-            >>> train_pipeline = registry.build(config, mode="train")
-            >>> val_pipeline = registry.build(config, mode="val")
         """
         # Validate required sections exist
         if "common" not in config["transforms"]:

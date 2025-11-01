@@ -188,8 +188,7 @@ def validate_deep_supervision_config(config: dict[str, Any]) -> None:
     if "ds_weights" not in model_cfg:
         raise ValueError(
             "deep_supervision is enabled but 'ds_weights' is not specified. "
-            "Please provide ds_weights as a list of floats in model config. "
-            "Example: ds_weights: [1.0, 0.5, 0.25]"
+            "Please provide ds_weights as a list of floats in model config."
         )
 
     ds_weights = model_cfg["ds_weights"]

@@ -3,13 +3,6 @@
 This module provides a formal factory pattern for creating models, losses,
 optimizers, metrics, and transforms from configuration. Each component type
 has its own registry that manages available implementations and handles instantiation.
-
-Example:
-    >>> from src.factory import model_registry, loss_registry, metric_registry
-    >>> model = model_registry.build(model_config, device)
-    >>> loss = loss_registry.build(loss_config)
-    >>> metrics = metric_registry.build(config)
-    >>> transforms = transform_registry.build(config, mode="train")
 """
 
 from src.factory.losses.registry import loss_registry

@@ -56,7 +56,7 @@ def load_splits(data_dir: str, fold: int) -> tuple[list[str], list[str]]:
     Load train/val splits from splits.json.
 
     Args:
-        data_dir: Dataset directory containing splits.json
+        data_dir: Dataset directory (used to determine preprocessed directory)
         fold: Fold number to load (e.g., 0 for fold_0, or -1 for all data)
 
     Returns:
@@ -67,7 +67,13 @@ def load_splits(data_dir: str, fold: int) -> tuple[list[str], list[str]]:
         FileNotFoundError: If splits.json doesn't exist
         ValueError: If fold doesn't exist in splits.json
     """
-    splits_path = str(Path(data_dir) / "splits.json")
+    from src.config.paths import get_preprocessed_root
+
+    # Get splits.json from preprocessed directory
+    data_dir_path = Path(data_dir)
+    dataset_name = data_dir_path.name
+    preprocessed_root = get_preprocessed_root()
+    splits_path = str(preprocessed_root / dataset_name / "splits.json")
 
     if not Path(splits_path).exists():
         raise FileNotFoundError(

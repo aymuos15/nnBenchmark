@@ -32,8 +32,6 @@ def extract_case_identifiers(
     Extract case identifiers by scanning the imagesTr directory.
     Uses the full image filename as the case identifier for consistency.
 
-    Example: "./imagesTr/Hippo_001_0000.nii.gz" -> "Hippo_001_0000.nii.gz"
-
     Args:
         dataset_json: Dataset metadata dict (for compatibility, not used for extraction)
         dataset_path: Path to dataset directory

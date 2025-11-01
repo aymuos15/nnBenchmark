@@ -16,11 +16,6 @@ class LossRegistry:
 
     The registry maintains a mapping of loss names to their MONAI classes
     and provides methods for building loss functions with native parameters.
-
-    Example:
-        >>> registry = LossRegistry()
-        >>> registry.register("CustomLoss", CustomLossClass)
-        >>> loss_fn = registry.build(config)
     """
 
     def __init__(self) -> None:
@@ -103,15 +98,6 @@ class LossRegistry:
         Raises:
             KeyError: If loss type is not registered
             TypeError: If config parameters don't match loss signature
-
-        Example:
-            >>> config = {
-            ...     "type": "DiceCELoss",
-            ...     "to_onehot_y": True,
-            ...     "softmax": True,
-            ...     "batch": True
-            ... }
-            >>> loss_fn = registry.build(config)
         """
         loss_type = config["type"]
 

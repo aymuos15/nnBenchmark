@@ -310,6 +310,7 @@ def prepare_dataset(
     description: str = "",
     force: bool = False,
     preprocess: bool = True,
+    preprocessed_dir: str | Path | None = None,
 ) -> None:
     """
     Prepare a dataset by generating dataset.json and splits.json.
@@ -343,6 +344,7 @@ def prepare_dataset(
         force: Overwrite existing files
         preprocess: If True (default), crop images to nonzero regions and save cropped versions.
                    Set to False to skip preprocessing and use original images.
+        preprocessed_dir: Directory to save splits.json to (defaults to raw dataset directory)
 
     """
     dataset_path = Path(dataset_path)
@@ -384,7 +386,11 @@ def prepare_dataset(
     logger.info(f"✓ Created {dataset_json_path}")
 
     # Create splits.json
-    splits_json_path = dataset_path / "splits.json"
+    if preprocessed_dir is None:
+        splits_json_path = dataset_path / "splits.json"
+    else:
+        splits_json_path = Path(preprocessed_dir) / "splits.json"
+        Path(preprocessed_dir).mkdir(parents=True, exist_ok=True)
 
     if splits_json_path.exists() and not force:
         logger.warning(f"splits.json already exists: {splits_json_path}")

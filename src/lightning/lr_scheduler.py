@@ -21,16 +21,6 @@ class PolyLRScheduler(LRScheduler):
         exponent: Polynomial exponent (default: 0.9). Ignored if mode='linear'.
         mode: Decay mode - 'polynomial' or 'linear' (default: 'linear')
         decay_rate: Learning rate reduction per epoch in linear mode (default: 0.00001)
-
-    Example:
-        >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-        >>> # Linear decay (default): reduces by 0.00001 per epoch
-        >>> scheduler = PolyLRScheduler(optimizer, initial_lr=0.01, max_epochs=200)
-        >>> # Or polynomial decay
-        >>> scheduler = PolyLRScheduler(optimizer, initial_lr=0.01, max_epochs=200, mode='polynomial')
-        >>> for epoch in range(200):
-        >>>     train(...)
-        >>>     scheduler.step()
     """
 
     def __init__(

@@ -204,9 +204,8 @@ def mock_dataset_dir(
     with open(os.path.join(dataset_dir, "dataset.json"), "w") as f:
         json.dump(mock_dataset_json, f, indent=2)
 
-    # Write splits.json
-    with open(os.path.join(dataset_dir, "splits.json"), "w") as f:
-        json.dump(mock_splits_json, f, indent=2)
+    # Note: splits.json is now saved to the preprocessed directory, not the raw dataset directory
+    # This is created below in the preprocessed dataset structure section
 
     # Create empty placeholder files for images/labels
     for item in mock_dataset_json["training"]:

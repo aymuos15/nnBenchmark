@@ -8,11 +8,6 @@ Compares Dataset001_Cellpose configurations between:
 - nnBenchmark: fold_0.yaml
 
 Validates that nnBenchmark exactly replicates nnUNet v2.4.1 configuration.
-
-Usage:
-    python compare.py
-    python compare.py --verbose
-    python compare.py --json-output results.json
 """
 
 import argparse

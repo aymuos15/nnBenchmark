@@ -35,11 +35,6 @@ class ModelRegistry:
 
     The registry maintains a mapping of model names to their MONAI classes
     and provides methods for building models with proper initialization.
-
-    Example:
-        >>> registry = ModelRegistry()
-        >>> registry.register("CustomUNet", CustomUNetClass)
-        >>> model = registry.build(config, device)
     """
 
     def __init__(self) -> None:
@@ -123,20 +118,6 @@ class ModelRegistry:
         Raises:
             KeyError: If model type is not registered
             TypeError: If config parameters don't match model signature
-
-        Example (nested config):
-            >>> config = {
-            ...     "type": "UNet",
-            ...     "spatial_dims": 3,
-            ...     "in_channels": 1,
-            ...     "out_channels": 3,
-            ...     "UNet": {
-            ...         "channels": [16, 32, 64],
-            ...         "strides": [2, 2],
-            ...         "num_res_units": 0
-            ...     }
-            ... }
-            >>> model = registry.build(config, torch.device("cuda"))
         """
         model_type = config["type"]
 

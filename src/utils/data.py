@@ -202,8 +202,6 @@ def get_class_labels(data_dir: str, include_background: bool = False) -> dict[in
 
     Returns:
         Dictionary mapping class index to class name
-        Example: {1: "Anterior", 2: "Posterior"} when include_background=False
-                 {0: "background", 1: "Anterior", 2: "Posterior"} when include_background=True
     """
     dataset_json_path = str(Path(data_dir) / "dataset.json")
     dataset_info: dict[str, Any] = load_json(dataset_json_path, "dataset.json")

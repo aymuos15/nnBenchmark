@@ -137,11 +137,17 @@ class TestLoadSplits:
     def test_load_all_split_fold_minus_1(self, mock_dataset_dir: str) -> None:
         """Test loading fold=-1 (all data split) if available."""
         import json
+        import os
 
         # First, we need to add fold_-1 to the splits.json
         from pathlib import Path
 
-        splits_path = Path(mock_dataset_dir) / "splits.json"
+        # splits.json is now in the preprocessed directory
+        preprocessed_root = os.environ.get("nnUNet_preprocessed")
+        if preprocessed_root is None:
+            pytest.skip("nnUNet_preprocessed environment variable not set")
+
+        splits_path = Path(preprocessed_root) / "Dataset001_Hippo" / "splits.json"
         with open(splits_path, "r") as f:
             splits = json.load(f)
 

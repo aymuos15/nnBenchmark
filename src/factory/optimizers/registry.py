@@ -16,11 +16,6 @@ class OptimizerRegistry:
 
     The registry maintains a mapping of optimizer names to their PyTorch classes
     and provides methods for building optimizers with native parameters.
-
-    Example:
-        >>> registry = OptimizerRegistry()
-        >>> registry.register("CustomOptim", CustomOptimClass)
-        >>> optimizer = registry.build(config, model.parameters(), lr=0.01)
     """
 
     def __init__(self) -> None:
@@ -110,15 +105,6 @@ class OptimizerRegistry:
         Raises:
             KeyError: If optimizer type is not registered
             TypeError: If config parameters don't match optimizer signature
-
-        Example:
-            >>> config = {
-            ...     "type": "SGD",
-            ...     "weight_decay": 0.00003,
-            ...     "momentum": 0.99,
-            ...     "nesterov": True
-            ... }
-            >>> optimizer = registry.build(config, model.parameters(), lr=0.01)
         """
         optimizer_type = config["type"]
 
