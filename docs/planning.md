@@ -178,7 +178,7 @@ Writes complete training configuration by converting ExperimentPlan to YAML with
   - Source: `src/planning/fingerprinting/resources.py::calculate_optimal_workers()`, `::calculate_cache_strategy()`
 
 ### Step 4: Cross-Validation Splits
-Generates k-fold cross-validation splits with deterministic seeding for reproducibility.
+Generates k-fold cross-validation splits with deterministic seeding for reproducibility. **To use custom splits, simply create your own `splits.json` file.**
 
 **Parameters configured**:
 - **[Adaptive]** Case identifier extraction
