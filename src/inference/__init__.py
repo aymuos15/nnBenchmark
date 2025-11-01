@@ -1,5 +1,5 @@
 """
-Inference module for model evaluation and testing.
+Inference module for model evaluation.
 """
 
 from src.inference.evaluate import evaluate
@@ -10,11 +10,11 @@ from src.inference.restoration import (
     revert_padding,
     uncrop_predictions,
 )
-from src.inference.run import run_testing
+from src.inference.run import run_inference
 
 __all__ = [
     "evaluate",
-    "run_testing",
+    "run_inference",
     "pad_nd_image",
     "get_padding_for_divisibility",
     "uncrop_predictions",

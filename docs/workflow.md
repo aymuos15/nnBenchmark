@@ -19,12 +19,12 @@ nnBench.train --config <config> --dataset <name> --continue  # Resume from last 
 nnBench.train --config <config> --dataset <name> -c          # Resume (short flag)
 ```
 
-## nnBench.test
+## nnBench.inference
 
 ```bash
-nnBench.test --config <config> --dataset <name>              # Run inference on test set
-nnBench.test --config <config> --dataset <name> --model <path>  # Use specific model weights
-nnBench.test --config <config> --dataset <name> --use-val-split  # Use validation split instead of test set
+nnBench.inference --config <config> --dataset <name>              # Run inference on test set
+nnBench.inference --config <config> --dataset <name> --model <path>  # Use specific model weights
+nnBench.inference --config <config> --dataset <name> --use-val-split  # Use validation split instead of test set
 ```
 
 ## nnBench.plot
@@ -37,6 +37,6 @@ nnBench.plot --config <config> --dataset <name>    # Generate all plots from res
 ```bash
 nnBench.plan --dataset Dataset002_HippocampusMedDecathalon --verbose # Plan
 nnBench.train --config fold_0.yaml --dataset Dataset001_Cellpose # Train
-nnBench.test --config fold_0.yaml --dataset Dataset001_Cellpose # Test
+nnBench.inference --config fold_0.yaml --dataset Dataset001_Cellpose # Inference
 nnBench.plot --config fold_0.yaml --dataset Dataset001_Cellpose # Plot
 ```

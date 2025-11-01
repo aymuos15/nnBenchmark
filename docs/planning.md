@@ -11,7 +11,7 @@ A workflow that analyzes your dataset and automatically generates a complete tra
 1. **Reproducibility** - Deterministic configuration generation from dataset properties
 2. **Hardware optimization** - Automatic GPU memory, CPU cores, and caching strategy detection
 3. **Dataset-adaptive** - Architecture and preprocessing parameters derived from actual data statistics
-4. **No manual tuning** - Eliminates guesswork in choosing patch sizes, batch sizes, and network topology
+4. **No manual tuning** - Eliminates guesswork in choosing patch sizes, batch sizes, and model topology
 
 ## The 5-Step Workflow
 
@@ -91,7 +91,7 @@ Calculates all model architecture and training parameters from fingerprint using
   - Constant: 2D formula uses 2048² normalization constant
   - Adaptive: Scaled by target spacing and clipped to median shape
   - Source: `src/planning/planner/sizing.py::calculate_initial_patch_size()`
-- **[Constant + Adaptive]** Network topology determination
+- **[Constant + Adaptive]** Model topology determination
   - Constant: min_feature_map_size = 4 (bottleneck constraint)
   - Constant: Spacing ratio threshold <2× for pooling eligibility
   - Constant: Pooling kernel sizes = 2 or 1 per axis

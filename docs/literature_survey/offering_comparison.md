@@ -220,7 +220,7 @@ Critical distinction between competition and baseline performance:
 |-----------|-------------------|--------------------------------|
 | **nnU-Net** | Dataset path, dataset ID | Preprocessing, architecture selection, hyperparameters, augmentation, training, inference |
 | **Auto3DSeg** | Data path, **modality in YAML** | Dataset analysis, algorithm selection (ensemble), hyperparameters, training, inference |
-| **nnBenchmark** | Dataset path only | Dataset fingerprinting, imaging technique detection, patch size, network topology, batch size, YAML generation |
+| **nnBenchmark** | Dataset path only | Dataset fingerprinting, imaging technique detection, patch size, model topology, batch size, YAML generation |
 
 #### 4.2 Manual Configuration Effort
 
@@ -253,7 +253,7 @@ nnBench.plan --dataset datasets/Dataset001_Hippo      # Auto-generates config an
 nnBench.train --config configs/dataset001_hippo.yaml
 
 # Optional post-processing:
-nnBench.test --config configs/dataset001_hippo.yaml
+nnBench.inference --config configs/dataset001_hippo.yaml
 nnBench.plot --config configs/dataset001_hippo.yaml
 ```
 ✅ Zero manual file creation
@@ -442,8 +442,8 @@ nnBench.plan --dataset Dataset001_Hippo
 # 3. Train model
 nnBench.train --config configs/dataset001_hippo.yaml
 
-# 4. Test model
-nnBench.test --config configs/dataset001_hippo.yaml --use-val-split
+# 4. Run inference
+nnBench.inference --config configs/dataset001_hippo.yaml --use-val-split
 
 # 5. Generate comprehensive plots
 nnBench.plot --config configs/dataset001_hippo.yaml
@@ -458,7 +458,7 @@ nnBench.plot --config configs/dataset001_hippo.yaml
 - Fingerprints dataset (spacing, shape, intensity statistics) with optional parallel processing
 - Detects imaging technique (CT vs MRI) and anisotropy
 - Calculates optimal patch size and target spacing
-- Determines network topology (stages, channels, strides)
+- Determines model topology (stages, channels, strides)
 - Configures deep supervision with auto-calculated weights
 - Optimizes batch size based on GPU memory
 - Generates complete YAML config with all hyperparameters

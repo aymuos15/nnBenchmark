@@ -1,5 +1,5 @@
 """
-Testing orchestration module for running complete inference workflows.
+Inference orchestration module for running complete inference workflows.
 """
 
 import warnings
@@ -61,7 +61,7 @@ def print_test_results(results: dict, metric_name: str) -> None:
     print("=" * 50)
 
 
-def run_testing(
+def run_inference(
     config_path: str,
     model_path: str | None = None,
     use_test_set: bool = False,
@@ -75,9 +75,9 @@ def run_testing(
         resolved_config_path, create_results_dir=False
     )
 
-    # Setup logger for testing
+    # Setup logger for inference
     log = setup_test_logger(results_dir)
-    log_header(log, f"Testing started for config: {config_name}")
+    log_header(log, f"Inference started for config: {config_name}")
 
     seed: int = get_seed_from_config(cfg)
     set_random_seeds(seed)
@@ -132,7 +132,7 @@ def run_testing(
     test_transforms = transform_registry.build(cfg, mode="test")
 
     # Dataset and loader
-    test_batch_size: int = cfg.get("testing", {}).get("batch_size", 1)
+    test_batch_size: int = cfg.get("inference", {}).get("batch_size", 1)
     test_ds = Dataset(data=test_data, transform=test_transforms)
     test_loader: DataLoader = DataLoader(
         test_ds, batch_size=test_batch_size, num_workers=cfg["training"]["num_workers"]
@@ -148,7 +148,7 @@ def run_testing(
             device=device,
             map_location=device,
         )
-        # Extract model for testing
+        # Extract model for inference
         model = lit_module.model
         model.eval()
         log.info(f"Loaded model from: {model_path}")
@@ -160,8 +160,8 @@ def run_testing(
     try:
         validate_sliding_window_config(cfg)
         # Log sliding window status
-        testing_cfg = cfg.get("testing", {})
-        sliding_window_cfg = testing_cfg.get("sliding_window", {})
+        inference_cfg = cfg.get("inference", {})
+        sliding_window_cfg = inference_cfg.get("sliding_window", {})
         if sliding_window_cfg.get("enabled", False):
             roi_size = sliding_window_cfg.get(
                 "roi_size", cfg.get("dataset", {}).get("spatial_size")
@@ -277,7 +277,7 @@ def run_testing(
     log_separator(log, print_too=False)
     log.info(f"Results saved to: {results_dir}")
     log.info(f"Test history file: {test_history_path}")
-    log.info("Testing completed successfully!")
+    log.info("Inference completed successfully!")
     log_separator(log, print_too=False)
 
     # Print clean summary to console

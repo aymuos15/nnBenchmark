@@ -376,10 +376,10 @@ transforms:
       roi_size: [40, 56, 40]
 
 # ============================================================================
-# Testing Configuration
+# Inference Configuration
 # ============================================================================
-# Settings for inference/testing phase.
+# Settings for inference phase.
 
-testing:
-  # Batch size for inference (typically 1 for full-resolution testing)
+inference:
+  # Batch size for inference (typically 1 for full-resolution inference)
   batch_size: 1

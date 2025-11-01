@@ -93,8 +93,8 @@ def calculate_batch_size(
         gpu_memory_target_gb / PLANNING_CONSTANTS.UNET_REFERENCE_CORRESP_GB
     )
 
-    # Estimate VRAM complexity (simplified - nnU-Net instantiates network)
-    # This is a rough approximation of network complexity
+    # Estimate VRAM complexity (simplified - nnU-Net instantiates model)
+    # This is a rough approximation of model complexity
     patch_voxels = np.prod(patch_size)
     num_pool_total = sum(num_pool_per_axis)
     # Rough estimate based on patch size and pooling depth

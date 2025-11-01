@@ -4,7 +4,7 @@ Provides functions for generating training, validation, and test plots.
 """
 
 from src.plotting.cli import generate_plots, main
-from src.plotting.testing import plot_classwise_scores
+from src.plotting.inference import plot_classwise_scores
 from src.plotting.training import plot_training_loss
 from src.plotting.validation import (
     plot_validation_metric,

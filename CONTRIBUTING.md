@@ -54,7 +54,7 @@ For more details, see [docs/terminology.md](docs/terminology.md).
 When proposing changes to the planner (`src/planning/`), please ensure:
 
 - **DOC comments are included** - All planning functions should have DOC comments that reference:
-  - The relevant category (e.g., "Fingerprinting", "Patch Sizing", "Network Topology")
+  - The relevant category (e.g., "Fingerprinting", "Patch Sizing", "Model Topology")
   - The source constant from `src/planning/constants.py` (e.g., `PLANNING_CONSTANTS.ANISOTROPY_THRESHOLD`)
   - The corresponding section in `docs/planning.md`
 

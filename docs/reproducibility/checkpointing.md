@@ -52,7 +52,7 @@ lit_module = SegmentationModule.load_from_checkpoint(
 model = lit_module.model
 ```
 
-**CLI**: `nnBench.test` automatically uses `best_model.ckpt` by default.
+**CLI**: `nnBench.inference` automatically uses `best_model.ckpt` by default.
 
 ## Configuration
 

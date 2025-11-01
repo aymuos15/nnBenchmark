@@ -144,7 +144,7 @@ def get_test_data_dicts(
                 f"Test set directory not found: {images_dir}\n"
                 f"This dataset does not have a dedicated test set (imagesTs/labelsTs).\n"
                 f"Use '--use-val-split' flag to test on the validation split instead:\n"
-                f"  nnBench.test --config <config.yaml> --use-val-split"
+                f"  nnBench.inference --config <config.yaml> --use-val-split"
             )
 
         images = sorted(Path(images_dir).glob("*"))
@@ -178,7 +178,7 @@ def get_test_data_dicts(
                 f"Labels directory: {Path(data_dir) / label_dir}\n"
                 f"This dataset may not have a dedicated test set (imagesTs/labelsTs).\n"
                 f"Use '--use-val-split' flag to test on the validation split instead:\n"
-                f"  nnBench.test --config <config.yaml> --use-val-split"
+                f"  nnBench.inference --config <config.yaml> --use-val-split"
             )
 
         return data_dicts
