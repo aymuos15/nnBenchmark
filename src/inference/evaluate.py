@@ -1,5 +1,5 @@
 """
-Inference evaluation module for model evaluation and testing using MONAI directly.
+Inference evaluation module for model evaluation using MONAI directly.
 """
 
 import warnings

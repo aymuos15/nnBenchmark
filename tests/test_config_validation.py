@@ -164,17 +164,17 @@ class TestValidateSlidingWindowConfig:
 
     def test_disabled_sliding_window_passes(self) -> None:
         """Test that disabled sliding window passes validation."""
-        config = {"testing": {"sliding_window": {"enabled": False}}}
+        config = {"inference": {"sliding_window": {"enabled": False}}}
         validate_sliding_window_config(config)  # Should not raise
 
     def test_missing_sliding_window_section_passes(self) -> None:
         """Test that missing sliding_window section passes validation."""
-        config = {"testing": {}}
+        config = {"inference": {}}
         validate_sliding_window_config(config)  # Should not raise
 
     def test_empty_sliding_window_passes(self) -> None:
         """Test that empty sliding_window dict passes validation."""
-        config = {"testing": {"sliding_window": {}}}
+        config = {"inference": {"sliding_window": {}}}
         validate_sliding_window_config(config)  # Should not raise
 
     @pytest.mark.parametrize(
@@ -197,7 +197,7 @@ class TestValidateSlidingWindowConfig:
         - mode: Mode to test
         - should_pass: Whether validation should succeed
         """
-        config = {"testing": {"sliding_window": {"enabled": True, "mode": mode}}}
+        config = {"inference": {"sliding_window": {"enabled": True, "mode": mode}}}
         if should_pass:
             validate_sliding_window_config(config)
         else:
@@ -209,7 +209,7 @@ class TestValidateSlidingWindowConfig:
         """Test that valid overlap values are accepted."""
         for overlap in [0.0, 0.25, 0.5, 0.75, 0.99]:
             config = {
-                "testing": {"sliding_window": {"enabled": True, "overlap": overlap}}
+                "inference": {"sliding_window": {"enabled": True, "overlap": overlap}}
             }
             validate_sliding_window_config(config)
 
@@ -217,7 +217,7 @@ class TestValidateSlidingWindowConfig:
         """Test that overlap >= 1.0 is rejected."""
         for overlap in [1.0, 1.5, 2.0]:
             config = {
-                "testing": {"sliding_window": {"enabled": True, "overlap": overlap}}
+                "inference": {"sliding_window": {"enabled": True, "overlap": overlap}}
             }
             with pytest.raises(ValueError) as excinfo:
                 validate_sliding_window_config(config)
@@ -225,7 +225,7 @@ class TestValidateSlidingWindowConfig:
 
     def test_overlap_negative(self) -> None:
         """Test that negative overlap is rejected."""
-        config = {"testing": {"sliding_window": {"enabled": True, "overlap": -0.5}}}
+        config = {"inference": {"sliding_window": {"enabled": True, "overlap": -0.5}}}
         with pytest.raises(ValueError) as excinfo:
             validate_sliding_window_config(config)
         assert "overlap" in str(excinfo.value).lower()
@@ -251,7 +251,7 @@ class TestValidateSlidingWindowConfig:
         - should_pass: Whether validation should succeed
         """
         config = {
-            "testing": {"sliding_window": {"enabled": True, "sw_batch_size": batch_size}}
+            "inference": {"sliding_window": {"enabled": True, "sw_batch_size": batch_size}}
         }
         if should_pass:
             validate_sliding_window_config(config)
@@ -264,7 +264,7 @@ class TestValidateSlidingWindowConfig:
         """Test that all valid padding modes are accepted."""
         for mode in ["constant", "edge", "reflect", "wrap"]:
             config = {
-                "testing": {"sliding_window": {"enabled": True, "padding_mode": mode}}
+                "inference": {"sliding_window": {"enabled": True, "padding_mode": mode}}
             }
             validate_sliding_window_config(config)
 
@@ -272,7 +272,7 @@ class TestValidateSlidingWindowConfig:
         """Test that invalid padding modes are rejected."""
         for mode in ["invalid", "mirror", "replicate"]:
             config = {
-                "testing": {"sliding_window": {"enabled": True, "padding_mode": mode}}
+                "inference": {"sliding_window": {"enabled": True, "padding_mode": mode}}
             }
             with pytest.raises(ValueError) as excinfo:
                 validate_sliding_window_config(config)

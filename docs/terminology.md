@@ -21,6 +21,25 @@ A reference guide for common terms used in nnBenchmark and medical image segment
 **Anisotropic Dataset**
 : A dataset where one axis has significantly different spacing (>3x) and fewer voxels (<25%) than other axes, requiring special handling in network architecture.
 
+## Data Splits
+
+**Train Set**
+: The subset of data used to train the model. The model learns from this data by adjusting its parameters to minimize prediction errors.
+
+**Validation Set (Val Set)**
+: The subset of data used to evaluate the model during training and tune hyperparameters. Not used for training, but helps guide model development decisions.
+
+**Test Set**
+: The subset of data held out for final model evaluation. Aims to provides an unbiased assessment of model performance on unseen data.
+
+## Processes
+
+**Training**
+: The process of teaching a model to perform segmentation by iteratively adjusting its parameters based on training data to minimize prediction errors.
+
+**Inference**
+: The process of using a trained model to make predictions.
+
 ## Segmentation Classes
 
 **Class**

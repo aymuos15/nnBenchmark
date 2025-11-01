@@ -103,9 +103,9 @@ class TestGetSeedFromConfig:
         cfg = {"training": {"seed": 456}}
         assert get_seed_from_config(cfg) == 456
 
-    def test_get_seed_from_testing_section(self) -> None:
-        """Test extracting seed from testing section."""
-        cfg = {"testing": {"seed": 789}}
+    def test_get_seed_from_inference_section(self) -> None:
+        """Test extracting seed from inference section."""
+        cfg = {"inference": {"seed": 789}}
         assert get_seed_from_config(cfg) == 789
 
     def test_priority_top_level_over_training(self) -> None:
@@ -113,28 +113,28 @@ class TestGetSeedFromConfig:
         cfg = {"seed": 100, "training": {"seed": 200}}
         assert get_seed_from_config(cfg) == 100
 
-    def test_priority_training_over_testing(self) -> None:
-        """Test that training seed has priority over testing."""
-        cfg = {"training": {"seed": 200}, "testing": {"seed": 300}}
+    def test_priority_training_over_inference(self) -> None:
+        """Test that training seed has priority over inference."""
+        cfg = {"training": {"seed": 200}, "inference": {"seed": 300}}
         assert get_seed_from_config(cfg) == 200
 
     def test_priority_order(self) -> None:
-        """Test the complete priority order: top-level > training > testing > default."""
+        """Test the complete priority order: top-level > training > inference > default."""
         # Priority 1: Top-level
         assert (
             get_seed_from_config(
-                {"seed": 1, "training": {"seed": 2}, "testing": {"seed": 3}}
+                {"seed": 1, "training": {"seed": 2}, "inference": {"seed": 3}}
             )
             == 1
         )
 
         # Priority 2: Training (without top-level)
         assert (
-            get_seed_from_config({"training": {"seed": 2}, "testing": {"seed": 3}}) == 2
+            get_seed_from_config({"training": {"seed": 2}, "inference": {"seed": 3}}) == 2
         )
 
-        # Priority 3: Testing (without top-level or training)
-        assert get_seed_from_config({"testing": {"seed": 3}}) == 3
+        # Priority 3: Inference (without top-level or training)
+        assert get_seed_from_config({"inference": {"seed": 3}}) == 3
 
         # Priority 4: Default (no seed in config)
         assert get_seed_from_config({}) == 12345
@@ -146,12 +146,12 @@ class TestGetSeedFromConfig:
 
     def test_handles_empty_config_sections(self) -> None:
         """Test handling of empty config sections."""
-        cfg = {"training": {}, "testing": {}}
+        cfg = {"training": {}, "inference": {}}
         assert get_seed_from_config(cfg) == 12345
 
     def test_handles_none_values(self) -> None:
         """Test handling of None values in config."""
-        cfg = {"seed": None, "training": {"seed": None}, "testing": {"seed": None}}
+        cfg = {"seed": None, "training": {"seed": None}, "inference": {"seed": None}}
         assert get_seed_from_config(cfg) == 12345
 
 

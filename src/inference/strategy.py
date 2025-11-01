@@ -197,7 +197,7 @@ def create_inferer(config: dict[str, Any]) -> InferenceStrategy:
     Factory function to create appropriate inferer based on config.
 
     Args:
-        config: Configuration dictionary with optional 'testing.sliding_window' section
+        config: Configuration dictionary with optional 'inference.sliding_window' section
 
     Returns:
         InferenceStrategy instance (FullVolumeInferer or SlidingWindowInferer)
@@ -206,8 +206,8 @@ def create_inferer(config: dict[str, Any]) -> InferenceStrategy:
         ValueError: If sliding_window config is invalid
 
     """
-    testing_cfg = config.get("testing", {})
-    sliding_window_cfg = testing_cfg.get("sliding_window", {})
+    inference_cfg = config.get("inference", {})
+    sliding_window_cfg = inference_cfg.get("sliding_window", {})
 
     # Check if sliding window is enabled
     enabled = sliding_window_cfg.get("enabled", False)
@@ -231,7 +231,7 @@ def create_inferer(config: dict[str, Any]) -> InferenceStrategy:
         if roi_size is None:
             raise ValueError(
                 "sliding_window.roi_size is not specified and could not infer from "
-                "dataset.spatial_size. Please specify roi_size in testing.sliding_window config "
+                "dataset.spatial_size. Please specify roi_size in inference.sliding_window config "
                 "or ensure dataset.spatial_size is defined."
             )
 

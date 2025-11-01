@@ -78,7 +78,7 @@ def generate_config_yaml(
         _write_loss_config(f, plan)
         _write_metrics_config(f, plan)
         _write_transforms_config(f, plan)
-        _write_testing_config(f)
+        _write_inference_config(f)
 
 
 def _write_header(f: TextIO, plan: ExperimentPlan) -> None:
@@ -586,16 +586,16 @@ def _write_transforms_config(f: TextIO, plan: ExperimentPlan) -> None:
     f.write(f"      roi_size: {list(plan.patch_size)}\n\n")
 
 
-def _write_testing_config(f: TextIO) -> None:
-    """Write testing configuration."""
+def _write_inference_config(f: TextIO) -> None:
+    """Write inference configuration."""
     f.write(
         "# ============================================================================\n"
     )
-    f.write("# Testing Configuration\n")
+    f.write("# Inference Configuration\n")
     f.write(
         "# ============================================================================\n"
     )
-    f.write("# Settings for inference/testing phase.\n\n")
-    f.write("testing:\n")
-    f.write("  # Batch size for inference (typically 1 for full-resolution testing)\n")
+    f.write("# Settings for inference phase.\n\n")
+    f.write("inference:\n")
+    f.write("  # Batch size for inference (typically 1 for full-resolution inference)\n")
     f.write("  batch_size: 1\n")

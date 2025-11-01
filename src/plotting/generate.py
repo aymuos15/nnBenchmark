@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from src.config.load import load_training_history
-from src.plotting.testing import plot_classwise_scores
+from src.plotting.inference import plot_classwise_scores
 from src.plotting.training import plot_training_loss
 from src.plotting.validation import plot_validation_metric
 
