@@ -57,7 +57,7 @@ class LossRegistry:
 
     def unregister(
         self, name: str
-    ) -> None:  # Part of public API for registry management  # noqa: D401  # noqa: D401  # noqa: D401
+    ) -> None:  # Part of public API for registry management  # noqa: D401
         """Remove a loss from the registry.
 
         Part of the public API for registry management.

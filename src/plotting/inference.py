@@ -10,8 +10,7 @@ from typing import Any
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Configure matplotlib styles on import
-# Configure matplotlib styles (side-effect import - must run before plotting)
+# Configure matplotlib styles on import (side-effect import - must run before plotting)
 from src.plotting.styles import mpl  # noqa: F401
 
 

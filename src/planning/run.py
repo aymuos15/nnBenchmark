@@ -76,7 +76,7 @@ def run_planning(
 
     # Determine output path
     if output is None:
-        # Auto-generate output path: nnUNet_results/<dataset_name>/fold_0/fold_0.yaml
+        # Auto-generate output path: nnBench_results/<dataset_name>/fold_0/fold_0.yaml
         dataset_name = dataset_path.name
         config_name = "fold_0"
         output_path = str(

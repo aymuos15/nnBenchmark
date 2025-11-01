@@ -15,13 +15,13 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
     Build a mapping from case IDs to preprocessed image/label file paths.
 
     This helper eliminates code duplication between get_data_dicts and get_test_data_dicts.
-    Uses preprocessed data from nnUNet_preprocessed directory (imagesTr/labelsTr).
+    Uses preprocessed data from nnBench_preprocessed directory (imagesTr/labelsTr).
 
     The preprocessing step (crop to nonzero regions) must be completed via 'nnBench.plan'
     before training or inference. This ensures all data follows nnU-Net v2.4.1 preprocessing.
 
     Args:
-        data_dir: Dataset directory in nnUNet_raw (contains dataset.json and splits.json)
+        data_dir: Dataset directory in nnBench_raw (contains dataset.json and splits.json)
 
     Returns:
         Dictionary mapping case_id (filename) to {"image": path, "label": path}

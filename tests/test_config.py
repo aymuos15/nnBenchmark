@@ -143,9 +143,9 @@ class TestLoadSplits:
         from pathlib import Path
 
         # splits.json is now in the preprocessed directory
-        preprocessed_root = os.environ.get("nnUNet_preprocessed")
+        preprocessed_root = os.environ.get("nnBench_preprocessed")
         if preprocessed_root is None:
-            pytest.skip("nnUNet_preprocessed environment variable not set")
+            pytest.skip("nnBench_preprocessed environment variable not set")
 
         splits_path = Path(preprocessed_root) / "Dataset001_Hippo" / "splits.json"
         with open(splits_path, "r") as f:

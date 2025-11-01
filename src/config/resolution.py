@@ -13,7 +13,7 @@ def resolve_config_path(config: str, dataset: str | None = None) -> Path:
 
     If config is an absolute path, returns it as-is. If config is relative and
     a dataset is provided, searches for the config in:
-        nnUNet_results/<dataset>/<config_name>/
+        nnBench_results/<dataset>/<config_name>/
 
     Args:
         config: Config file path (absolute or relative, e.g., "fold_0.yaml")
@@ -40,7 +40,7 @@ def resolve_config_path(config: str, dataset: str | None = None) -> Path:
             f"Relative config path '{config}' requires --dataset argument."
         )
 
-    # Config should be in: nnUNet_results/<dataset>/<config_name>/<config>
+    # Config should be in: nnBench_results/<dataset>/<config_name>/<config>
     # where config_name is the stem of the config file
     config_name = config_path.stem
     resolved_path = get_results_root() / dataset / config_name / config

@@ -17,30 +17,30 @@ import yaml
 @pytest.fixture(scope="session", autouse=True)
 def _setup_nnunet_env_vars(tmp_path_factory: pytest.TempPathFactory) -> None:  # noqa: ARG001
     """
-    Set up nnUNet environment variables for testing.
+    Set up nnBench environment variables for testing.
 
     Creates temporary directories and sets environment variables
-    required by the nnUNet pipeline. This fixture runs automatically
+    required by the nnBench pipeline. This fixture runs automatically
     for all tests in the session.
 
     Note: Named with leading underscore to indicate internal fixture.
     Using autouse=True so it's automatically applied without being called.
     """
-    # Create temporary base directory for nnUNet paths
-    base_tmp = tmp_path_factory.mktemp("nnunet_env")
+    # Create temporary base directory for nnBench paths
+    base_tmp = tmp_path_factory.mktemp("nnbench_env")
 
     # Create and set environment variables
-    nnunet_raw = base_tmp / "nnUNet_raw"
-    nnunet_preprocessed = base_tmp / "nnUNet_preprocessed"
-    nnunet_results = base_tmp / "nnUNet_results"
+    nnbench_raw = base_tmp / "nnBench_raw"
+    nnbench_preprocessed = base_tmp / "nnBench_preprocessed"
+    nnbench_results = base_tmp / "nnBench_results"
 
-    nnunet_raw.mkdir(exist_ok=True)
-    nnunet_preprocessed.mkdir(exist_ok=True)
-    nnunet_results.mkdir(exist_ok=True)
+    nnbench_raw.mkdir(exist_ok=True)
+    nnbench_preprocessed.mkdir(exist_ok=True)
+    nnbench_results.mkdir(exist_ok=True)
 
-    os.environ["nnUNet_raw"] = str(nnunet_raw)
-    os.environ["nnUNet_preprocessed"] = str(nnunet_preprocessed)
-    os.environ["nnUNet_results"] = str(nnunet_results)
+    os.environ["nnBench_raw"] = str(nnbench_raw)
+    os.environ["nnBench_preprocessed"] = str(nnbench_preprocessed)
+    os.environ["nnBench_results"] = str(nnbench_results)
 
 
 @pytest.fixture
@@ -179,7 +179,7 @@ def mock_dataset_dir(
     """
     Create a mock dataset directory with dataset.json and splits.json.
 
-    Also creates corresponding preprocessed directories in nnUNet_preprocessed
+    Also creates corresponding preprocessed directories in nnBench_preprocessed
     to support tests that expect preprocessed data.
 
     Returns:
@@ -222,9 +222,9 @@ def mock_dataset_dir(
         open(img_cropped, "a").close()
         open(label_cropped, "a").close()
 
-    # Create preprocessed dataset structure in nnUNet_preprocessed
+    # Create preprocessed dataset structure in nnBench_preprocessed
     # This is required for get_data_dicts() to work
-    preprocessed_root = os.environ.get("nnUNet_preprocessed")
+    preprocessed_root = os.environ.get("nnBench_preprocessed")
     if preprocessed_root:
         preprocessed_dataset_dir = os.path.join(preprocessed_root, "Dataset001_Hippo")
         for subdir in ["imagesTr", "labelsTr"]:

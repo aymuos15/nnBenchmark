@@ -17,6 +17,12 @@ pip install uv
 # Install dev dependencies
 uv pip install -e ".[dev]"
 
+# Set environment variables (required)
+export nnBench_raw="/path/to/nnBench_raw"
+export nnBench_preprocessed="/path/to/nnBench_preprocessed"
+export nnBench_results="/path/to/nnBench_results"
+# Add to ~/.bashrc or ~/.zshrc for persistence
+
 # Install pre-commit hooks (recommended)
 pre-commit install
 ```
@@ -64,6 +70,18 @@ When proposing changes to the planner (`src/planning/`), please ensure:
   - `docs/terminology.md` - Add new terms if concepts are introduced
 
 This ensures that code and documentation stay synchronized and maintainable.
+
+### CLI Command Consistency
+
+When adding or modifying CLI flags:
+
+- **Update the argument parser** in the relevant `src/<module>/cli.py` file
+- **Document exact flag names** in related documentation (`docs/workflow.md`, `docs/<module>.md`, `CLAUDE.md`)
+- **Use consistent naming**: hyphens for multi-word flags (e.g., `--gpu-memory-gb`, not `--gpu_memory_gb` or `--gpuMemoryGb`)
+- **Keep flag names synchronized** across code and all documentation files
+- **Update CLAUDE.md** if adding frequently-used commands
+
+This ensures users can reliably find examples in documentation that match the actual CLI implementation.
 
 ## Testing
 

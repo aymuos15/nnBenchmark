@@ -8,133 +8,87 @@
 
 # nnBenchmark
 
-Config-driven 3D medical image segmentation using MONAI with a focus on reproducibility and benchmarking.
+Config-driven medical image segmentation with a focus on reproducibility and benchmarking.
 
 ## Quick Start
 
 ### Installation
 
-```
-pip install -e .
-```
-
-## Usage
-
-After setting up your data according to [nnUNet convention](https://github.com/MIC-DKFZ/nnUNet): see [docs/dataset_preparation.md](docs/dataset_preparation.md)
-
-### Complete Workflow
-
-**1. Auto-generate config (recommended):**
 ```bash
-nnBench.plan --dataset datasets/Dataset001_Hippo
-```
-This analyzes your dataset and creates an optimal configuration automatically using nnU-Net heuristics.
+# Install uv (fast Python package manager)
+pip install uv
 
-For verbose logging or parallel fingerprinting:
-```bash
-nnBench.plan --dataset datasets/Dataset001_Hippo --num-workers 8 --verbose
-```
-
-Or create a config manually (see [docs/config_reference.md](docs/config_reference.md)).
-
-**2. Train a model:**
-```bash
-nnBench.train --config configs/dataset001_hippo.yaml
-```
-
-**2b. Resume training (if interrupted):**
-```bash
-nnBench.train --config configs/dataset001_hippo.yaml --continue
-```
-
-**3. Run inference:**
-```bash
-nnBench.inference --config configs/dataset001_hippo.yaml --use-val-split
-```
-
-**4. Generate plots:**
-```bash
-nnBench.plot --config configs/dataset001_hippo.yaml
-```
-Generates all plots in `results/<config_name>/plots/`
-
-### Training on All Data (No Validation)
-
-For final production models or small datasets, train on 100% of data without validation:
-
-```yaml
-# In your config YAML:
-dataset:
-  fold: -1  # Use all data for training, no validation
-```
-
-## Results
-
-All results saved to `results/[config_name]/`:
-
-```
-results/[config_name]/
-├── best_model.ckpt                   # Best model checkpoint (Lightning format)
-├── last.ckpt                         # Latest checkpoint (for resumption)
-├── training_history.json             # Training metrics and loss history
-├── test_history.json                 # Test results for all metrics
-├── train.log                         # Training logs
-├── test.log                          # Test logs
-├── plots/                            # All generated plots
-│   ├── training_loss.png
-│   ├── val_Dice.png
-│   ├── val_SurfaceDice.png
-│   ├── test_cls_wise_Dice_scores.png
-│   └── test_cls_wise_SurfaceDice_scores.png
-└── visualizations/                   # Validation case visualizations
-    └── validation_epoch_*.png
-```
-
-### Metrics Tracked
-
-By default, both **Dice** and **Surface Dice (NSD)** metrics are computed and:
-
-- Overall mean across all classes
-- Per-class scores for detailed analysis
-- Complete statistics (mean, std, min, max) for each test case
-
-## Documentation
-
-In pipeline
-
-## Development
-
-### Setup
-
-```bash
-git clone git@github.com:aymuos15/nnBenchmark.git
-
+# Clone and install nnBenchmark
+git clone https://github.com/aymuos15/nnBenchmark.git
 cd nnBenchmark
-
-pip install uv # https://github.com/astral-sh/uv
-
-# Install all dev dependencies.
 uv pip install -e ".[dev]"
-
-# Install pre-commit hooks (recommended)
-pre-commit install
 ```
 
-### Testing
+### Setup Environment Variables
 
-Run the test suite:
+> **Note**: We currently support both `nnBench_*` and `nnUNet_*` environment variables. If both are set, `nnBench_*` takes precedence.
+
+nnBenchmark uses three environment variables to organize data:
 
 ```bash
-# Quick tests with uv
-uv run pytest
+export nnBench_raw="/path/to/nnBench_raw"
+export nnBench_preprocessed="/path/to/nnBench_preprocessed"
+export nnBench_results="/path/to/nnBench_results"
 ```
 
-### Pre-commit Checks
+Add these to your `~/.bashrc` or `~/.zshrc` for persistence.
+
+### Prepare Your Dataset
+
+Organize your dataset in the following way:
+
+```
+nnBench_raw/Dataset001_YourDataset/
+├── dataset.json          # Dataset metadata
+├── imagesTr/             # Training images: case_001_0000.nii.gz, case_002_0000.nii.gz, ...
+└── labelsTr/             # Training labels: case_001.nii.gz, case_002.nii.gz, ...
+```
+
+See [docs/datasets/format.md](docs/datasets/format.md) for details.
+
+### Basic Workflow
+
+nnBenchmark uses a 4-step workflow:
 
 ```bash
-tox -e all                # Full validation (lint + type + tests)
+# 1. Plan - Generate optimal configuration
+nnBench.plan --dataset Dataset001_YourDataset --verbose
+# Output: nnBench_results/Dataset001_YourDataset/fold_0/fold_0.yaml
+#         nnBench_preprocessed/Dataset001_YourDataset/splits.json
+
+# 2. Train - Train the model
+nnBench.train --config fold_0.yaml --dataset Dataset001_YourDataset
+# To resume: add --continue flag
+# Output: nnBench_results/Dataset001_YourDataset/fold_0/checkpoints/
+#         nnBench_results/Dataset001_YourDataset/fold_0/training_history.json
+
+# 3. Inference - Run predictions
+nnBench.inference --config fold_0.yaml --dataset Dataset001_YourDataset
+# To use validation set: add --use-val-split flag
+# Output: nnBench_results/Dataset001_YourDataset/fold_0/predictions/
+#         nnBench_results/Dataset001_YourDataset/fold_0/metrics.json
+
+# 4. Plot - Visualize results
+nnBench.plot --config fold_0.yaml --dataset Dataset001_YourDataset
+# Output: nnBench_results/Dataset001_YourDataset/fold_0/plots/
 ```
 
-## Todos
+For an extended workflow, refer to: **[Workflow](docs/workflow.md)**
 
-- [] Stress test in a Multi-GPU set up. 
+## Important Documentation
+
+- **[Configuration Reference](docs/config.md)** - Complete guide to all config options
+- **[Terminology](docs/terminology.md)** - Key terms and concepts
+- **[Contributing](CONTRIBUTING.md)** - Development setup and contribution guidelines 
+
+## Acknowledgement
+
+This project builds upon and is inspired by:
+
+- **[nnU-Net](https://github.com/MIC-DKFZ/nnUNet)** - Self-configuring method for deep learning-based biomedical image segmentation
+- **[MONAI](https://github.com/Project-MONAI/MONAI)** - PyTorch-based framework for deep learning in healthcare imaging

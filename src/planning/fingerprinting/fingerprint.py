@@ -119,7 +119,7 @@ def fingerprint_dataset(
     channel = list(channel_dict.values())[0]
 
     # Find all training images
-    # NOTE: Fingerprinting is done on preprocessed (cropped) images in nnUNet_preprocessed
+    # NOTE: Fingerprinting is done on preprocessed (cropped) images in nnBench_preprocessed
     # This function should be called with the preprocessed directory path
     images_dir = Path(dataset_dir) / "imagesTr"
     labels_dir = Path(dataset_dir) / "labelsTr"

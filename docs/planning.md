@@ -209,17 +209,18 @@ Generates k-fold cross-validation splits with deterministic seeding for reproduc
 ## Usage
 
 ```bash
-nnBench.plan --dataset /path/to/Dataset001_Name --gpu-memory 24
+nnBench.plan --dataset Dataset001_Name --gpu-memory-gb 24
 ```
 
 **Required**:
-- `--dataset`: Path to dataset directory containing `imagesTr/` and `labelsTr/`
+- `--dataset`: Dataset name or path (e.g., `Dataset001_Hippo` or `datasets/Dataset001_Hippo`)
 
 **Optional**:
-- `--gpu-memory`: GPU VRAM in GB (default: auto-detect)
-- `--fold`: Specific fold number (default: all folds)
-- `--output`: Config output path (default: `configs/dataset_name.yaml`)
-- `--num-workers`: Parallel workers for fingerprinting (default: auto-detect)
+- `--gpu-memory-gb`: GPU VRAM in GB (default: auto-detect from system)
+- `--fold`: Fold number for training (default: 0). Use fold -1 to train on all data without validation
+- `--output`: Config output path (default: `nnBench_results/<dataset_name>/fold_<N>/fold_<N>.yaml`)
+- `--num-workers`: Parallel workers for fingerprinting (default: auto-detect, max 8)
+- `--verbose`: Enable detailed logging
 
 ## Outputs
 
@@ -229,7 +230,7 @@ Generated files:
 - `<dataset_dir>/dataset.json` - Dataset metadata and channel information
 - `preprocessed/<dataset_name>/fingerprint.json` - Statistical properties from Step 1
 - `preprocessed/<dataset_name>/splits.json` - Cross-validation fold assignments
-- `results/<dataset_name>/fold_0/fold_0.yaml` - Complete training configuration
+- `nnBench_results/<dataset_name>/fold_0/fold_0.yaml` - Complete training configuration
 
 ## Implementation
 
