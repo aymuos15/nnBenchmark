@@ -15,6 +15,7 @@ import numpy as np
 from numpy.typing import NDArray
 from sklearn.model_selection import KFold, StratifiedKFold
 
+from src.planning.constants import PLANNING_CONSTANTS
 from src.utils.files import extract_case_id, load_json, load_nifti_data, save_json
 from src.utils.seeding import set_random_seeds
 
@@ -25,6 +26,7 @@ def load_dataset_json(dataset_path: str) -> dict[str, Any]:
     return load_json(dataset_json_path, "dataset.json")
 
 
+# DOC: CASE_IDENTIFIER_EXTRACTION | Category: Adaptive | Documentation: docs/planning.md
 def extract_case_identifiers(
     dataset_json: dict[str, Any], dataset_path: str | Path
 ) -> list[str]:
@@ -93,12 +95,15 @@ def get_labels_for_stratification(
     return labels
 
 
+# DOC: KFOLD_SPLITS_CREATION | Category: Constant+Adaptive | Documentation: docs/planning.md
+# Description: K-fold splitting with deterministic seeding
+# Function: create_splits | Constants: n_folds=5, seed=12345 | Documentation: docs/planning.md Step 4
 def create_splits(
     case_identifiers: list[str],
     n_folds: int = 5,
     stratified: bool = False,
     dataset_path: str | None = None,
-    seed: int = 12345,
+    seed: int = PLANNING_CONSTANTS.RANDOM_SEED,
 ) -> dict[str, dict[str, list[str]]]:
     """
     Create k-fold splits with reproducible seeding.
@@ -137,31 +142,6 @@ def create_splits(
         splits[f"fold_{fold_idx}"] = {"train": train_cases, "val": val_cases}
 
     return splits
-
-
-def create_all_split(
-    case_identifiers: list[str],
-) -> dict[str, dict[str, list[str]]]:
-    """
-    Create a special split that uses all cases for training without validation.
-
-    This is useful for:
-    - Final production model after cross-validation
-    - Small datasets where validation reduces training data too much
-
-    Args:
-        case_identifiers: List of all case IDs
-
-    Returns:
-        Dictionary with a single "fold_-1" entry containing all cases in train
-        and empty validation set
-    """
-    return {
-        "fold_-1": {
-            "train": case_identifiers,
-            "val": [],
-        }
-    }
 
 
 def save_splits(splits: dict[str, dict[str, list[str]]], output_path: str) -> None:

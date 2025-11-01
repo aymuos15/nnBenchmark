@@ -172,7 +172,7 @@ training:
 optimizer:
   type: SGD  # Stochastic Gradient Descent
 
-  # L2 regularization (nnU-Net default: 3e-5)
+  # L2 regularization (nnU-Net default: 0.00003)
   weight_decay: 0.00003
 
   # Momentum coefficient (nnU-Net default: 0.99)

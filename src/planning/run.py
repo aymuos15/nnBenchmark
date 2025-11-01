@@ -11,6 +11,7 @@ from loguru import logger
 
 from src.config import get_datasets_root, get_preprocessed_root, get_results_root
 from src.logging import setup_verbose_logger
+from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.fingerprinting.fingerprint import fingerprint_dataset
 from src.planning.fingerprinting.prepare_dataset import prepare_dataset
 from src.planning.fingerprinting.resources import (
@@ -27,6 +28,7 @@ from src.planning.splits import (
 from src.planning.yaml_generator import generate_config_yaml
 
 
+# DOC: AUTOMATIC_PLANNING_EXECUTION | Category: Constant+Adaptive | Documentation: docs/planning.md
 def run_planning(
     dataset: str,
     gpu_memory_gb: float | None = None,
@@ -170,7 +172,9 @@ def run_planning(
                 description="",
                 force=False,
                 preprocess=False,  # Skip preprocessing (already done above)
-                preprocessed_dir=str(preprocessed_dir),  # Save splits to preprocessed folder
+                preprocessed_dir=str(
+                    preprocessed_dir
+                ),  # Save splits to preprocessed folder
             )
             print()
 
@@ -183,7 +187,9 @@ def run_planning(
 
         # Step 1: Fingerprint dataset (using preprocessed/cropped images)
         print("Step 1/4: Fingerprinting dataset...")
-        fingerprint = fingerprint_dataset(str(preprocessed_dir), num_workers=num_workers)
+        fingerprint = fingerprint_dataset(
+            str(preprocessed_dir), num_workers=num_workers
+        )
         print()
 
         # Step 2: Create experiment plan
@@ -243,9 +249,9 @@ def run_planning(
         )
         splits = create_splits(
             case_identifiers,
-            n_folds=5,
+            n_folds=PLANNING_CONSTANTS.N_FOLDS,
             stratified=False,
-            seed=12345,
+            seed=PLANNING_CONSTANTS.RANDOM_SEED,
         )
         # Save splits to preprocessed directory instead of raw dataset directory
         preprocessed_dir.mkdir(parents=True, exist_ok=True)

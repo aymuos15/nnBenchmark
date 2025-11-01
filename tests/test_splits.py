@@ -10,7 +10,6 @@ import os
 import pytest
 
 from src.planning.splits import (
-    create_all_split,
     create_splits,
     extract_case_identifiers,
     load_dataset_json,
@@ -232,128 +231,6 @@ class TestSaveSplits:
             loaded = json.load(f)
 
         assert loaded == splits
-
-
-class TestCreateAllSplit:
-    """Tests for create_all_split function."""
-
-    def test_create_all_split_basic(self) -> None:
-        """Test creating an 'all' split with all cases in training."""
-        case_identifiers = [f"case_{i:03d}.nii.gz" for i in range(10)]
-
-        splits = create_all_split(case_identifiers)
-
-        # Should have single fold_-1 entry
-        assert len(splits) == 1
-        assert "fold_-1" in splits
-
-    def test_create_all_split_structure(self) -> None:
-        """Test that 'all' split has correct structure."""
-        case_identifiers = [f"case_{i:03d}.nii.gz" for i in range(10)]
-
-        splits = create_all_split(case_identifiers)
-        fold = splits["fold_-1"]
-
-        # Should have train and val keys
-        assert "train" in fold
-        assert "val" in fold
-
-        # All cases should be in train
-        assert len(fold["train"]) == 10
-        # Val should be empty
-        assert len(fold["val"]) == 0
-
-    def test_create_all_split_includes_all_cases(self) -> None:
-        """Test that 'all' split includes all case identifiers."""
-        case_identifiers = [f"case_{i:03d}.nii.gz" for i in range(10)]
-
-        splits = create_all_split(case_identifiers)
-
-        # All cases should be in train set
-        train_cases = set(splits["fold_-1"]["train"])
-        expected_cases = set(case_identifiers)
-        assert train_cases == expected_cases
-
-    def test_create_all_split_empty_validation(self) -> None:
-        """Test that validation set is always empty."""
-        case_identifiers = [f"case_{i:03d}.nii.gz" for i in range(5)]
-
-        splits = create_all_split(case_identifiers)
-
-        assert splits["fold_-1"]["val"] == []
-
-    def test_create_all_split_single_case(self) -> None:
-        """Test creating 'all' split with single case."""
-        case_identifiers = ["single_case.nii.gz"]
-
-        splits = create_all_split(case_identifiers)
-
-        assert len(splits["fold_-1"]["train"]) == 1
-        assert splits["fold_-1"]["val"] == []
-
-    def test_create_all_split_many_cases(self) -> None:
-        """Test creating 'all' split with many cases."""
-        case_identifiers = [f"case_{i:04d}.nii.gz" for i in range(100)]
-
-        splits = create_all_split(case_identifiers)
-
-        assert len(splits["fold_-1"]["train"]) == 100
-        assert len(splits["fold_-1"]["val"]) == 0
-
-    def test_save_all_split(self, temp_dir: str) -> None:
-        """Test saving 'all' split to file."""
-        import json
-
-        case_identifiers = [f"case_{i:03d}.nii.gz" for i in range(10)]
-        splits = create_all_split(case_identifiers)
-
-        output_path = os.path.join(temp_dir, "splits.json")
-        save_splits(splits, output_path)
-
-        # Verify file exists and has correct content
-        assert os.path.exists(output_path)
-        with open(output_path, "r") as f:
-            loaded = json.load(f)
-
-        assert loaded == splits
-        assert "fold_-1" in loaded
-        assert len(loaded["fold_-1"]["train"]) == 10
-        assert loaded["fold_-1"]["val"] == []
-
-    def test_create_all_split_from_mock_dataset(self, mock_dataset_dir: str) -> None:
-        """Test creating 'all' split from mock dataset."""
-        dataset_json = load_dataset_json(mock_dataset_dir)
-        case_ids = extract_case_identifiers(dataset_json, mock_dataset_dir)
-
-        splits = create_all_split(case_ids)
-
-        # Should have 4 cases (from mock dataset)
-        assert len(splits["fold_-1"]["train"]) == 4
-        assert splits["fold_-1"]["val"] == []
-
-        # Verify all case IDs are in training
-        for case_id in case_ids:
-            assert case_id in splits["fold_-1"]["train"]
-
-    def test_save_splits_overwrites_existing(self, temp_dir: str) -> None:
-        """Test that save_splits overwrites existing file."""
-        import json
-
-        output_path = os.path.join(temp_dir, "splits.json")
-
-        # Save first version
-        splits1 = {"fold_0": {"train": ["case_001.nii.gz"], "val": ["case_002.nii.gz"]}}
-        save_splits(splits1, output_path)
-
-        # Save second version
-        splits2 = {"fold_0": {"train": ["case_003.nii.gz"], "val": ["case_004.nii.gz"]}}
-        save_splits(splits2, output_path)
-
-        # Should have second version
-        with open(output_path, "r") as f:
-            loaded = json.load(f)
-
-        assert loaded == splits2
 
 
 class TestIntegrationWithMockDataset:

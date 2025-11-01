@@ -12,10 +12,8 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from src.planning.fingerprinting.fingerprint import (
-    _load_image_properties,
-    fingerprint_dataset,
-)
+from src.planning.fingerprinting.fingerprint import fingerprint_dataset
+from src.planning.fingerprinting.loading import load_image_properties
 from src.utils.files import detect_file_type, load_nifti_data, load_nifti_with_metadata
 
 
@@ -160,7 +158,7 @@ class TestLoadNiftiWithMetadata:
 
 
 class TestLoadImageProperties:
-    """Tests for _load_image_properties function - CRITICAL for fingerprinting."""
+    """Tests for load_image_properties function - CRITICAL for fingerprinting."""
 
     def test_load_properties_from_nifti(self, temp_dir: str) -> None:
         """Test loading image properties from NIfTI file."""
@@ -175,7 +173,7 @@ class TestLoadImageProperties:
         nib.save(img, nifti_path)  # type: ignore[attr-defined]
 
         # Load properties
-        props = _load_image_properties(nifti_path)
+        props = load_image_properties(nifti_path)
 
         # Verify shape and spacing (from affine matrix)
         assert props.shape == (2, 2, 3)
@@ -197,7 +195,7 @@ class TestLoadImageProperties:
         img.save(png_path)
 
         # Load properties
-        props = _load_image_properties(png_path)
+        props = load_image_properties(png_path)
 
         # Verify shape (MONAI LoadImaged returns channel-first: C, H, W)
         assert props.shape == (1, 64, 64)
@@ -220,7 +218,7 @@ class TestLoadImageProperties:
         img.save(png_path)
 
         # Load properties
-        props = _load_image_properties(png_path)
+        props = load_image_properties(png_path)
 
         # Verify shape includes channels (MONAI LoadImaged returns channel-first: C, H, W)
         assert props.shape == (3, 32, 32)
@@ -236,7 +234,7 @@ class TestLoadImageProperties:
             f.write("not an image")
 
         with pytest.raises(ValueError, match="Unsupported file type"):
-            _load_image_properties(txt_path)
+            load_image_properties(txt_path)
 
 
 class TestFingerprintDatasetErrorHandling:

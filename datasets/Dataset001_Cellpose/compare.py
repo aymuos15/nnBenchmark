@@ -381,7 +381,7 @@ class ConfigComparator:
         self.add_result("Optimizer Type", "SGD", optimizer["type"])
 
         # Weight decay
-        nnunet_wd = 3e-5
+        nnunet_wd = 0.00003
         nnbenchmark_wd = optimizer["weight_decay"]
         self.add_result("Weight Decay", nnunet_wd, nnbenchmark_wd)
 

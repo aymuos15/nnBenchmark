@@ -17,6 +17,7 @@ from numpy.typing import NDArray
 from scipy.ndimage import binary_fill_holes
 
 
+# DOC: BINARY_MASK_CREATION | Category: Adaptive | Documentation: docs/planning.md
 def create_nonzero_mask(data: NDArray) -> NDArray:
     """
     Create binary mask identifying non-zero regions across all channels.
@@ -63,6 +64,7 @@ def create_nonzero_mask(data: NDArray) -> NDArray:
     else:
         mask = data != 0
 
+    # DOC: MORPHOLOGICAL_HOLE_FILLING | Category: Constant | Documentation: docs/planning.md
     # Apply morphological hole-filling to create continuous mask
     # This fills small holes in the foreground region
     mask = binary_fill_holes(mask)
@@ -70,6 +72,7 @@ def create_nonzero_mask(data: NDArray) -> NDArray:
     return np.asarray(mask)
 
 
+# DOC: BOUNDING_BOX_CALCULATION | Category: Adaptive | Documentation: docs/planning.md
 def get_bbox_from_mask(mask: NDArray) -> list[list[int]]:
     """
     Find bounding box coordinates from a binary mask.
@@ -102,6 +105,7 @@ def get_bbox_from_mask(mask: NDArray) -> list[list[int]]:
     return bbox
 
 
+# DOC: CROP_TO_NONZERO | Category: Adaptive | Documentation: docs/planning.md
 def crop_to_nonzero(
     data: NDArray,
     seg: Optional[NDArray] = None,

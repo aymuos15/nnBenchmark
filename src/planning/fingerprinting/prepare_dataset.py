@@ -20,7 +20,9 @@ from typing import Any
 import nibabel as nib
 import numpy as np
 from loguru import logger
+from PIL import Image
 
+from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.splits import create_splits, save_splits
 from src.preprocessing.cropping import crop_to_nonzero
 from src.utils.files import extract_case_id, load_nifti_with_metadata
@@ -97,6 +99,9 @@ def extract_test_cases(dataset_path: str | Path) -> list[str]:
     return test_cases
 
 
+# DOC: METADATA_PRESERVATION | Category: Adaptive | Documentation: docs/planning.md
+# Description: Stores original shape, cropped shape, voxel spacing, affine transforms
+# Function: preprocess_and_crop_dataset | Documentation: docs/planning.md Step 0
 def preprocess_and_crop_dataset(
     dataset_path: str | Path,
     output_dir: str | Path | None = None,
@@ -250,8 +255,6 @@ def preprocess_and_crop_dataset(
                 nib.save(seg_nib, str(output_seg_path))  # type: ignore[attr-defined]
             else:
                 # For PNG/JPG: save as PNG maintaining original format
-                from PIL import Image
-
                 # Remove channel dimension for image saving
                 # Format expects (H, W) or (H, W, C), we have (C, H, W) or (C, H, W, D)
                 if cropped_img.ndim == 3 and cropped_img.shape[0] == 1:
@@ -373,7 +376,11 @@ def prepare_dataset(
     }
 
     # Save dataset.json
-    dataset_json_path = dataset_path / "dataset.json"
+    if preprocessed_dir is None:
+        dataset_json_path = dataset_path / "dataset.json"
+    else:
+        dataset_json_path = Path(preprocessed_dir) / "dataset.json"
+        Path(preprocessed_dir).mkdir(parents=True, exist_ok=True)
 
     if dataset_json_path.exists() and not force:
         logger.warning(f"dataset.json already exists: {dataset_json_path}")
@@ -403,9 +410,9 @@ def prepare_dataset(
     # Create 5-fold cross-validation splits
     splits = create_splits(
         case_identifiers=case_identifiers,
-        n_folds=5,
+        n_folds=PLANNING_CONSTANTS.N_FOLDS,
         stratified=False,
-        seed=12345,
+        seed=PLANNING_CONSTANTS.RANDOM_SEED,
     )
 
     # Save splits

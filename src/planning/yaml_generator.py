@@ -6,9 +6,11 @@ Converts ExperimentPlan dataclass to YAML config matching nnBenchmark format.
 from pathlib import Path
 from typing import Any, TextIO
 
+from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.planner.create import ExperimentPlan
 
 
+# DOC: UNET_PARAMETER_DERIVATION | Category: Adaptive | Documentation: docs/planning.md
 def _derive_unet_params_from_dynunet(plan: ExperimentPlan) -> dict[str, Any]:
     """Derive UNet parameters from DynUNet configuration.
 
@@ -149,12 +151,14 @@ def _write_dataset_config(
     f.write("# Defines the dataset to use and patch extraction settings.\n\n")
     f.write("dataset:\n")
     f.write(f"  name: {dataset_name}  # Dataset identifier matching folder name\n\n")
+    f.write("  # Dataset fingerprint properties (from preprocessing analysis)\n")
     f.write(
-        "  # Dataset fingerprint properties (from preprocessing analysis)\n"
+        f"  median_shape: {list(plan.median_shape)}  # Median image shape in voxels\n"
     )
-    f.write(f"  median_shape: {list(plan.median_shape)}  # Median image shape in voxels\n")
     f.write(f"  median_spacing: {list(plan.median_spacing)}  # Median voxel spacing\n")
-    f.write(f"  foreground_intensity_mean: {plan.foreground_intensity_mean:.2f}  # Mean foreground intensity\n\n")
+    f.write(
+        f"  foreground_intensity_mean: {plan.foreground_intensity_mean:.2f}  # Mean foreground intensity\n\n"
+    )
     f.write(
         "  # Patch size for training (automatically optimized based on median shape)\n"
     )
@@ -174,6 +178,7 @@ def _write_dataset_config(
     )
 
 
+# DOC: MODEL_CONFIG_GENERATION | Category: Adaptive | Documentation: docs/planning.md
 def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> None:
     """Write model architecture configuration with nested DynUNet and UNet options."""
     f.write(
@@ -185,30 +190,44 @@ def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> N
     )
     f.write("# This config includes both DynUNet and UNet architectures.\n")
     f.write("# Change 'type' field to switch between models (default: DynUNet).\n")
-    f.write("# UNet params are auto-derived from DynUNet for architecture equivalence.\n\n")
+    f.write(
+        "# UNet params are auto-derived from DynUNet for architecture equivalence.\n\n"
+    )
     f.write("model:\n")
     f.write("  # Model selection: DynUNet (default) or UNet\n")
-    f.write("  type: DynUNet  # monai.networks.nets.DynUNet (change to 'UNet' for monai.networks.nets.UNet)\n\n")
+    f.write(
+        "  type: DynUNet  # monai.networks.nets.DynUNet (change to 'UNet' for monai.networks.nets.UNet)\n\n"
+    )
 
     # Shared parameters
-    f.write("  # ========================================================================\n")
+    f.write(
+        "  # ========================================================================\n"
+    )
     f.write("  # Shared Parameters (common to all models)\n")
-    f.write("  # ========================================================================\n")
+    f.write(
+        "  # ========================================================================\n"
+    )
     f.write(f"  spatial_dims: {spatial_dims}  # {spatial_dims}D architecture\n")
     f.write("  in_channels: 1  # Single channel (grayscale)\n")
     f.write(f"  out_channels: {plan.num_classes}  # One channel per class\n\n")
 
     # Deep supervision (shared)
     f.write("  # Deep Supervision (nnU-Net style)\n")
-    f.write("  # Note: DynUNet supports exposed deep supervision, UNet has internal DS\n")
+    f.write(
+        "  # Note: DynUNet supports exposed deep supervision, UNet has internal DS\n"
+    )
     f.write(f"  deep_supervision: {str(plan.deep_supervision).lower()}\n")
     f.write("  deep_supr_num: 1  # Number of deep supervision outputs\n")
     f.write(f"  ds_weights: {plan.ds_weights}  # Loss weights for DS levels\n\n")
 
     # DynUNet-specific parameters
-    f.write("  # ========================================================================\n")
+    f.write(
+        "  # ========================================================================\n"
+    )
     f.write("  # DynUNet-Specific Parameters (monai.networks.nets.DynUNet)\n")
-    f.write("  # ========================================================================\n")
+    f.write(
+        "  # ========================================================================\n"
+    )
     f.write("  DynUNet:\n")
     f.write("    # Feature channels per encoder stage\n")
     f.write(f"    filters: {plan.filters}\n\n")
@@ -237,9 +256,13 @@ def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> N
 
     # UNet-specific parameters (derived)
     unet_params = _derive_unet_params_from_dynunet(plan)
-    f.write("  # ========================================================================\n")
+    f.write(
+        "  # ========================================================================\n"
+    )
     f.write("  # UNet-Specific Parameters (auto-derived from DynUNet)\n")
-    f.write("  # ========================================================================\n")
+    f.write(
+        "  # ========================================================================\n"
+    )
     f.write("  # monai.networks.nets.UNet with parameters derived to match DynUNet.\n")
     f.write("  UNet:\n")
     f.write("    # Feature channels per stage (matches DynUNet filters)\n")
@@ -250,6 +273,9 @@ def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> N
     f.write(f"    num_res_units: {unet_params['num_res_units']}\n\n")
 
 
+# DOC: TRAINING_HYPERPARAMETERS | Category: Constant | Documentation: docs/planning.md
+# Description: epochs=200, lr=0.01, val_interval=5, checkpoint_metric=DiceMetric, mixed_precision=true
+# Function: _write_training_config | Constants: epochs=200, lr=0.01, val_interval=5 | Documentation: docs/planning.md Step 3
 def _write_training_config(
     f: TextIO, plan: ExperimentPlan, num_workers: int | None = None
 ) -> None:
@@ -268,15 +294,15 @@ def _write_training_config(
     f.write("# Training hyperparameters and validation settings.\n\n")
     f.write("training:\n")
     f.write("  # Total training epochs (standard for medical segmentation)\n")
-    f.write("  epochs: 200\n\n")
+    f.write(f"  epochs: {PLANNING_CONSTANTS.EPOCHS}\n\n")
     f.write(
         "  # Batch size (auto-optimized based on patch size and available memory)\n"
     )
     f.write(f"  batch_size: {plan.batch_size}\n\n")
     f.write("  # Learning rate (nnU-Net default: 0.01 for SGD with momentum)\n")
-    f.write("  learning_rate: 0.01\n\n")
+    f.write(f"  learning_rate: {PLANNING_CONSTANTS.LEARNING_RATE}\n\n")
     f.write("  # Run validation every N epochs\n")
-    f.write("  val_interval: 5\n\n")
+    f.write(f"  val_interval: {PLANNING_CONSTANTS.VAL_INTERVAL}\n\n")
     f.write("  # Number of data loading workers (auto-optimized based on CPU cores)\n")
     f.write(f"  num_workers: {num_workers}\n\n")
     f.write("  # Metric to use for saving best checkpoint\n")
@@ -303,12 +329,12 @@ def _write_optimizer_config(f: TextIO) -> None:
     f.write("# SGD optimizer with Nesterov momentum (nnU-Net default).\n\n")
     f.write("optimizer:\n")
     f.write("  type: SGD  # Stochastic Gradient Descent\n\n")
-    f.write("  # L2 regularization (nnU-Net default: 3e-5)\n")
-    f.write("  weight_decay: 0.00003\n\n")
+    f.write("  # L2 regularization (nnU-Net default: 0.00003)\n")
+    f.write(f"  weight_decay: {PLANNING_CONSTANTS.WEIGHT_DECAY:.8f}\n\n")
     f.write("  # Momentum coefficient (nnU-Net default: 0.99)\n")
-    f.write("  momentum: 0.99\n\n")
+    f.write(f"  momentum: {PLANNING_CONSTANTS.MOMENTUM}\n\n")
     f.write("  # Enable Nesterov momentum for better convergence\n")
-    f.write("  nesterov: true\n\n")
+    f.write(f"  nesterov: {str(PLANNING_CONSTANTS.NESTEROV).lower()}\n\n")
 
 
 def _write_loss_config(f: TextIO, plan: ExperimentPlan) -> None:
@@ -384,14 +410,18 @@ def _write_transforms_config(f: TextIO, plan: ExperimentPlan) -> None:
 
     if plan.is_2d:
         # For 2D datasets (PNG/JPEG), use ensure_channel_first to add channel dimension
-        f.write("    # For 2D data: ensure_channel_first adds channel dimension to images loaded as (H, W)\n")
+        f.write(
+            "    # For 2D data: ensure_channel_first adds channel dimension to images loaded as (H, W)\n"
+        )
         f.write("    - type: LoadImaged\n")
         f.write("      keys: [image, label]\n")
         f.write("      ensure_channel_first: true\n\n")
     else:
         # For 3D datasets (NIfTI), do not use ensure_channel_first
         # NIfTI files already have channel dimension in preprocessed format
-        f.write("    # For 3D data: NIfTI files already have channel dimension (C, D, H, W)\n")
+        f.write(
+            "    # For 3D data: NIfTI files already have channel dimension (C, D, H, W)\n"
+        )
         f.write("    - type: LoadImaged\n")
         f.write("      keys: [image, label]\n\n")
 
