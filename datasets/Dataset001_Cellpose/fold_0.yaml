@@ -1,0 +1,387 @@
+#===============================================================================
+# Unknown - Auto-Generated Configuration
+#===============================================================================
+#
+# This configuration was automatically generated using nnU-Net-style heuristics.
+# The parameters are optimized based on dataset fingerprinting and analysis.
+#
+# Key Auto-Generated Parameters:
+#   - Patch Size: (384, 512)
+#   - Batch Size: 2
+#   - Normalization: ZScoreNormalization
+#   - Spatial Dimensions: 2D
+#   - Number of Classes: 2
+#
+# Feel free to customize these parameters based on your specific needs.
+#===============================================================================
+
+_comment: Auto-generated for Unknown using nnU-Net heuristics
+
+# ============================================================================
+# GPU Memory Logging
+# ============================================================================
+# Enable GPU memory monitoring during training to track VRAM usage.
+# Useful for debugging OOM errors and optimizing batch sizes.
+
+log_gpu_memory: true
+
+# ============================================================================
+# Dataset Configuration
+# ============================================================================
+# Defines the dataset to use and patch extraction settings.
+
+dataset:
+  name: Dataset001_Cellpose  # Dataset identifier matching folder name
+
+  # Dataset fingerprint properties (from preprocessing analysis)
+  median_shape: [1, 383, 512]  # Median image shape in voxels
+  median_spacing: [1.0, 1.0]  # Median voxel spacing
+  foreground_intensity_mean: 51.33  # Mean foreground intensity
+
+  # Patch size for training (automatically optimized based on median shape)
+  spatial_size: [384, 512]
+
+  # Number of output classes (including background)
+  num_classes: 2
+
+  # Cross-validation fold to use (0-4 for 5-fold CV)
+  fold: 0
+
+  # Caching configuration (stores preprocessed data in memory)
+  # Useful for multiple experiments; preserves augmentation
+  # Auto-optimized based on dataset size and available RAM
+  cache:
+    enabled: true  # Auto-optimized for this dataset
+    cache_rate: 1.0  # Fraction of dataset to cache (1.0 = 100%)
+
+# ============================================================================
+# Model Architecture (Multi-Model Support)
+# ============================================================================
+# This config includes both DynUNet and UNet architectures.
+# Change 'type' field to switch between models (default: DynUNet).
+# UNet params are auto-derived from DynUNet for architecture equivalence.
+
+model:
+  # Model selection: DynUNet (default) or UNet
+  type: DynUNet  # monai.networks.nets.DynUNet (change to 'UNet' for monai.networks.nets.UNet)
+
+  # ========================================================================
+  # Shared Parameters (common to all models)
+  # ========================================================================
+  spatial_dims: 2  # 2D architecture
+  in_channels: 1  # Single modality (grayscale)
+  out_channels: 2  # One channel per class
+
+  # Deep Supervision (nnU-Net style)
+  # Note: DynUNet supports exposed deep supervision, UNet has internal DS
+  deep_supervision: true
+  deep_supr_num: 1  # Number of deep supervision outputs
+  ds_weights: [1.0, 0.5]  # Loss weights for DS levels
+
+  # ========================================================================
+  # DynUNet-Specific Parameters (monai.networks.nets.DynUNet)
+  # ========================================================================
+  DynUNet:
+    # Feature channels per encoder stage
+    filters: [32, 64, 128, 256, 512, 512, 512]
+
+    # Kernel sizes per encoder stage (all 3x3x3)
+    kernel_size:
+      - [3, 3]
+      - [3, 3]
+      - [3, 3]
+      - [3, 3]
+      - [3, 3]
+      - [3, 3]
+      - [3, 3]
+
+    # Strides per encoder stage
+    # First stride [1,1,1] maintains full resolution
+    strides:
+      - [1, 1]
+      - [2, 2]
+      - [2, 2]
+      - [2, 2]
+      - [2, 2]
+      - [2, 2]
+      - [2, 2]
+
+    # Upsample kernel sizes for decoder
+    upsample_kernel_size:
+      - [2, 2]
+      - [2, 2]
+      - [2, 2]
+      - [2, 2]
+      - [2, 2]
+      - [2, 2]
+
+    # Normalization: InstanceNorm with affine=True
+    norm_name: [INSTANCE, {affine: true}]
+
+    # Activation: LeakyReLU with slope=0.01
+    act_name: [leakyrelu, {inplace: true, negative_slope: 0.01}]
+
+    # Plain convolutions (no residual connections)
+    res_block: false
+
+  # ========================================================================
+  # UNet-Specific Parameters (auto-derived from DynUNet)
+  # ========================================================================
+  # monai.networks.nets.UNet with parameters derived to match DynUNet.
+  UNet:
+    # Feature channels per stage (matches DynUNet filters)
+    channels: [32, 64, 128, 256, 512, 512, 512]
+
+    # Downsampling strides (simplified from DynUNet)
+    strides: [2, 2, 2, 2, 2, 2]
+
+    # Number of residual units per stage
+    num_res_units: 2
+
+# ============================================================================
+# Training Configuration
+# ============================================================================
+# Training hyperparameters and validation settings.
+
+training:
+  # Total training epochs (standard for medical segmentation)
+  epochs: 200
+
+  # Batch size (auto-optimized based on patch size and available memory)
+  batch_size: 2
+
+  # Learning rate (nnU-Net default: 0.01 for SGD with momentum)
+  learning_rate: 0.01
+
+  # Run validation every N epochs
+  val_interval: 5
+
+  # Number of data loading workers (auto-optimized based on CPU cores)
+  num_workers: 5
+
+  # Metric to use for saving best checkpoint
+  checkpoint_metric: DiceMetric
+
+  # Metrics to plot during training
+  plot_metrics:
+    - DiceMetric        # Overlap-based metric
+    - SurfaceDiceMetric # Surface distance metric
+
+  # Mixed precision training (FP16 for ~2x speedup, requires CUDA)
+  # Set to true if you have a modern GPU with Tensor Cores
+  # Matches nnUNet's automatic AMP usage on GPU
+  mixed_precision: true
+
+# ============================================================================
+# Optimizer Configuration
+# ============================================================================
+# SGD optimizer with Nesterov momentum (nnU-Net default).
+
+optimizer:
+  type: SGD  # Stochastic Gradient Descent
+
+  # L2 regularization (nnU-Net default: 3e-5)
+  weight_decay: 0.00003
+
+  # Momentum coefficient (nnU-Net default: 0.99)
+  momentum: 0.99
+
+  # Enable Nesterov momentum for better convergence
+  nesterov: true
+
+# ============================================================================
+# Loss Function
+# ============================================================================
+# Combined Dice + Cross-Entropy loss for better gradient stability.
+
+loss:
+  type: DiceCELoss  # Dice loss + Cross Entropy
+
+  # Convert integer labels to one-hot encoding
+  to_onehot_y: true
+
+  # Apply softmax to model outputs
+  softmax: true
+
+  # Batch dice: compute dice across entire batch for stable gradients
+  # Matches nnUNet's batch_dice=True for more stable early training
+  batch: true
+
+# ============================================================================
+# Evaluation Metrics
+# ============================================================================
+# Metrics computed during validation to assess segmentation quality.
+
+metrics:
+  # Dice Similarity Coefficient (overlap-based)
+  - type: DiceMetric
+    include_background: false  # Exclude background class
+    reduction: mean_batch      # Average across batch
+    num_classes: 2
+
+  # Surface Dice (boundary accuracy metric)
+  - type: SurfaceDiceMetric
+    include_background: false  # Exclude background class
+    reduction: mean_batch      # Average across batch
+
+    # Distance tolerance in mm for each class
+    class_thresholds:
+      - 2.0  # 2mm tolerance
+
+# ============================================================================
+# Data Transforms & Augmentation (nnU-Net Configuration)
+# ============================================================================
+# This configuration exactly matches nnU-Net's preprocessing and augmentation.
+
+transforms:
+  # --------------------------------------------------------------------------
+  # Common Transforms (applied to both training and validation)
+  # --------------------------------------------------------------------------
+  common:
+    # Load images and labels
+    # For 2D data: ensure_channel_first adds channel dimension to images loaded as (H, W)
+    - type: LoadImaged
+      keys: [image, label]
+      ensure_channel_first: true
+
+    # Z-Score Normalization (nnU-Net default)
+    # Normalizes to zero mean and unit variance: (x - mean) / std
+    - type: NormalizeIntensityd
+      keys: [image]
+      nonzero: false  # Compute stats over whole image
+      channel_wise: false  # Single channel
+
+    # Pad images smaller than patch size
+    - type: SpatialPadd
+      keys: [image, label]
+      spatial_size: [384, 512]
+      mode: constant  # Zero-padding
+
+    # Convert to PyTorch tensors
+    - type: ToTensord
+      keys: [image, label]
+
+  # --------------------------------------------------------------------------
+  # Training Transforms (nnU-Net Augmentation Pipeline)
+  # --------------------------------------------------------------------------
+  train:
+    # Random spatial crop to patch size
+    - type: RandSpatialCropd
+      keys: [image, label]
+      roi_size: [384, 512]
+      random_size: false
+
+    # Rotation (nnU-Net: ±30° for isotropic 3D, p=0.2)
+    # Using continuous angle rotation to match nnU-Net exactly
+    - type: RandRotated
+      keys: [image, label]
+      prob: 0.2
+      range_x: 0.5236  # ±30° in radians (30 * π / 180)
+      range_y: 0.5236
+      range_z: 0.5236
+      mode: ["bilinear", "nearest"]
+      padding_mode: border
+
+    # Scaling (nnU-Net: 0.7-1.4, p=0.2)
+    - type: RandZoomd
+      keys: [image, label]
+      prob: 0.2
+      min_zoom: 0.7
+      max_zoom: 1.4
+      keep_size: true  # Maintain spatial dimensions after zoom
+      mode: ["trilinear", "nearest"]
+
+    # Random flip along X-axis (nnU-Net: mirroring)
+    - type: RandFlipd
+      keys: [image, label]
+      prob: 0.5
+      spatial_axis: 0
+
+    # Random flip along Y-axis (nnU-Net: mirroring)
+    - type: RandFlipd
+      keys: [image, label]
+      prob: 0.5
+      spatial_axis: 1
+
+    # Gaussian Noise (nnU-Net: variance (0, 0.1), p=0.1)
+    - type: RandGaussianNoised
+      keys: [image]
+      prob: 0.1
+      mean: 0.0
+      std: 0.1
+
+    # Gaussian Blur (nnU-Net: sigma (0.5, 1.0), p=0.2)
+    - type: RandGaussianSmoothd
+      keys: [image]
+      prob: 0.2
+      sigma_x: [0.5, 1.0]
+      sigma_y: [0.5, 1.0]
+      sigma_z: [0.5, 1.0]
+
+    # Brightness (nnU-Net: multiplier (0.75, 1.25), p=0.15)
+    - type: RandScaleIntensityd
+      keys: [image]
+      factors: [0.75, 1.25]
+      prob: 0.15
+
+    # Contrast (nnU-Net: range (0.75, 1.25), p=0.15)
+    - type: RandAdjustContrastd
+      keys: [image]
+      prob: 0.15
+      gamma: [0.75, 1.25]
+
+    # Low-Resolution Scale (nnU-Net: scale (0.5, 1.0), p=0.25)
+    # Simulates low resolution images to improve robustness
+    - type: RandZoomd
+      keys: [image, label]
+      prob: 0.25
+      min_zoom: 0.5
+      max_zoom: 1.0
+      mode: [bilinear, nearest]
+      padding_mode: edge
+
+    # Gamma Transform (nnU-Net: range (0.7, 1.5), p=0.1 + p=0.3)
+    - type: RandHistogramShiftd
+      keys: [image]
+      prob: 0.1
+      num_control_points: [5, 15]
+
+    # Gamma Transform without inversion (p=0.3)
+    - type: RandHistogramShiftd
+      keys: [image]
+      prob: 0.3
+      num_control_points: [5, 15]
+
+    # Ensure consistent patch size after augmentations
+    # ResizeWithPadOrCropd pads and crops to ensure exact patch size
+    - type: ResizeWithPadOrCropd
+      keys: [image, label]
+      spatial_size: [384, 512]
+      mode: ["constant", "constant"]
+
+  # --------------------------------------------------------------------------
+  # Validation Transforms (no augmentation)
+  # --------------------------------------------------------------------------
+  val:
+    # Center crop to patch size (deterministic)
+    - type: CenterSpatialCropd
+      keys: [image, label]
+      roi_size: [384, 512]
+
+  # --------------------------------------------------------------------------
+  # Test Transforms (same as validation, no augmentation)
+  # --------------------------------------------------------------------------
+  test:
+    # Center crop to patch size (deterministic)
+    - type: CenterSpatialCropd
+      keys: [image, label]
+      roi_size: [384, 512]
+
+# ============================================================================
+# Testing Configuration
+# ============================================================================
+# Settings for inference/testing phase.
+
+testing:
+  # Batch size for inference (typically 1 for full-resolution testing)
+  batch_size: 1
