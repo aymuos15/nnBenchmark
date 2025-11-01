@@ -14,8 +14,17 @@ Config-driven medical image segmentation with a focus on reproducibility and ben
 
 ### Installation
 
+> **Note**: Currently in alpha testing on TestPyPI. Full PyPI release coming soon.
+
 ```bash
-pip install nnbench
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ nnbenchmark
+```
+
+For users without TestPyPI access, install from source:
+```bash
+git clone https://github.com/aymuos15/nnBenchmark.git
+cd nnBenchmark
+pip install -e .
 ```
 
 ### Setup Environment Variables

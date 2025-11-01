@@ -8,11 +8,22 @@ Config-driven 3D medical image segmentation framework using MONAI and PyTorch Li
 
 ## Installation
 
-### For Users (PyPI)
+### For Users (TestPyPI - Alpha Testing)
+
+Currently in alpha testing phase. Install from TestPyPI:
 
 ```bash
-pip install nnbench
+pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ nnbenchmark
 ```
+
+Or install from source:
+```bash
+git clone https://github.com/aymuos15/nnBenchmark.git
+cd nnBenchmark
+pip install -e .
+```
+
+**Note**: Full PyPI release planned after alpha testing phase concludes.
 
 ### For Development
 
