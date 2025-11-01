@@ -82,11 +82,11 @@ This document maps parameters between **nnBenchmark** and **nnU-Net v2.4.1** to 
 | **Deep Supervision Enabled** | `src/lightning/module.py:59` | [`nnUNetTrainer.py:151`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L151) | ✅ |
 | **DS Weight Formula** | `module.py:60` (exponential decay) | [`nnUNetTrainer.py:385`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L385) (1/2^i) | ✅ |
 
-## Network Architecture
+## Model Architecture
 
 | Parameter | nnBenchmark | nnU-Net v2.4.1 | Status |
 |-----------|-------------|----------------|--------|
-| **Network Type** | DynUNet (MONAI) | [`PlainConvUNet`](https://github.com/MIC-DKFZ/dynamic-network-architectures/blob/master/dynamic_network_architectures/architectures/unet.py#L21) (dynamic-network-architectures) | ✅ |
+| **Model Type** | DynUNet (MONAI) | [`PlainConvUNet`](https://github.com/MIC-DKFZ/dynamic-network-architectures/blob/master/dynamic_network_architectures/architectures/unet.py#L21) (dynamic-network-architectures) | ✅ |
 | **Feature Channels** | `src/planning/yaml_generator.py:69` [32, 64, 128, 256] | [`nnUNetPlans.json`](https://github.com/MIC-DKFZ/nnUNet) features_per_stage: [32, 64, 128, 256] | ✅ |
 | **Strides** | `yaml_generator.py:81-85` [[1,1,1], [2,2,2], [2,2,2], [2,2,2]] | [`nnUNetPlans.json`](https://github.com/MIC-DKFZ/nnUNet) strides: [[1,1,1], [2,2,2], [2,2,2], [2,2,2]] | ✅ |
 | **First Level Resolution** | `yaml_generator.py:79` Full resolution (stride [1,1,1]) | [`PlainConvUNet`](https://github.com/MIC-DKFZ/dynamic-network-architectures) First stage no downsampling | ✅ |

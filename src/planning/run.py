@@ -272,8 +272,8 @@ def run_planning(
         print(f"  Dimensionality: {'2D' if plan.is_2d else '3D'}")
         print(f"  Patch size: {plan.patch_size}")
         print(f"  Batch size: {plan.batch_size}")
-        print(f"  Network filters: {plan.filters}")
-        print(f"  Network strides: {plan.strides}")
+        print(f"  Model filters: {plan.filters}")
+        print(f"  Model strides: {plan.strides}")
         print(f"  Normalization: {plan.normalization_scheme}")
         print(
             f"  Intensity range: [{plan.intensity_clip_min:.1f}, {plan.intensity_clip_max:.1f}]"

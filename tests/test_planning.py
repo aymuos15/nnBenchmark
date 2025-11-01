@@ -143,8 +143,8 @@ class TestTargetSpacing:
         assert spacing == (2.0, 1.0, 1.0)
 
 
-class TestNetworkTopology:
-    """Test network topology determination."""
+class TestModelTopology:
+    """Test model topology determination."""
 
     def test_small_patch_2d(self):
         """Small 2D patch should have fewer stages."""

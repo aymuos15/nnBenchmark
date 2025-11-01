@@ -27,7 +27,7 @@ def pad_nd_image(
     Pad n-dimensional image to specified shape.
 
     Used to ensure image dimensions are divisible by 2^N for sliding window inference
-    (where N is the number of pooling operations in the network).
+    (where N is the number of pooling operations in the model).
 
     Args:
         data: Input array to pad
@@ -221,7 +221,7 @@ def convert_predictions_to_original_space(
     data_properties: dict,
 ) -> NDArray:
     """
-    Convert predictions from network output space back to original image space.
+    Convert predictions from model output space back to original image space.
 
     Master function that applies all restoration operations in correct order:
     1. Revert padding (if applied)
@@ -229,7 +229,7 @@ def convert_predictions_to_original_space(
     (Note: Resampling to original spacing should be done separately with resampling utilities)
 
     Args:
-        predictions: Raw network predictions (C, H, W, D or H, W, D)
+        predictions: Raw model predictions (C, H, W, D or H, W, D)
         data_properties: Dictionary containing transformation metadata:
             - 'crop_bbox': [[minz, maxz], [minx, maxx], [miny, maxy]]
             - 'original_shape': Original spatial shape before cropping

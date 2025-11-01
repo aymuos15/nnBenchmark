@@ -1,6 +1,6 @@
 """
 Test to verify DynUNet exactly matches nnU-Net PlainConvUNet architecture.
-Validates feature map progression, parameters, and network structure.
+Validates feature map progression, parameters, and model structure.
 """
 
 from __future__ import annotations

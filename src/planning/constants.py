@@ -24,7 +24,7 @@ class PlanningConstants:
     Categories:
     - Fingerprinting: Dataset analysis constants
     - Patch Size: Normalization constants for patch size calculation
-    - Network Topology: Constants for architecture determination
+    - Model Topology: Constants for architecture determination
     - Feature Channels: Base values and caps for channel counts
     - Batch Size: Reference values for batch size calculation
     - Training: Hyperparameters for training configuration
@@ -46,7 +46,7 @@ class PlanningConstants:
     PATCH_NORM_2D: int = 2048  # 2048² normalization constant
 
     # ========================================================================
-    # Network Topology
+    # Model Topology
     # ========================================================================
     MIN_FEATURE_MAP_SIZE: int = 4  # Bottleneck constraint
 

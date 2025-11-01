@@ -112,7 +112,7 @@ def create_experiment_plan(
     )
     logger.info(f"Initial patch size: {initial_patch}")
 
-    # Step 3: Get network topology via get_pool_and_conv_props (nnU-Net exact)
+    # Step 3: Get model topology via get_pool_and_conv_props (nnU-Net exact)
     unet_featuremap_min_edge_length = (
         PLANNING_CONSTANTS.MIN_FEATURE_MAP_SIZE
     )  # nnU-Net constant
@@ -134,7 +134,7 @@ def create_experiment_plan(
     num_stages = len(
         strides
     )  # Number of encoder stages (including first no-downsample stage)
-    logger.info(f"Network topology: {num_stages} stages")
+    logger.info(f"Model topology: {num_stages} stages")
     logger.info(f"Strides (includes [1,1,1] at first level): {strides}")
     logger.info(f"Conv kernel sizes: {conv_kernel_sizes}")
     logger.info(f"Adjusted patch size: {patch_size}")

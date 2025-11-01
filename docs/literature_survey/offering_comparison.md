@@ -220,7 +220,7 @@ Critical distinction between competition and baseline performance:
 |-----------|-------------------|--------------------------------|
 | **nnU-Net** | Dataset path, dataset ID | Preprocessing, architecture selection, hyperparameters, augmentation, training, inference |
 | **Auto3DSeg** | Data path, **modality in YAML** | Dataset analysis, algorithm selection (ensemble), hyperparameters, training, inference |
-| **nnBenchmark** | Dataset path only | Dataset fingerprinting, imaging technique detection, patch size, network topology, batch size, YAML generation |
+| **nnBenchmark** | Dataset path only | Dataset fingerprinting, imaging technique detection, patch size, model topology, batch size, YAML generation |
 
 #### 4.2 Manual Configuration Effort
 
@@ -458,7 +458,7 @@ nnBench.plot --config configs/dataset001_hippo.yaml
 - Fingerprints dataset (spacing, shape, intensity statistics) with optional parallel processing
 - Detects imaging technique (CT vs MRI) and anisotropy
 - Calculates optimal patch size and target spacing
-- Determines network topology (stages, channels, strides)
+- Determines model topology (stages, channels, strides)
 - Configures deep supervision with auto-calculated weights
 - Optimizes batch size based on GPU memory
 - Generates complete YAML config with all hyperparameters
