@@ -86,7 +86,7 @@ results/[config_name]/
 │   ├── val_SurfaceDice.png
 │   ├── test_cls_wise_Dice_scores.png
 │   └── test_cls_wise_SurfaceDice_scores.png
-└── visualizations/                   # Validation sample visualizations
+└── visualizations/                   # Validation case visualizations
     └── validation_epoch_*.png
 ```
 
@@ -96,7 +96,7 @@ By default, both **Dice** and **Surface Dice (NSD)** metrics are computed and:
 
 - Overall mean across all classes
 - Per-class scores for detailed analysis
-- Complete statistics (mean, std, min, max) for each test sample
+- Complete statistics (mean, std, min, max) for each test case
 
 ## Documentation
 

@@ -163,7 +163,7 @@ def create_experiment_plan(
     logger.debug(f"Approximate dataset voxels: {approximate_n_voxels_dataset:.0f}")
 
     # Step 7: Calculate batch size (nnU-Net exact formula)
-    num_input_channels = 1  # Assume single modality for now
+    num_input_channels = 1  # Assume single channel for now
     batch_size = calculate_batch_size(
         patch_size=patch_size,
         num_pool_per_axis=num_pool_per_axis,

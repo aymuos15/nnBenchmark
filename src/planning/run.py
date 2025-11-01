@@ -165,7 +165,7 @@ def run_planning(
             prepare_dataset(
                 dataset_path=str(dataset_path),
                 dataset_name=None,  # Use directory name as default
-                modality="Unknown",
+                channel="Unknown",
                 num_classes=2,
                 description="",
                 force=False,

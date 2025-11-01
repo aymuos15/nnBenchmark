@@ -519,7 +519,7 @@ transforms:
 **Use UNet when:**
 - Prototyping new ideas quickly
 - Limited GPU memory (<8GB VRAM)
-- Training on small datasets (<50 samples)
+- Training on small datasets (<50 cases)
 - Need fast iteration cycles
 - Establishing baseline performance
 
@@ -528,7 +528,7 @@ transforms:
 - Participating in challenges
 - Need exact nnU-Net replication
 - Have sufficient compute resources
-- Dataset size >100 samples
+- Dataset size >100 cases
 
 **Note**: Only DynUNet and UNet are currently registered. Other MONAI models can be added using `model_registry.register()`.
 

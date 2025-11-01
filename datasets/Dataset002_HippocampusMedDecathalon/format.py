@@ -163,7 +163,7 @@ def create_dataset_json(
         json.dump(dataset_json, f, indent=2)
 
     print(f"\nCreated dataset.json with {num_training} training cases")
-    print("Modality: MRI (3D volumes)")
+    print("Channel: MRI (3D volumes)")
     print("Semantic classes: background (0), Anterior (1), Posterior (2)")
     return json_path
 

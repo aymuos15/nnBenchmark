@@ -39,7 +39,7 @@ class DatasetFingerprint:
     dataset_name: str
     num_training_cases: int
     num_classes: int
-    modality: str
+    channel: str
 
     # Dimensionality
     is_2d: bool  # True if dataset is 2D, False if 3D
@@ -64,7 +64,7 @@ class DatasetFingerprint:
     intensity_percentile_00_5: float
     intensity_percentile_99_5: float
 
-    # Normalization scheme determined from modality
+    # Normalization scheme determined from channel
     normalization_scheme: str  # 'CTNormalization', 'ZScoreNormalization', etc.
 
 
@@ -188,17 +188,17 @@ def _load_image_properties_safe(args: tuple[str, str | None]) -> ImageProperties
         return None
 
 
-def _determine_normalization_scheme(modality: str) -> str:
+def _determine_normalization_scheme(channel: str) -> str:
     """
-    Determine normalization scheme based on modality.
+    Determine normalization scheme based on channel.
 
     Following nnU-Net conventions:
     - CT → CTNormalization (percentile clipping + dataset-wide z-score)
-    - Other modalities → ZScoreNormalization (per-case z-score)
+    - Other channels → ZScoreNormalization (per-case z-score)
     """
-    modality_lower = modality.lower()
+    channel_lower = channel.lower()
 
-    if "ct" in modality_lower:
+    if "ct" in channel_lower:
         return "CTNormalization"
     else:
         return "ZScoreNormalization"
@@ -340,9 +340,9 @@ def fingerprint_dataset(
     dataset_name = dataset_info.get("name", "Unknown")
     # num_classes will be determined by scanning actual label files
 
-    # Get modality (first modality if multiple)
-    modality_dict = dataset_info.get("modality", {"0": "Unknown"})
-    modality = list(modality_dict.values())[0]
+    # Get channel (first channel if multiple)
+    channel_dict = dataset_info.get("modality", {"0": "Unknown"})
+    channel = list(channel_dict.values())[0]
 
     # Find all training images
     # NOTE: Fingerprinting is done on preprocessed (cropped) images in nnUNet_preprocessed
@@ -486,13 +486,13 @@ def fingerprint_dataset(
     intensity_percentile_99_5 = float(np.percentile(all_foreground_intensities, 99.5))
 
     # Determine normalization scheme
-    normalization_scheme = _determine_normalization_scheme(modality)
+    normalization_scheme = _determine_normalization_scheme(channel)
 
     fingerprint = DatasetFingerprint(
         dataset_name=dataset_name,
         num_training_cases=len(properties_list),
         num_classes=num_classes,
-        modality=modality,
+        channel=channel,
         is_2d=is_2d,
         median_shape=median_shape,
         percentile_10_shape=percentile_10_shape,
@@ -510,7 +510,7 @@ def fingerprint_dataset(
     )
 
     logger.info("Dataset fingerprinting complete!")
-    logger.info(f"  Modality: {fingerprint.modality}")
+    logger.info(f"  Channel: {fingerprint.channel}")
     logger.info(f"  2D/3D: {'2D' if fingerprint.is_2d else '3D'}")
     logger.info(f"  Median shape: {fingerprint.median_shape}")
     logger.info(f"  Median spacing: {fingerprint.median_spacing}")

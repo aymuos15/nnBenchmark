@@ -69,7 +69,7 @@ model:
   # Shared Parameters (common to all models)
   # ========================================================================
   spatial_dims: 2  # 2D architecture
-  in_channels: 1  # Single modality (grayscale)
+  in_channels: 1  # Single channel (grayscale)
   out_channels: 2  # One channel per class
 
   # Deep Supervision (nnU-Net style)

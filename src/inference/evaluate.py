@@ -53,7 +53,7 @@ def evaluate(
         save_dir: Optional directory to save visualizations
         epoch: Optional epoch number (for visualization naming)
         save_viz: Whether to save visualizations of first batch
-        verbose: Whether to print per-sample scores
+        verbose: Whether to print per-case scores
         data_dicts: Optional list of data dictionaries with case paths
         logger: Optional logger instance for file logging
         log_gpu_mem: Whether to log GPU memory to file (default: False)
@@ -155,9 +155,9 @@ def evaluate(
                 # Extract case path from data_dicts if available
                 case_path = "unknown"
                 if data_dicts is not None:
-                    sample_idx = batch_idx * batch_size
-                    if sample_idx < len(data_dicts):
-                        image_path = data_dicts[sample_idx].get("image", "unknown")
+                    case_idx = batch_idx * batch_size
+                    if case_idx < len(data_dicts):
+                        image_path = data_dicts[case_idx].get("image", "unknown")
                         case_path = Path(image_path).name
 
                 # Print scores for all metrics
@@ -221,9 +221,9 @@ def evaluate(
     for name, scores in all_scores.items():
         if len(scores) > 0 and isinstance(scores[0], np.ndarray):
             # Per-class scores
-            scores_array = np.array(scores)  # Shape: (num_samples, num_classes)
+            scores_array = np.array(scores)  # Shape: (num_cases, num_classes)
 
-            # Overall statistics (mean across all classes and samples)
+            # Overall statistics (mean across all classes and cases)
             all_values = scores_array.flatten()
             results[name] = {
                 "mean": float(np.mean(all_values)),

@@ -59,14 +59,14 @@ def plot_classwise_scores(
     summary = test_history["summary"]
     per_class_data = None
     metric_name_found = None
-    num_samples: str | int = "Unknown"
+    num_cases: str | int = "Unknown"
 
     if metric_name is not None:
         # Use specified metric
         if metric_name in summary and "per_class" in summary[metric_name]:
             per_class_data = summary[metric_name]["per_class"]
             metric_name_found = metric_name
-            num_samples = summary[metric_name].get("num_samples", "Unknown")
+            num_cases = summary[metric_name].get("num_cases", "Unknown")
         else:
             raise ValueError(
                 f"Metric '{metric_name}' not found or has no per_class data in test_history."
@@ -77,7 +77,7 @@ def plot_classwise_scores(
             if m_name in summary and "per_class" in summary[m_name]:
                 per_class_data = summary[m_name]["per_class"]
                 metric_name_found = m_name
-                num_samples = summary[m_name].get("num_samples", "Unknown")
+                num_cases = summary[m_name].get("num_cases", "Unknown")
                 break
 
         if per_class_data is None:
@@ -154,7 +154,7 @@ def plot_classwise_scores(
     title = f"Per-Class {metric_name} Scores - {dataset_name}"
     if fold is not None:
         title += f" (Fold {fold})"
-    title += f"\nn = {num_samples} samples"
+    title += f"\nn = {num_cases} cases"
     ax.set_title(title)
 
     # Add grid for better readability

@@ -261,7 +261,7 @@ class TestFingerprintDatasetErrorHandling:
         os.makedirs(dataset_dir, exist_ok=True)
         os.makedirs(os.path.join(dataset_dir, "imagesTr"), exist_ok=True)
 
-        # Create dataset.json with modality
+        # Create dataset.json with channel
         dataset_json = {
             "name": "Dataset_Mixed",
             "numTraining": 3,

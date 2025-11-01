@@ -27,16 +27,16 @@ class TestNormalizationScheme:
     """Test normalization scheme detection."""
 
     def test_ct_normalization(self):
-        """CT modality should use CTNormalization."""
+        """CT channel should use CTNormalization."""
         assert _determine_normalization_scheme("CT") == "CTNormalization"
         assert _determine_normalization_scheme("ct") == "CTNormalization"
 
     def test_mri_normalization(self):
-        """MRI modality should use ZScoreNormalization."""
+        """MRI channel should use ZScoreNormalization."""
         assert _determine_normalization_scheme("MRI") == "ZScoreNormalization"
 
     def test_unknown_normalization(self):
-        """Unknown modality should default to ZScoreNormalization."""
+        """Unknown channel should default to ZScoreNormalization."""
         assert _determine_normalization_scheme("Unknown") == "ZScoreNormalization"
 
 

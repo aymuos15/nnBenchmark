@@ -129,12 +129,12 @@ def save_validation_visualizations(
     # Create figure with subplots: 3 columns (image, GT, pred) x batch_size rows
     fig, axes = plt.subplots(batch_size, 3, figsize=(15, 5 * batch_size))
 
-    # Handle single sample case
+    # Handle single case
     if batch_size == 1:
         axes = axes.reshape(1, -1)
 
     for idx in range(batch_size):
-        # Get single sample
+        # Get single case
         image = images_np[idx]  # (C, H, W)
         label = labels_np[idx]  # (1, H, W) or (C, H, W)
         pred = predictions_np[idx]  # (1, H, W) or (C, H, W)

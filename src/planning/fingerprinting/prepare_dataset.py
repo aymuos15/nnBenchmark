@@ -305,7 +305,7 @@ def preprocess_and_crop_dataset(
 def prepare_dataset(
     dataset_path: str | Path,
     dataset_name: str | None = None,
-    modality: str = "Unknown",
+    channel: str = "Unknown",
     num_classes: int = 2,
     description: str = "",
     force: bool = False,
@@ -338,7 +338,7 @@ def prepare_dataset(
     Args:
         dataset_path: Path to dataset directory
         dataset_name: Name of the dataset (defaults to directory name)
-        modality: Image modality (e.g., 'MRI', 'CT')
+        channel: Channel type (e.g., 'MRI', 'CT')
         num_classes: Number of output classes (including background)
         description: Dataset description
         force: Overwrite existing files
@@ -368,7 +368,7 @@ def prepare_dataset(
     dataset_json: dict[str, Any] = {
         "name": dataset_name,
         "description": description,
-        "modality": {"0": modality},
+        "modality": {"0": channel},
         "labels": {str(i): f"class_{i}" for i in range(num_classes)},
     }
 
@@ -438,7 +438,7 @@ if __name__ == "__main__":
     parser.add_argument("dataset_path", help="Path to dataset directory")
     parser.add_argument("--name", help="Dataset name (default: directory name)")
     parser.add_argument(
-        "--modality", default="Unknown", help="Image modality (e.g., MRI, CT)"
+        "--channel", default="Unknown", help="Channel type (e.g., MRI, CT)"
     )
     parser.add_argument(
         "--num-classes", type=int, default=2, help="Number of classes (default: 2)"
@@ -457,7 +457,7 @@ if __name__ == "__main__":
     prepare_dataset(
         dataset_path=args.dataset_path,
         dataset_name=args.name,
-        modality=args.modality,
+        channel=args.channel,
         num_classes=args.num_classes,
         description=args.description,
         force=args.force,

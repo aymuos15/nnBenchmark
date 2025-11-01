@@ -123,7 +123,7 @@ def run_testing(
 
     # Data
     test_data = get_test_data_dicts(data_dir, fold, use_test_set)
-    log.info(f"Test samples: {len(test_data)}")
+    log.info(f"Test cases: {len(test_data)}")
     log.info(
         f"Test mode: {'Dedicated test set' if use_test_set else 'Validation split'}"
     )
@@ -219,7 +219,7 @@ def run_testing(
 
         log.info(f"  Min: {results['min']:.4f}")
         log.info(f"  Max: {results['max']:.4f}")
-    log.info(f"\nNumber of samples: {len(all_results[metric_names[0]]['all_scores'])}")
+    log.info(f"\nNumber of cases: {len(all_results[metric_names[0]]['all_scores'])}")
 
     # Save results
     ensure_directory(results_dir)
@@ -234,7 +234,7 @@ def run_testing(
             "std": results["std"],
             "min": results["min"],
             "max": results["max"],
-            "num_samples": len(results["all_scores"]),
+            "num_cases": len(results["all_scores"]),
         }
 
         # Add per-class statistics to summary if available
