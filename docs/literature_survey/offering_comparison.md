@@ -253,7 +253,7 @@ nnBench.plan --dataset datasets/Dataset001_Hippo      # Auto-generates config an
 nnBench.train --config configs/dataset001_hippo.yaml
 
 # Optional post-processing:
-nnBench.test --config configs/dataset001_hippo.yaml
+nnBench.inference --config configs/dataset001_hippo.yaml
 nnBench.plot --config configs/dataset001_hippo.yaml
 ```
 ✅ Zero manual file creation
@@ -442,8 +442,8 @@ nnBench.plan --dataset Dataset001_Hippo
 # 3. Train model
 nnBench.train --config configs/dataset001_hippo.yaml
 
-# 4. Test model
-nnBench.test --config configs/dataset001_hippo.yaml --use-val-split
+# 4. Run inference
+nnBench.inference --config configs/dataset001_hippo.yaml --use-val-split
 
 # 5. Generate comprehensive plots
 nnBench.plot --config configs/dataset001_hippo.yaml

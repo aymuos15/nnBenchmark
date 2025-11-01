@@ -47,9 +47,9 @@ nnBench.train --config configs/dataset001_hippo.yaml
 nnBench.train --config configs/dataset001_hippo.yaml --continue
 ```
 
-**3. Test the model:**
+**3. Run inference:**
 ```bash
-nnBench.test --config configs/dataset001_hippo.yaml --use-val-split
+nnBench.inference --config configs/dataset001_hippo.yaml --use-val-split
 ```
 
 **4. Generate plots:**

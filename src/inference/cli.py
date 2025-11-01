@@ -8,7 +8,7 @@ from src.inference.run import run_inference
 
 
 def main() -> None:
-    """Entry point for nnBench.test CLI command."""
+    """Entry point for nnBench.inference CLI command."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config", type=str, required=True, help="Path to config YAML file"
