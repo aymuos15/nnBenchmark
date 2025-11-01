@@ -15,13 +15,7 @@ Config-driven medical image segmentation with a focus on reproducibility and ben
 ### Installation
 
 ```bash
-# Install uv (fast Python package manager)
-pip install uv
-
-# Clone and install nnBenchmark
-git clone https://github.com/aymuos15/nnBenchmark.git
-cd nnBenchmark
-uv pip install -e ".[dev]"
+pip install nnbench
 ```
 
 ### Setup Environment Variables

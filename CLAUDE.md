@@ -6,19 +6,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Config-driven 3D medical image segmentation framework using MONAI and PyTorch Lightning. Focuses on reproducibility and benchmarking with automatic configuration generation from dataset properties.
 
-## Development Setup
+## Installation
+
+### For Users (PyPI)
+
+```bash
+pip install nnbench
+```
+
+### For Development
 
 ```bash
 # Install uv (fast Python package manager)
 pip install uv
 
-# Install with dev dependencies
+# Clone and install with dev dependencies
+git clone https://github.com/aymuos15/nnBenchmark.git
+cd nnBenchmark
 uv pip install -e ".[dev]"
 
 # Install pre-commit hooks
 pre-commit install
+```
 
-# Set environment variables (add to ~/.bashrc or ~/.zshrc)
+### Environment Variables
+
+Set these for all installation methods (add to `~/.bashrc` or `~/.zshrc`):
+
+```bash
 export nnBench_raw="/path/to/nnBench_raw"
 export nnBench_preprocessed="/path/to/nnBench_preprocessed"
 export nnBench_results="/path/to/nnBench_results"
