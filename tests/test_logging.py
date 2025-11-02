@@ -20,8 +20,6 @@ from src.logging.setup import (
     setup_verbose_logger,
 )
 from src.logging.system import (
-    get_gpu_memory_string,
-    log_gpu_memory,
     log_system_info,
 )
 
@@ -351,81 +349,6 @@ class TestLogHeader:
         assert lines[0].startswith("=")
         assert "Header Message" in lines[1]
         assert lines[2].startswith("=")
-
-
-class TestGetGpuMemoryString:
-    """Tests for get_gpu_memory_string function."""
-
-    def test_get_gpu_memory_string_cpu(self) -> None:
-        """Test get_gpu_memory_string on CPU device."""
-        import torch
-
-        device = torch.device("cpu")
-        result = get_gpu_memory_string(device)
-
-        # Should return empty string for CPU
-        assert result == ""
-
-    def test_get_gpu_memory_string_cuda_if_available(self) -> None:
-        """Test get_gpu_memory_string on CUDA if available."""
-        import torch
-
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-            result = get_gpu_memory_string(device)
-
-            # Should contain GPU memory info
-            assert "GPU" in result
-            assert "MB" in result
-        else:
-            pytest.skip("CUDA not available")
-
-
-class TestLogGpuMemory:
-    """Tests for log_gpu_memory function."""
-
-    def test_log_gpu_memory_cpu_noop(self, temp_dir: str) -> None:
-        """Test that log_gpu_memory is no-op on CPU."""
-        import torch
-
-        log = setup_logger(temp_dir, log_name="gpu")
-        device = torch.device("cpu")
-
-        # Should not raise any errors
-        log_gpu_memory(log, "Test context", device)
-
-        log_path = os.path.join(temp_dir, "gpu.log")
-        # For CPU, just check the file exists and wait for it to be written
-        assert _wait_for_log_message(log_path, "")  # Wait for file creation
-
-        with open(log_path, "r") as f:
-            content = f.read()
-
-        # Should not log anything for CPU
-        assert "GPU Memory" not in content
-
-    def test_log_gpu_memory_cuda_if_available(self, temp_dir: str) -> None:
-        """Test log_gpu_memory on CUDA if available."""
-        import torch
-
-        if torch.cuda.is_available():
-            log = setup_logger(temp_dir, log_name="gpu2")
-            device = torch.device("cuda")
-
-            log_gpu_memory(log, "Test context", device)
-
-            log_path = os.path.join(temp_dir, "gpu2.log")
-            assert _wait_for_log_message(log_path, "GPU Memory")
-            assert _wait_for_log_message(log_path, "Test context")
-
-            with open(log_path, "r") as f:
-                content = f.read()
-
-            # Should log GPU memory info
-            assert "GPU Memory" in content
-            assert "Test context" in content
-        else:
-            pytest.skip("CUDA not available")
 
 
 class TestLogSystemInfo:

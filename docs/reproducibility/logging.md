@@ -16,7 +16,6 @@ Centralized logging using [loguru](https://github.com/Delgan/loguru).
 - `log_header(message)` - Log formatted section headers
 - `log_separator()` - Log visual separators
 - `log_system_info()` - Log system/GPU information
-- `log_gpu_memory(stage)` - Log GPU memory usage
 
 ## Usage
 

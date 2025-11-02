@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 from ignite.engine import Engine, Events
 
-from src.logging import log_gpu_memory, log_only
+from src.logging import log_only
 from src.plotting.validation import save_validation_visualizations
 from src.utils.files import save_json
 
@@ -56,9 +56,7 @@ class TrainingHistoryHandler:
     def attach(self, engine: Engine) -> None:
         """Attach handler to engine events."""
         # Record training loss after each epoch
-        engine.add_event_handler(
-            Events.EPOCH_COMPLETED, self._record_training_epoch
-        )
+        engine.add_event_handler(Events.EPOCH_COMPLETED, self._record_training_epoch)
 
     def _record_training_epoch(self, engine: Engine) -> None:
         """Record training loss after each epoch."""
@@ -169,15 +167,13 @@ class ValidationVisualizationHandler:
 class TrainingLogger:
     """Logs training progress with loss, learning rate, and validation metrics."""
 
-    def __init__(self, logger: Logger, log_gpu_mem: bool = True):
+    def __init__(self, logger: Logger):
         """
         Args:
             logger: Loguru logger instance
-            log_gpu_mem: Whether to log GPU memory per step
         """
         super().__init__()
         self.logger = logger
-        self.log_gpu_mem = log_gpu_mem
 
     def attach(self, engine: Engine) -> None:
         """Attach handler to engine events."""
@@ -247,43 +243,3 @@ class TrainingLogger:
 
         # Log to file only
         log_only(self.logger, msg)
-
-
-class GPUMemoryHandler:
-    """
-    Logs GPU memory usage at key training points.
-    Uses existing log_gpu_memory() utility from logging module.
-    """
-
-    def __init__(self, logger: Logger, device: torch.device):
-        """
-        Args:
-            logger: Loguru logger instance
-            device: Device to monitor
-        """
-        super().__init__()
-        self.logger = logger
-        self.device = device
-
-    def attach(self, engine: Engine) -> None:
-        """Attach handler to engine events."""
-        engine.add_event_handler(Events.EPOCH_STARTED, self._log_epoch_start)
-
-    def _log_epoch_start(self, engine: Engine) -> None:
-        """Log GPU memory at start of training epoch."""
-        current_epoch = engine.state.epoch
-
-        log_gpu_memory(
-            self.logger,
-            f"Epoch {current_epoch} Start",
-            self.device,
-            reset_peak=True,
-        )
-
-    def log_validation_start(self, epoch: int) -> None:
-        """Log GPU memory before validation."""
-        log_gpu_memory(
-            self.logger,
-            f"Before Validation (Epoch {epoch})",
-            self.device,
-        )

@@ -120,11 +120,6 @@ def run_inference(
         fold = None  # Not needed for dedicated test set
         log.info("Using dedicated test set")
 
-    # Check if GPU memory logging is enabled (default: True)
-    log_gpu_mem: bool = cfg.get("log_gpu_memory", True)
-    if log_gpu_mem:
-        log.info("GPU memory logging is enabled")
-
     # Check if mixed precision is enabled (default: False)
     use_amp: bool = cfg.get("training", {}).get("mixed_precision", False)
     if use_amp and device.type == "cuda":
@@ -227,7 +222,6 @@ def run_inference(
         data_dir=data_dir,
         include_background=include_background,
         verbose=True,
-        log_gpu_mem=log_gpu_mem,
         device=device,
         data_dicts=test_data,
     )

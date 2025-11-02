@@ -6,7 +6,6 @@ Complete reference of all configuration options supported by nnBenchmark.
 
 ```yaml
 # Top-level options
-log_gpu_memory: true        # Enable GPU memory logging during training/inference
 seed: 12345                 # Random seed for reproducibility (default: 12345)
 
 # Main sections
@@ -23,9 +22,6 @@ inference:   # Inference configuration
 ## Top-Level Options
 
 ```yaml
-# GPU memory logging (track VRAM usage during training/inference)
-log_gpu_memory: true        # true = log GPU memory, false = disable (default: true)
-
 # Random seed for reproducibility
 seed: 12345                 # Integer seed for random, numpy, torch (default: 12345)
                            # Can also be specified in training.seed or inference.seed

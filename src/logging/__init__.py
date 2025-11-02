@@ -9,8 +9,6 @@ from src.logging.setup import (
     setup_verbose_logger,
 )
 from src.logging.system import (
-    get_gpu_memory_string,
-    log_gpu_memory,
     log_system_info,
 )
 
@@ -26,8 +24,6 @@ __all__ = [
     "log_only",
     "log_separator",
     "log_header",
-    # System/GPU logging
-    "log_gpu_memory",
-    "get_gpu_memory_string",
+    # System logging
     "log_system_info",
 ]

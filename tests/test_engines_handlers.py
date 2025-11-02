@@ -115,7 +115,9 @@ class TestTrainingHistoryHandler:
 
         handler = TrainingHistoryHandler(str(tmp_path), training_all_data=True)
 
-        metrics: dict[str, torch.Tensor | float] = {"val_DiceMetric": torch.tensor(0.85)}
+        metrics: dict[str, torch.Tensor | float] = {
+            "val_DiceMetric": torch.tensor(0.85)
+        }
         handler.record_validation_metrics(epoch=1, metrics=metrics)
 
         # Should not record validation metrics
@@ -187,45 +189,6 @@ class TestTrainingLogger:
 
         # Handler should be attached successfully
         assert handler is not None
-
-
-class TestGPUMemoryHandler:
-    """Test GPUMemoryHandler for logging GPU memory usage."""
-
-    def test_handler_initialization(self) -> None:
-        """Test GPUMemoryHandler initialization."""
-        from src.engines.train.handlers import GPUMemoryHandler
-
-        logger = MagicMock()
-        device = torch.device("cpu")
-        handler = GPUMemoryHandler(logger=logger, device=device)
-
-        assert handler.logger == logger
-        assert handler.device == device
-
-    def test_handler_attaches_to_engine(self) -> None:
-        """Test that handler can attach to Ignite engine."""
-        from src.engines.train.handlers import GPUMemoryHandler
-
-        logger = MagicMock()
-        device = torch.device("cpu")
-        handler = GPUMemoryHandler(logger=logger, device=device)
-        engine = Engine(lambda e, b: None)
-
-        handler.attach(engine)
-
-        # Handler should be attached successfully
-        assert handler is not None
-
-    def test_handler_logs_gpu_memory(self) -> None:
-        """Test that handler logs GPU memory."""
-        from src.engines.train.handlers import GPUMemoryHandler
-
-        logger = MagicMock()
-        device = torch.device("cpu")
-        handler = GPUMemoryHandler(logger=logger, device=device)
-
-        assert handler.logger == logger
 
 
 class TestInferenceMetricsHandler:
@@ -321,12 +284,10 @@ class TestInferenceMetricsHandler:
 
         handler = InferenceMetricsHandler(
             metric_fns=metric_fns,
-            log_gpu_mem=True,
             device=device,
             logger=logger,
         )
 
-        assert handler.log_gpu_mem is True
         assert handler.device == device
 
 
@@ -422,7 +383,6 @@ class TestHandlerIntegration:
     def test_multiple_handlers_attach_to_same_engine(self, tmp_path: Path) -> None:
         """Test that multiple handlers can attach to same engine."""
         from src.engines.train.handlers import (
-            GPUMemoryHandler,
             TrainingHistoryHandler,
             TrainingLogger,
         )
@@ -432,18 +392,15 @@ class TestHandlerIntegration:
         handlers = [
             TrainingHistoryHandler(str(tmp_path)),
             TrainingLogger(logger=MagicMock()),
-            GPUMemoryHandler(logger=MagicMock(), device=torch.device("cpu")),
         ]
 
         for handler in handlers:
             handler.attach(engine)
 
         # All handlers should be attached
-        assert len(handlers) == 3
+        assert len(handlers) == 2
 
-    def test_handlers_dont_interfere_with_each_other(
-        self, tmp_path: Path
-    ) -> None:
+    def test_handlers_dont_interfere_with_each_other(self, tmp_path: Path) -> None:
         """Test that handlers don't interfere with each other."""
         from src.engines.train.handlers import TrainingHistoryHandler
 

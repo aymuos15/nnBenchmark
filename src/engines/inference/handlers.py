@@ -14,7 +14,7 @@ import numpy as np
 import torch
 from ignite.engine import Engine, Events
 
-from src.logging import get_gpu_memory_string, log_gpu_memory
+
 from src.utils.data import get_class_labels
 from src.utils.files import save_json
 
@@ -37,7 +37,6 @@ class InferenceMetricsHandler:
         data_dir: str | None = None,
         include_background: bool = False,
         verbose: bool = True,
-        log_gpu_mem: bool = False,
         device: torch.device | None = None,
         data_dicts: list[dict[str, str]] | None = None,
     ):
@@ -50,7 +49,6 @@ class InferenceMetricsHandler:
             data_dir: Optional dataset directory for loading class labels
             include_background: Whether metrics include background class
             verbose: Whether to print per-case scores to console
-            log_gpu_mem: Whether to log GPU memory usage
             device: Device for GPU memory logging
             data_dicts: Optional list of data dictionaries with case paths
         """
@@ -58,14 +56,15 @@ class InferenceMetricsHandler:
         self.logger = logger
         self.data_dir = data_dir
         self.verbose = verbose
-        self.log_gpu_mem = log_gpu_mem
         self.device = device
         self.data_dicts = data_dicts
 
         # Load class labels if available
         self.class_labels: dict[int, str] | None = None
         if data_dir is not None:
-            self.class_labels = get_class_labels(data_dir, include_background=include_background)
+            self.class_labels = get_class_labels(
+                data_dir, include_background=include_background
+            )
 
         # Track scores per metric
         self.all_scores: dict[str, list] = {name: [] for name in metric_fns.keys()}
@@ -77,21 +76,6 @@ class InferenceMetricsHandler:
 
         # Compute final statistics at end of inference
         engine.add_event_handler(Events.COMPLETED, self._compute_final_metrics)
-
-        # Log GPU memory at start and end if enabled
-        if self.log_gpu_mem and self.logger is not None and self.device is not None:
-            engine.add_event_handler(Events.STARTED, self._log_gpu_memory_start)
-            engine.add_event_handler(Events.COMPLETED, self._log_gpu_memory_end)
-
-    def _log_gpu_memory_start(self, engine: Engine) -> None:
-        """Log GPU memory at start of inference."""
-        if self.logger is not None and self.device is not None:
-            log_gpu_memory(self.logger, "Inference Start", self.device)
-
-    def _log_gpu_memory_end(self, engine: Engine) -> None:
-        """Log GPU memory at end of inference."""
-        if self.logger is not None and self.device is not None:
-            log_gpu_memory(self.logger, "Inference End", self.device)
 
     def _log_iteration_scores(self, engine: Engine) -> None:
         """Log scores for current iteration."""
@@ -141,24 +125,24 @@ class InferenceMetricsHandler:
                             for i, idx in enumerate(sorted(self.class_labels.keys()))
                         ]
                     )
-                    print(f"{case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}")
+                    print(
+                        f"{case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
+                    )
 
-                    # Log to file with optional GPU memory
+                    # Log to file
                     if self.logger is not None:
                         log_msg = f"Sample {batch_idx + 1}: {case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
-                        if self.log_gpu_mem and self.device is not None:
-                            log_msg += get_gpu_memory_string(self.device)
                         self.logger.info(log_msg)
                 else:
                     # Scalar score
-                    scores_str = ", ".join([f"{n} = {s:.4f}" for n, s in batch_scores.items()])
+                    scores_str = ", ".join(
+                        [f"{n} = {s:.4f}" for n, s in batch_scores.items()]
+                    )
                     print(f"{case_path}: {scores_str}")
 
-                    # Log to file with optional GPU memory
+                    # Log to file
                     if self.logger is not None:
                         log_msg = f"Sample {batch_idx + 1}: {case_path}: {scores_str}"
-                        if self.log_gpu_mem and self.device is not None:
-                            log_msg += get_gpu_memory_string(self.device)
                         self.logger.info(log_msg)
 
     def _compute_final_metrics(self, engine: Engine) -> None:
