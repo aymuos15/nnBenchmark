@@ -9,8 +9,10 @@ from typing import Any
 
 from monai import metrics
 
+from src.factory.base_registry import BaseRegistry
 
-class MetricRegistry:
+
+class MetricRegistry(BaseRegistry):
     """Registry for creating metrics from configuration.
 
     The registry maintains a mapping of metric names to their MONAI classes
@@ -23,7 +25,7 @@ class MetricRegistry:
 
     def __init__(self) -> None:
         """Initialize the metric registry with default MONAI metrics."""
-        self._registry: dict[str, type] = {}
+        super().__init__()
         self._register_default_metrics()
 
     def _register_default_metrics(self) -> None:
@@ -41,50 +43,6 @@ class MetricRegistry:
         self.register(
             "ConfusionMatrixMetric", getattr(metrics, "ConfusionMatrixMetric")
         )
-
-    def register(self, name: str, metric_class: type) -> None:
-        """Register a metric class with the given name.
-
-        Args:
-            name: Name to register the metric under (typically the class name)
-            metric_class: The metric class to register
-
-        Raises:
-            ValueError: If the name is already registered
-        """
-        if name in self._registry:
-            raise ValueError(
-                f"Metric '{name}' is already registered. "
-                f"Use a different name or unregister first."
-            )
-        self._registry[name] = metric_class
-
-    def unregister(
-        self, name: str
-    ) -> (
-        None
-    ):  # Part of public API for registry management  # noqa: D401  # pragma: no cover
-        """Remove a metric from the registry.
-
-        Part of the public API for registry management.
-
-        Args:
-            name: Name of the metric to unregister
-
-        Raises:
-            KeyError: If the metric name is not registered
-        """
-        if name not in self._registry:
-            raise KeyError(f"Metric '{name}' is not registered")
-        del self._registry[name]
-
-    def list_available(self) -> list[str]:
-        """Get a list of all registered metric names.
-
-        Returns:
-            Sorted list of registered metric names
-        """
-        return sorted(self._registry.keys())
 
     def build(self, config: dict[str, Any]) -> dict[str, Any]:
         """Build all metrics from configuration.
@@ -110,18 +68,10 @@ class MetricRegistry:
 
         for metric_cfg in config["metrics"]:
             metric_type = metric_cfg["type"]
-
-            if metric_type not in self._registry:
-                available = ", ".join(self.list_available())
-                raise KeyError(
-                    f"Metric type '{metric_type}' is not registered. "
-                    f"Available metrics: {available}"
-                )
-
-            metric_class = self._registry[metric_type]
+            metric_class = self._validate_type(metric_type)
 
             # Extract parameters (everything except 'type')
-            metric_params = {k: v for k, v in metric_cfg.items() if k != "type"}
+            metric_params = self._extract_params(metric_cfg)
 
             # Instantiate metric and store with full type name as key
             metric_dict[metric_type] = metric_class(**metric_params)

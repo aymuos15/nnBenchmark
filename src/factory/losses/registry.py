@@ -10,8 +10,10 @@ from typing import Any
 import torch.nn as nn
 from monai import losses
 
+from src.factory.base_registry import BaseRegistry
 
-class LossRegistry:
+
+class LossRegistry(BaseRegistry):
     """Registry for creating loss functions from configuration.
 
     The registry maintains a mapping of loss names to their MONAI classes
@@ -20,7 +22,7 @@ class LossRegistry:
 
     def __init__(self) -> None:
         """Initialize the loss registry with default MONAI losses."""
-        self._registry: dict[str, type[nn.Module]] = {}
+        super().__init__()
         self._register_default_losses()
 
     def _register_default_losses(self) -> None:
@@ -37,48 +39,6 @@ class LossRegistry:
             getattr(losses, "GeneralizedWassersteinDiceLoss"),
         )
         self.register("MaskedDiceLoss", getattr(losses, "MaskedDiceLoss"))
-
-    def register(self, name: str, loss_class: type[nn.Module]) -> None:
-        """Register a loss class with the given name.
-
-        Args:
-            name: Name to register the loss under
-            loss_class: The loss class to register
-
-        Raises:
-            ValueError: If the name is already registered
-        """
-        if name in self._registry:
-            raise ValueError(
-                f"Loss '{name}' is already registered. "
-                f"Use a different name or unregister first."
-            )
-        self._registry[name] = loss_class
-
-    def unregister(
-        self, name: str
-    ) -> None:  # Part of public API for registry management  # noqa: D401
-        """Remove a loss from the registry.
-
-        Part of the public API for registry management.
-
-        Args:
-            name: Name of the loss to unregister
-
-        Raises:
-            KeyError: If the loss name is not registered
-        """
-        if name not in self._registry:
-            raise KeyError(f"Loss '{name}' is not registered")
-        del self._registry[name]
-
-    def list_available(self) -> list[str]:
-        """Get a list of all registered loss names.
-
-        Returns:
-            Sorted list of registered loss names
-        """
-        return sorted(self._registry.keys())
 
     def build(self, config: dict[str, Any]) -> nn.Module:
         """Build a loss function from configuration.
@@ -100,18 +60,10 @@ class LossRegistry:
             TypeError: If config parameters don't match loss signature
         """
         loss_type = config["type"]
-
-        if loss_type not in self._registry:
-            available = ", ".join(self.list_available())
-            raise KeyError(
-                f"Loss type '{loss_type}' is not registered. "
-                f"Available losses: {available}"
-            )
-
-        loss_class = self._registry[loss_type]
+        loss_class = self._validate_type(loss_type)
 
         # Extract parameters (everything except 'type')
-        loss_params = {k: v for k, v in config.items() if k != "type"}
+        loss_params = self._extract_params(config)
 
         # Instantiate loss function
         return loss_class(**loss_params)

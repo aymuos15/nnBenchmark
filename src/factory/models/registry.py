@@ -11,6 +11,8 @@ import torch
 import torch.nn as nn
 from monai.networks import nets as monai_nets
 
+from src.factory.base_registry import BaseRegistry
+
 
 def _initialize_weights(module: nn.Module) -> None:
     """
@@ -30,7 +32,7 @@ def _initialize_weights(module: nn.Module) -> None:
             nn.init.constant_(module.bias, 0)
 
 
-class ModelRegistry:
+class ModelRegistry(BaseRegistry):
     """Registry for creating models from configuration.
 
     The registry maintains a mapping of model names to their MONAI classes
@@ -39,7 +41,7 @@ class ModelRegistry:
 
     def __init__(self) -> None:
         """Initialize the model registry with default MONAI models."""
-        self._registry: dict[str, type[nn.Module]] = {}
+        super().__init__()
         self._register_default_models()
 
     def _register_default_models(self) -> None:
@@ -48,50 +50,6 @@ class ModelRegistry:
         self.register("DynUNet", getattr(monai_nets, "DynUNet"))
         # UNet provides a faster alternative with simpler architecture
         self.register("UNet", getattr(monai_nets, "UNet"))
-
-    def register(self, name: str, model_class: type[nn.Module]) -> None:
-        """Register a model class with the given name.
-
-        Args:
-            name: Name to register the model under
-            model_class: The model class to register
-
-        Raises:
-            ValueError: If the name is already registered
-        """
-        if name in self._registry:
-            raise ValueError(
-                f"Model '{name}' is already registered. "
-                f"Use a different name or unregister first."
-            )
-        self._registry[name] = model_class
-
-    def unregister(
-        self, name: str
-    ) -> (
-        None
-    ):  # Part of public API for registry management  # noqa: D401  # pragma: no cover
-        """Remove a model from the registry.
-
-        Part of the public API for registry management.
-
-        Args:
-            name: Name of the model to unregister
-
-        Raises:
-            KeyError: If the model name is not registered
-        """
-        if name not in self._registry:
-            raise KeyError(f"Model '{name}' is not registered")
-        del self._registry[name]
-
-    def list_available(self) -> list[str]:
-        """Get a list of all registered model names.
-
-        Returns:
-            Sorted list of registered model names
-        """
-        return sorted(self._registry.keys())
 
     def build(self, config: dict[str, Any], device: torch.device) -> nn.Module:
         """Build a model from configuration with weight initialization.
@@ -120,15 +78,7 @@ class ModelRegistry:
             TypeError: If config parameters don't match model signature
         """
         model_type = config["type"]
-
-        if model_type not in self._registry:
-            available = ", ".join(self.list_available())
-            raise KeyError(
-                f"Model type '{model_type}' is not registered. "
-                f"Available models: {available}"
-            )
-
-        model_class = self._registry[model_type]
+        model_class = self._validate_type(model_type)
 
         # Determine if config is nested (has model-specific sections)
         nested_keys = {"DynUNet", "UNet"}

@@ -8,8 +8,10 @@ from typing import Any
 
 from monai import transforms
 
+from src.factory.base_registry import BaseRegistry
 
-class TransformRegistry:
+
+class TransformRegistry(BaseRegistry):
     """Registry for creating transform pipelines from configuration.
 
     The registry handles building MONAI transform pipelines by combining
@@ -23,51 +25,7 @@ class TransformRegistry:
         Note: We don't pre-register transforms since MONAI provides
         all transforms via getattr(transforms, type) dynamically.
         """
-        self._registry: dict[str, type] = {}
-
-    def register(self, name: str, transform_class: type) -> None:
-        """Register a transform class with the given name.
-
-        Args:
-            name: Name to register the transform under
-            transform_class: The transform class to register
-
-        Raises:
-            ValueError: If the name is already registered
-        """
-        if name in self._registry:
-            raise ValueError(
-                f"Transform '{name}' is already registered. "
-                f"Use a different name or unregister first."
-            )
-        self._registry[name] = transform_class
-
-    def unregister(
-        self, name: str
-    ) -> (
-        None
-    ):  # Part of public API for registry management  # noqa: D401  # pragma: no cover
-        """Remove a transform from the registry.
-
-        Part of the public API for registry management.
-
-        Args:
-            name: Name of the transform to unregister
-
-        Raises:
-            KeyError: If the transform name is not registered
-        """
-        if name not in self._registry:
-            raise KeyError(f"Transform '{name}' is not registered")
-        del self._registry[name]
-
-    def list_available(self) -> list[str]:
-        """Get a list of all registered transform names.
-
-        Returns:
-            Sorted list of registered transform names
-        """
-        return sorted(self._registry.keys())
+        super().__init__()
 
     def build(self, config: dict[str, Any], mode: str = "train") -> transforms.Compose:  # type: ignore[name-defined]
         """Build transform pipeline from configuration.
@@ -111,13 +69,13 @@ class TransformRegistry:
         # Build common transforms
         for t_cfg in config["transforms"]["common"]:
             transform_cls = self._get_transform_class(t_cfg["type"])
-            transform_params = {k: v for k, v in t_cfg.items() if k != "type"}
+            transform_params = self._extract_params(t_cfg)
             transform_list.append(transform_cls(**transform_params))
 
         # Append mode-specific transforms
         for t_cfg in config["transforms"][mode]:
             transform_cls = self._get_transform_class(t_cfg["type"])
-            transform_params = {k: v for k, v in t_cfg.items() if k != "type"}
+            transform_params = self._extract_params(t_cfg)
             transform_list.append(transform_cls(**transform_params))
 
         return transforms.Compose(transform_list)  # type: ignore[attr-defined]
