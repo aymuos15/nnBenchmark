@@ -96,15 +96,22 @@ def run_inference(
         # Try to find the best model checkpoint (MONAI format)
         import glob
 
-        # Look for best model checkpoint
-        best_model_pattern = str(Path(results_dir) / "best_model_key_metric*.pt")
+        # Look for best model checkpoint (MONAI naming: best_model_model_key_metric=*.pt)
+        best_model_pattern = str(Path(results_dir) / "best_model*key_metric*.pt")
         checkpoints = glob.glob(best_model_pattern)
 
         if checkpoints:
-            model_path = checkpoints[0]  # Use most recent if multiple
+            # Sort by modification time, use most recent
+            model_path = max(checkpoints, key=lambda p: Path(p).stat().st_mtime)
         else:
-            # Fall back to final checkpoint
-            model_path = str(Path(results_dir) / "checkpoint_final_checkpoint.pt")
+            # Fall back to final checkpoint (MONAI naming: best_model_model_final_iteration=*.pt)
+            final_pattern = str(Path(results_dir) / "best_model*final*.pt")
+            checkpoints = glob.glob(final_pattern)
+            if checkpoints:
+                model_path = max(checkpoints, key=lambda p: Path(p).stat().st_mtime)
+            else:
+                # Last resort: look for any checkpoint file
+                model_path = str(Path(results_dir) / "checkpoint_final_checkpoint.pt")
 
     # Get fold number (required unless using dedicated test set)
     fold: int | None
