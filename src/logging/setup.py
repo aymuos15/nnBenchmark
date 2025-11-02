@@ -93,3 +93,51 @@ def setup_verbose_logger(
         _ = logger.add(sys.stderr, level=level.upper(), format=format_string)
     else:
         _ = logger.add(sys.stderr, level=level.upper())
+
+
+def setup_dual_logging(log_file: str) -> str:
+    """
+    Setup dual logging: verbose to file, minimal to console.
+
+    Removes default handler and configures:
+    - File handler: DEBUG level with detailed format
+    - Console handler: INFO level with minimal format (only important messages)
+
+    All debug/trace messages go to file only. Console shows only INFO/WARNING/ERROR.
+
+    Args:
+        log_file: Path to the log file to write verbose logs to
+
+    Returns:
+        Path to the log file created
+    """
+    # Remove default handler
+    logger.remove()
+
+    # Ensure log file directory exists
+    log_path = Path(log_file)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Remove old log file if it exists (start fresh)
+    if log_path.exists():
+        log_path.unlink()
+
+    # Add file handler with DEBUG level (verbose, detailed format)
+    _ = logger.add(
+        str(log_path),
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+        level="DEBUG",
+        rotation=None,
+        retention=None,
+        enqueue=True,
+    )
+
+    # Add console handler with INFO level (minimal output)
+    _ = logger.add(
+        sys.stderr,
+        format="{message}",
+        level="INFO",
+        colorize=True,
+    )
+
+    return str(log_path)

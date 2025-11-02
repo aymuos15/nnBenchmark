@@ -10,7 +10,7 @@ from pathlib import Path
 from loguru import logger
 
 from src.config import get_datasets_root, get_preprocessed_root, get_results_root
-from src.logging import setup_verbose_logger
+from src.logging import setup_dual_logging
 from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.fingerprinting.fingerprint import fingerprint_dataset
 from src.planning.fingerprinting.prepare_dataset import prepare_dataset
@@ -34,7 +34,6 @@ def run_planning(
     gpu_memory_gb: float | None = None,
     fold: int = 0,
     output: str | None = None,
-    verbose: bool = False,
     num_workers: int | None = None,
 ) -> None:
     """
@@ -45,18 +44,12 @@ def run_planning(
         gpu_memory_gb: Target GPU memory in GB (auto-detect if None)
         fold: Fold number to use for training (default: 0)
         output: Output path for generated YAML config (default: configs/<dataset_name>.yaml)
-        verbose: Enable verbose logging (default: False)
         num_workers: Number of parallel workers for fingerprinting (default: auto-detect)
 
     Raises:
         FileNotFoundError: If dataset directory or dataset.json not found
         Exception: If planning fails
     """
-    # Configure logging based on verbosity
-    if verbose:
-        setup_verbose_logger(level="DEBUG")
-    else:
-        setup_verbose_logger(level="WARNING")
 
     # Determine dataset directory
     dataset_path = Path(dataset)
@@ -88,6 +81,12 @@ def run_planning(
     # Create results directory if it doesn't exist
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
+    # Setup dual logging: verbose to file, minimal to console
+    dataset_name = dataset_path.name
+    preprocessed_dir = get_preprocessed_root() / dataset_name
+    log_file = str(preprocessed_dir / "planning.log")
+    setup_dual_logging(log_file)
+
     # Detect GPU memory if not specified
     if gpu_memory_gb is None:
         gpu_memory_gb = get_gpu_memory_for_planning()
@@ -114,7 +113,7 @@ def run_planning(
     print(f"Output: {output_path}")
     print()
 
-    # Log detected system resources
+    # Log detected system resources (debug level, goes to file only)
     logger.debug("Detected system resources:")
     logger.debug(
         f"  CPU cores: {system_resources.cpu_count} physical, {system_resources.cpu_logical_count} logical"
@@ -139,10 +138,6 @@ def run_planning(
 
         # Check if preprocessing has already been done
         if not images_dir.exists():
-            print("Step 0/5: Preprocessing dataset (crop to nonzero regions)...")
-            print("  Applying nnU-Net v2.4.1 preprocessing (crop to nonzero)...")
-            print("  (Detailed preprocessing logs available with --verbose flag)")
-            print()
             from src.planning.fingerprinting.prepare_dataset import (
                 preprocess_and_crop_dataset,
             )
@@ -152,18 +147,12 @@ def run_planning(
                 output_dir=str(preprocessed_dir),
                 force=False,
             )
-            print(
-                f"  ✓ Preprocessing complete: preprocessed images saved to {preprocessed_dir}/"
-            )
-            print()
+            logger.debug("Preprocessing complete")
         else:
-            print(f"Step 0/5: Dataset already preprocessed ({preprocessed_dir})")
-            print()
+            logger.debug("Dataset already preprocessed")
 
         # Step 0b: Prepare dataset metadata if needed
         if not dataset_json_path.exists() or not splits_json_path.exists():
-            print("Step 0b/5: Generating dataset.json and splits.json...")
-            print()
             prepare_dataset(
                 dataset_path=str(dataset_path),
                 dataset_name=None,  # Use directory name as default
@@ -176,7 +165,7 @@ def run_planning(
                     preprocessed_dir
                 ),  # Save splits to preprocessed folder
             )
-            print()
+            logger.debug("Dataset metadata generated")
 
         # Verify dataset.json exists after preparation
         if not dataset_json_path.is_file():
@@ -186,19 +175,14 @@ def run_planning(
             )
 
         # Step 1: Fingerprint dataset (using preprocessed/cropped images)
-        print("Step 1/4: Fingerprinting dataset...")
         fingerprint = fingerprint_dataset(
             str(preprocessed_dir), num_workers=num_workers
         )
-        print()
 
         # Step 2: Create experiment plan
-        print("Step 2/4: Creating experiment plan...")
         plan = create_experiment_plan(fingerprint, gpu_memory_gb=gpu_memory_gb)
-        print()
 
         # Step 3: Generate YAML config with resource-optimized settings
-        print("Step 3/4: Generating YAML configuration...")
 
         # Update resource detection with actual dataset size for cache optimization
         # Estimate dataset size from preprocessed training files
@@ -229,20 +213,18 @@ def run_planning(
             cache_rate=system_resources.cache_rate,
         )
 
-        # Log resource optimization decisions
-        print("Resource Optimization Applied:")
-        print(
-            f"  - num_workers: {system_resources.num_workers} (based on {system_resources.cpu_logical_count} CPU cores)"
+        # Log resource optimization decisions (debug level, goes to file only)
+        logger.debug("Resource Optimization Applied:")
+        logger.debug(
+            f"  num_workers: {system_resources.num_workers} (based on {system_resources.cpu_logical_count} CPU cores)"
         )
-        print(f"  - cache_enabled: {system_resources.cache_enabled}")
+        logger.debug(f"  cache_enabled: {system_resources.cache_enabled}")
         if system_resources.cache_enabled:
-            print(
-                f"  - cache_rate: {system_resources.cache_rate} (dataset {dataset_size_mb:.0f}MB)"
+            logger.debug(
+                f"  cache_rate: {system_resources.cache_rate} (dataset {dataset_size_mb:.0f}MB)"
             )
-        print()
 
         # Step 4: Generate cross-validation splits
-        print("Step 4/4: Generating cross-validation splits...")
         dataset_json = load_dataset_json(dataset_dir)
         case_identifiers = extract_case_identifiers(
             dataset_json, dataset_path=dataset_dir
@@ -260,37 +242,18 @@ def run_planning(
         print()
 
         # Success summary
-        print("=" * 80)
-        print("Configuration generated successfully!")
-        print("=" * 80)
-        print("Output files:")
-        print(f"  - Config: {output_path}")
-        print(f"  - Splits: {splits_output_path}")
-        print()
-        print("Key configuration parameters:")
-        print(f"  Dataset: {plan.dataset_name}")
-        print(f"  Dimensionality: {'2D' if plan.is_2d else '3D'}")
-        print(f"  Patch size: {plan.patch_size}")
-        print(f"  Batch size: {plan.batch_size}")
-        print(f"  Model filters: {plan.filters}")
-        print(f"  Model strides: {plan.strides}")
-        print(f"  Normalization: {plan.normalization_scheme}")
-        print(
-            f"  Intensity range: [{plan.intensity_clip_min:.1f}, {plan.intensity_clip_max:.1f}]"
-        )
-        print(f"  Cross-validation: 5-fold (splits saved to {splits_output_path})")
         print()
         print("Next steps:")
-        print(f"  1. Review the generated config: {output_path}")
         dataset_name = dataset_path.name
         config_name = Path(output_path).parent.name
+        print(f"  1. Review the generated config: {output_path}")
         print(
             f"  2. Train the model: nnBench.train --config {config_name}.yaml --dataset {dataset_name}"
         )
-        print("=" * 80)
+        print()
+        print(f"Detailed logs saved to: {log_file}")
 
     except Exception as e:
         print(f"\nError: Failed to generate configuration: {e}", file=sys.stderr)
-        if verbose:
-            logger.exception(e)
+        logger.exception(e)
         raise

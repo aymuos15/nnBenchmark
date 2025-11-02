@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 from loguru import logger
+from tqdm import tqdm
 
 from src.planning.fingerprinting.loading import (
     ImageProperties,
@@ -82,7 +83,7 @@ def fingerprint_dataset(
         DatasetFingerprint with aggregated statistics
 
     """
-    logger.info(f"Fingerprinting dataset: {dataset_dir}")
+    logger.debug(f"Fingerprinting dataset: {dataset_dir}")
 
     # Determine number of workers
     if num_workers is None:
@@ -98,14 +99,14 @@ def fingerprint_dataset(
             num_workers = calculate_optimal_workers(
                 logical_cores, strategy="conservative"
             )
-            logger.info(
+            logger.debug(
                 f"Auto-detected {num_workers} worker(s) from {logical_cores} CPU cores"
             )
         except Exception as e:
             logger.debug(f"Failed to auto-detect workers: {e}. Defaulting to 1.")
             num_workers = 1
 
-    logger.info(f"Using {num_workers} worker(s) for parallel processing")
+    logger.debug(f"Using {num_workers} worker(s) for parallel processing")
 
     # Load dataset.json
     dataset_json_path = str(Path(dataset_dir) / "dataset.json")
@@ -139,7 +140,7 @@ def fingerprint_dataset(
             f"Supported formats: .nii.gz, .nii, .png, .jpg"
         )
 
-    logger.info(f"Found {len(image_paths)} training images")
+    logger.debug(f"Found {len(image_paths)} training images")
 
     # Create pairs of (image_path, label_path)
     image_label_pairs = []
@@ -190,39 +191,39 @@ def fingerprint_dataset(
 
     if num_workers > 1:
         # Parallel processing
-        logger.info("Processing images in parallel...")
+        logger.debug("Processing images in parallel...")
 
         with Pool(processes=num_workers) as pool:
             # Use imap to get results as they complete for progress tracking
             results = []
-            for i, result in enumerate(
-                pool.imap(load_image_properties_safe, image_label_pairs)
+            for result in tqdm(
+                pool.imap(load_image_properties_safe, image_label_pairs),
+                total=len(image_label_pairs),
+                desc="Fingerprinting",
             ):
-                if i % 50 == 0 and i > 0:
-                    logger.info(f"Processed {i}/{len(image_label_pairs)} images...")
                 results.append(result)
 
             # Filter out None values (failed loads)
             properties_list = [r for r in results if r is not None]
     else:
         # Sequential processing (num_workers == 1)
-        logger.info("Processing images sequentially...")
+        logger.debug("Processing images sequentially...")
 
-        for i, (img_path, label_path) in enumerate(image_label_pairs):
-            if i % 50 == 0:
-                logger.info(f"Processing image {i + 1}/{len(image_label_pairs)}...")
-
+        properties_list = []
+        for img_path, label_path in tqdm(
+            image_label_pairs, desc="Fingerprinting"
+        ):
             try:
                 props = load_image_properties(img_path, label_path)
                 properties_list.append(props)
             except Exception as e:
-                logger.warning(f"Failed to load {img_path}: {e}")
+                logger.debug(f"Failed to load {img_path}: {e}")
                 continue
 
     if not properties_list:
         raise ValueError(f"Failed to load any images from {images_dir}")
 
-    logger.info(f"Successfully loaded {len(properties_list)} images")
+    logger.debug(f"Successfully loaded {len(properties_list)} images")
 
     # Aggregate shape statistics
     shapes = np.array([p.shape for p in properties_list])
@@ -285,12 +286,12 @@ def fingerprint_dataset(
         normalization_scheme=normalization_scheme,
     )
 
-    logger.info("Dataset fingerprinting complete!")
-    logger.info(f"  Channel: {fingerprint.channel}")
-    logger.info(f"  2D/3D: {'2D' if fingerprint.is_2d else '3D'}")
-    logger.info(f"  Median shape: {fingerprint.median_shape}")
-    logger.info(f"  Median spacing: {fingerprint.median_spacing}")
-    logger.info(f"  Anisotropic: {fingerprint.is_anisotropic}")
-    logger.info(f"  Normalization: {fingerprint.normalization_scheme}")
+    logger.debug("Dataset fingerprinting complete!")
+    logger.debug(f"  Channel: {fingerprint.channel}")
+    logger.debug(f"  2D/3D: {'2D' if fingerprint.is_2d else '3D'}")
+    logger.debug(f"  Median shape: {fingerprint.median_shape}")
+    logger.debug(f"  Median spacing: {fingerprint.median_spacing}")
+    logger.debug(f"  Anisotropic: {fingerprint.is_anisotropic}")
+    logger.debug(f"  Normalization: {fingerprint.normalization_scheme}")
 
     return fingerprint

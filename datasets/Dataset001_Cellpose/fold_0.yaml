@@ -18,14 +18,6 @@
 _comment: Auto-generated for Unknown using nnU-Net heuristics
 
 # ============================================================================
-# GPU Memory Logging
-# ============================================================================
-# Enable GPU memory monitoring during training to track VRAM usage.
-# Useful for debugging OOM errors and optimizing batch sizes.
-
-log_gpu_memory: true
-
-# ============================================================================
 # Dataset Configuration
 # ============================================================================
 # Defines the dataset to use and patch extraction settings.
@@ -145,7 +137,7 @@ model:
 
 training:
   # Total training epochs (standard for medical segmentation)
-  epochs: 200
+  epochs: 5
 
   # Batch size (auto-optimized based on patch size and available memory)
   batch_size: 2
@@ -154,10 +146,10 @@ training:
   learning_rate: 0.01
 
   # Run validation every N epochs
-  val_interval: 5
+  val_interval: 1
 
   # Number of data loading workers (auto-optimized based on CPU cores)
-  num_workers: 5
+  num_workers: 0
 
   # Metric to use for saving best checkpoint
   checkpoint_metric: DiceMetric

@@ -140,27 +140,28 @@ These are accessed via `src/config/paths.py`:
 - Uses native MONAI/PyTorch parameter names (no translation layer)
 - Enables multi-model support by changing single config field
 
-**src/monai_trainer/** - MONAI SupervisedTrainer integration
-- `trainer.py` - Trainer and evaluator creation with event-based handlers
+**src/engines/train/** - MONAI SupervisedTrainer integration with Ignite
+- `trainer.py` - Trainer and evaluator creation with Ignite engine
 - `handlers.py` - Custom handlers for training history, visualization, logging, GPU memory
 - Deep supervision support via loss wrapper
-- Event-driven validation and checkpointing
+- Event-driven training, validation and checkpointing with Ignite events
 
 **src/config/** - Configuration loading and validation
 - `load.py` - YAML loading with environment variable expansion
 - `validation.py` - Schema validation for configs
 - `resolution.py` - Nested config format resolution (multi-model support)
 
+**src/engines/inference/** - Model inference with Ignite
+- Supports sliding window inference for large volumes
+- Loads MONAI checkpoints (.pt format) directly
+- Handles full-resolution predictions
+- Saves predictions in original dataset format
+- Event-driven inference using Ignite engine
+
 **src/preprocessing/** - Dataset preprocessing
 - Crops images to nonzero regions using binary masks
 - Reduces dataset size by 25-50% for brain MRI
 - Preserves metadata (spacing, affine transforms)
-
-**src/inference/** - Model inference
-- Supports sliding window inference for large volumes
-- Loads MONAI checkpoints directly
-- Handles full-resolution predictions
-- Saves predictions in original dataset format
 
 **src/utils/** - Utility functions
 - `lr_scheduler.py` - PolyLRScheduler (nnU-Net style learning rate decay)

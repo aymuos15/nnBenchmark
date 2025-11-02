@@ -11,6 +11,27 @@ if TYPE_CHECKING:
     from loguru._logger import Logger
 
 
+def _log_with_level(logger: Logger, message: str, level: str) -> None:
+    """
+    Internal helper to log a message at the appropriate level.
+
+    Args:
+        logger: Loguru logger instance
+        message: Message to log
+        level: Log level (must be uppercase: INFO, WARNING, ERROR, DEBUG)
+    """
+    if level == "INFO":
+        logger.info(message)
+    elif level == "WARNING":
+        logger.warning(message)
+    elif level == "ERROR":
+        logger.error(message)
+    elif level == "DEBUG":
+        logger.debug(message)
+    else:
+        logger.info(message)  # Default to info for unknown levels
+
+
 def log_and_print(logger: Logger, message: str, level: str = "INFO") -> None:
     """
     Write a message to both the log file and console output.
@@ -25,17 +46,7 @@ def log_and_print(logger: Logger, message: str, level: str = "INFO") -> None:
         level: Log level (INFO, WARNING, ERROR, DEBUG). Default: INFO
     """
     # Write to log file with appropriate level
-    level = level.upper()
-    if level == "INFO":
-        logger.info(message)
-    elif level == "WARNING":
-        logger.warning(message)
-    elif level == "ERROR":
-        logger.error(message)
-    elif level == "DEBUG":
-        logger.debug(message)
-    else:
-        logger.info(message)  # Default to info for unknown levels
+    _log_with_level(logger, message, level.upper())
 
     # Print to console (clean, no formatting)
     print(message)
@@ -51,17 +62,7 @@ def log_only(logger: Logger, message: str, level: str = "INFO") -> None:
         level: Log level (INFO, WARNING, ERROR, DEBUG). Default: INFO
     """
     # Write to log file with appropriate level
-    level = level.upper()
-    if level == "INFO":
-        logger.info(message)
-    elif level == "WARNING":
-        logger.warning(message)
-    elif level == "ERROR":
-        logger.error(message)
-    elif level == "DEBUG":
-        logger.debug(message)
-    else:
-        logger.info(message)  # Default to info for unknown levels
+    _log_with_level(logger, message, level.upper())
 
 
 def log_separator(

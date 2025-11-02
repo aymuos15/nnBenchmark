@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 from ignite.engine import Engine, Events
 
-from src.logging import log_gpu_memory, log_only
+from src.logging import log_only
 from src.plotting.validation import save_validation_visualizations
 from src.utils.files import save_json
 
@@ -34,10 +34,10 @@ class TrainingHistoryHandler:
             training_all_data: If True, skip validation metrics (training on all data)
             resume: If True, load existing history file
         """
-        super().__init__()
         self.results_dir = results_dir
         self.history_path = str(Path(results_dir) / "training_history.json")
         self.training_all_data = training_all_data
+        self.best_val_dice = 0.0
 
         # Load existing history if resuming, otherwise start fresh
         if resume and Path(self.history_path).exists():
@@ -45,20 +45,23 @@ class TrainingHistoryHandler:
 
             with open(self.history_path) as f:
                 self.training_history = json.load(f)
+                # Restore best_val_dice from history if available
+                if "best_val_DiceMetric" in self.training_history:
+                    best_list = self.training_history["best_val_DiceMetric"]
+                    self.best_val_dice = best_list[-1] if best_list else 0.0
         else:
             # Initialize history structure (matches original format)
             self.training_history: dict[str, Any] = {
                 "epochs": [],
                 "train_loss": [],
                 "val_epochs": [],
+                "best_val_DiceMetric": [],
             }
 
     def attach(self, engine: Engine) -> None:
         """Attach handler to engine events."""
         # Record training loss after each epoch
-        engine.add_event_handler(
-            Events.EPOCH_COMPLETED, self._record_training_epoch
-        )
+        engine.add_event_handler(Events.EPOCH_COMPLETED, self._record_training_epoch)
 
     def _record_training_epoch(self, engine: Engine) -> None:
         """Record training loss after each epoch."""
@@ -112,6 +115,18 @@ class TrainingHistoryHandler:
                 metric_val = value.item() if isinstance(value, torch.Tensor) else value
                 self.training_history[key].append(metric_val)
 
+        # Track best validation dice metric
+        val_dice = metrics.get("val_DiceMetric", None)
+        if val_dice is not None:
+            dice_val = val_dice.item() if isinstance(val_dice, torch.Tensor) else val_dice
+            if dice_val > self.best_val_dice:
+                self.best_val_dice = dice_val
+
+            # Store best dice in history (one entry per validation epoch)
+            if "best_val_DiceMetric" not in self.training_history:
+                self.training_history["best_val_DiceMetric"] = []
+            self.training_history["best_val_DiceMetric"].append(self.best_val_dice)
+
         # Save after each validation
         save_json(self.training_history, self.history_path)
 
@@ -131,7 +146,6 @@ class ValidationVisualizationHandler:
             spatial_dims: Number of spatial dimensions (2 or 3)
             skip_if_no_validation: If True, skip visualization when there's no validation
         """
-        super().__init__()
         self.results_dir = results_dir
         self.spatial_dims = spatial_dims
         self.save_viz = spatial_dims in [2, 3] and not skip_if_no_validation
@@ -169,15 +183,12 @@ class ValidationVisualizationHandler:
 class TrainingLogger:
     """Logs training progress with loss, learning rate, and validation metrics."""
 
-    def __init__(self, logger: Logger, log_gpu_mem: bool = True):
+    def __init__(self, logger: Logger):
         """
         Args:
             logger: Loguru logger instance
-            log_gpu_mem: Whether to log GPU memory per step
         """
-        super().__init__()
         self.logger = logger
-        self.log_gpu_mem = log_gpu_mem
 
     def attach(self, engine: Engine) -> None:
         """Attach handler to engine events."""
@@ -247,43 +258,3 @@ class TrainingLogger:
 
         # Log to file only
         log_only(self.logger, msg)
-
-
-class GPUMemoryHandler:
-    """
-    Logs GPU memory usage at key training points.
-    Uses existing log_gpu_memory() utility from logging module.
-    """
-
-    def __init__(self, logger: Logger, device: torch.device):
-        """
-        Args:
-            logger: Loguru logger instance
-            device: Device to monitor
-        """
-        super().__init__()
-        self.logger = logger
-        self.device = device
-
-    def attach(self, engine: Engine) -> None:
-        """Attach handler to engine events."""
-        engine.add_event_handler(Events.EPOCH_STARTED, self._log_epoch_start)
-
-    def _log_epoch_start(self, engine: Engine) -> None:
-        """Log GPU memory at start of training epoch."""
-        current_epoch = engine.state.epoch
-
-        log_gpu_memory(
-            self.logger,
-            f"Epoch {current_epoch} Start",
-            self.device,
-            reset_peak=True,
-        )
-
-    def log_validation_start(self, epoch: int) -> None:
-        """Log GPU memory before validation."""
-        log_gpu_memory(
-            self.logger,
-            f"Before Validation (Epoch {epoch})",
-            self.device,
-        )

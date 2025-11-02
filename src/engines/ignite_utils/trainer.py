@@ -17,9 +17,11 @@ from monai.handlers import CheckpointSaver
 from monai.handlers.lr_schedule_handler import LrScheduleHandler
 from monai.networks.utils import one_hot
 
-from src.engines.ignite_utils.progress import ConsoleProgressHandler
+from src.engines.ignite_utils.progress import (
+    ConsoleProgressHandler,
+    ValidationProgressHandler,
+)
 from src.engines.train.handlers import (
-    GPUMemoryHandler,
     TrainingHistoryHandler,
     TrainingLogger,
     ValidationVisualizationHandler,
@@ -61,9 +63,7 @@ class DeepSupervisionLossWrapper(nn.Module):
     Handles multiple decoder outputs with weighted loss computation.
     """
 
-    def __init__(
-        self, loss_fn: nn.Module, ds_weights: list[float], spatial_dims: int
-    ):
+    def __init__(self, loss_fn: nn.Module, ds_weights: list[float], spatial_dims: int):
         """
         Args:
             loss_fn: Base loss function
@@ -184,7 +184,6 @@ def create_trainer(
     # Get training parameters
     max_epochs = cfg["training"]["epochs"]
     use_amp = cfg.get("training", {}).get("mixed_precision", False)
-    log_gpu_mem = cfg.get("log_gpu_memory", True)
     training_all_data = val_loader is None
 
     # Create learning rate scheduler
@@ -202,9 +201,14 @@ def create_trainer(
         decay_rate=decay_rate,
     )
 
-    # Custom iteration update function for gradient clipping
+    # Create GradScaler for AMP (automatic mixed precision)
+    # GradScaler is essential for stable FP16 training - it scales losses to prevent
+    # gradient underflow and ensures proper gradient clipping
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+
+    # Custom iteration update function with AMP and gradient clipping
     def iteration_update(engine: Engine, batch: Any) -> dict[str, Any]:
-        """Custom iteration update with gradient clipping."""
+        """Custom iteration update with AMP GradScaler and gradient clipping."""
         model.train()
 
         # Prepare batch
@@ -217,14 +221,27 @@ def create_trainer(
             outputs = model(images)
             loss = loss_fn(outputs, labels)
 
-        # Backward pass
-        loss.backward()
+        # Backward pass with gradient scaling for AMP
+        # scaler.scale() multiplies loss by scale factor before backward()
+        # This prevents FP16 gradient underflow
+        scaler.scale(loss).backward()
 
-        # Gradient clipping (matches nnU-Net)
+        # Unscale gradients before clipping (required for accurate clipping)
+        # This divides gradients by the scale factor
+        scaler.unscale_(optimizer)
+
+        # Gradient clipping (matches nnU-Net: max_norm=12)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=12)
 
-        # Optimizer step
-        optimizer.step()
+        # Optimizer step with scaling
+        # scaler.step() first checks for inf/NaN gradients
+        # If gradients are finite, unscales and calls optimizer.step()
+        # If gradients are inf/NaN, skips the update
+        scaler.step(optimizer)
+
+        # Update the scale factor for next iteration
+        # Increases scale if no inf/NaN, decreases if inf/NaN found
+        scaler.update()
 
         return {"loss": loss.item()}
 
@@ -242,8 +259,18 @@ def create_trainer(
 
     # Add learning rate scheduler handler
     trainer.add_event_handler(
-        Events.EPOCH_COMPLETED, LrScheduleHandler(lr_scheduler=lr_scheduler)  # type: ignore[arg-type]
+        Events.EPOCH_COMPLETED,
+        LrScheduleHandler(lr_scheduler=lr_scheduler),  # type: ignore[arg-type]
     )
+
+    # Add GPU cache clearing after each epoch to prevent fragmentation
+    # This is especially important for small GPUs (e.g., 4GB RTX A1000)
+    def clear_gpu_cache(engine: Engine) -> None:
+        """Clear CUDA cache to prevent memory fragmentation."""
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    trainer.add_event_handler(Events.EPOCH_COMPLETED, clear_gpu_cache)
 
     # Add training history handler
     history_handler = TrainingHistoryHandler(
@@ -256,15 +283,8 @@ def create_trainer(
     progress_handler.attach(trainer)
 
     # Add training logger
-    training_logger = TrainingLogger(logger, log_gpu_mem=log_gpu_mem)
+    training_logger = TrainingLogger(logger)
     training_logger.attach(trainer)
-
-    # Add GPU memory handler if enabled
-    if log_gpu_mem:
-        gpu_handler = GPUMemoryHandler(logger, device)
-        gpu_handler.attach(trainer)
-    else:
-        gpu_handler = None
 
     # Add checkpoint saver
     checkpoint_dir = Path(results_dir)
@@ -331,6 +351,10 @@ def create_trainer(
         # Initialize metrics dict in evaluator state (needed for CheckpointSaver)
         evaluator.state.metrics = {}
 
+        # Add validation progress handler
+        val_progress_handler = ValidationProgressHandler()
+        val_progress_handler.attach(evaluator)
+
         # Add validation visualization handler
         viz_handler = ValidationVisualizationHandler(
             results_dir, spatial_dims, skip_if_no_validation=False
@@ -384,14 +408,12 @@ def create_trainer(
             history_handler.record_validation_metrics(current_epoch, metrics_dict)
 
             # Log metrics to file
-            training_logger.log_validation_metrics(current_epoch, max_epochs, metrics_dict)
+            training_logger.log_validation_metrics(
+                current_epoch, max_epochs, metrics_dict
+            )
 
             # Update console with validation metrics
             progress_handler.update_with_validation_metrics(metrics_dict)
-
-            # Log GPU memory if enabled
-            if gpu_handler:
-                gpu_handler.log_validation_start(current_epoch)
 
             # Store metrics in evaluator state for checkpoint saver
             engine.state.metrics = metrics_dict

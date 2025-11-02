@@ -118,12 +118,6 @@ def _write_gpu_logging(f: TextIO) -> None:
         "# ============================================================================\n"
     )
     f.write("# GPU Memory Logging\n")
-    f.write(
-        "# ============================================================================\n"
-    )
-    f.write("# Enable GPU memory monitoring during training to track VRAM usage.\n")
-    f.write("# Useful for debugging OOM errors and optimizing batch sizes.\n\n")
-    f.write("log_gpu_memory: true\n\n")
 
 
 def _write_dataset_config(
@@ -280,9 +274,9 @@ def _write_training_config(
     f: TextIO, plan: ExperimentPlan, num_workers: int | None = None
 ) -> None:
     """Write training hyperparameters."""
-    # Default to conservative num_workers if not specified
+    # Default to 0 workers to avoid CUDA initialization errors with worker processes
     if num_workers is None:
-        num_workers = 1
+        num_workers = 0
 
     f.write(
         "# ============================================================================\n"
@@ -597,5 +591,7 @@ def _write_inference_config(f: TextIO) -> None:
     )
     f.write("# Settings for inference phase.\n\n")
     f.write("inference:\n")
-    f.write("  # Batch size for inference (typically 1 for full-resolution inference)\n")
+    f.write(
+        "  # Batch size for inference (typically 1 for full-resolution inference)\n"
+    )
     f.write("  batch_size: 1\n")

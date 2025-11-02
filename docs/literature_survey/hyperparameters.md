@@ -159,8 +159,8 @@ model.apply(_initialize_weights)
 | **Dice Weight** | 1.0 (MONAI default) | [`compound_losses.py:373`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/loss/compound_losses.py#L373) (weight_dice=1) | ✅ |
 | **CE Weight** | 1.0 (MONAI default) | [`compound_losses.py:374`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/loss/compound_losses.py#L374) (weight_ce=1) | ✅ |
 | **Number of Epochs** | 200 (line 217) | [`nnUNetTrainer.py:149`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L149) (1000) | ⚠️ Different |
-| **Iterations per Epoch** | N/A (PyTorch Lightning) | [`nnUNetTrainer.py:147`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L147) (250) | ⚠️ Different |
-| **Validation Iterations** | N/A (PyTorch Lightning) | [`nnUNetTrainer.py:148`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L148) (50) | ⚠️ Different |
+| **Iterations per Epoch** | N/A (MONAI SupervisedTrainer processes entire dataset per epoch) | [`nnUNetTrainer.py:147`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L147) (250) | ⚠️ Different |
+| **Validation Iterations** | N/A (MONAI validates on full validation set per epoch) | [`nnUNetTrainer.py:148`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L148) (50) | ⚠️ Different |
 | **Oversample Foreground** | Handled by sampler | [`nnUNetTrainer.py:146`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L146) (0.33) | ✅ |
 
 ## Random Seeding Configuration
@@ -317,7 +317,7 @@ is_anisotropic = bool(spacing_ratio > aniso_threshold and voxel_ratio < 0.25)
 
 ### Overview
 
-Based on comprehensive verification of both repositories, the following differences exist between **nnBenchmark** and **nnU-Net v2.4.1**. Most differences are intentional design choices or framework-driven adaptations (PyTorch Lightning vs custom nnUNet trainer).
+Based on comprehensive verification of both repositories, the following differences exist between **nnBenchmark** and **nnU-Net v2.4.1**. Most differences are intentional design choices or framework-driven adaptations (MONAI SupervisedTrainer with Ignite vs custom nnUNet trainer).
 
 **Total Parameters Verified: 107**
 - ✅ **99 Matching**: Core parameters align perfectly
@@ -331,13 +331,13 @@ Based on comprehensive verification of both repositories, the following differen
 | Parameter | nnU-Net v2.4.1 | nnBenchmark | Impact | Reason |
 |-----------|----------------|-------------|--------|--------|
 | **Number of Epochs** | 1000 | 200 | Medium | Different frameworks |
-| **Iterations per Epoch** | 250 (fixed) | N/A | | PyTorch Lightning handles this |
-| **Validation Iterations** | 50 (fixed) | N/A | | Lightning validates on full epoch |
-| **Training Framework** | Custom trainer | PyTorch Lightning | | Architectural choice |
+| **Iterations per Epoch** | 250 (fixed) | N/A | | MONAI processes entire dataset per epoch |
+| **Validation Iterations** | 50 (fixed) | N/A | | MONAI validates on full validation set per epoch |
+| **Training Framework** | Custom trainer | MONAI SupervisedTrainer with Ignite | | Architectural choice |
 
 **Details:**
 - nnU-Net uses a custom epoch-based training loop with fixed iterations per epoch
-- nnBenchmark uses PyTorch Lightning which processes the entire dataset per epoch
+- nnBenchmark uses MONAI SupervisedTrainer (with Ignite event system) which processes the entire dataset per epoch
 - This is a fundamental difference in framework, not a parameter mismatch
 
 **Recommendation**: Accept as framework difference. Both approaches are valid.

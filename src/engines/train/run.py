@@ -71,9 +71,6 @@ def run_training(
     # Check if we're training on all data (fold=-1, no validation)
     training_all_data: bool = fold == -1
 
-    # Check if GPU memory logging is enabled (default: True)
-    log_gpu_mem: bool = cfg.get("log_gpu_memory", True)
-
     # Check if mixed precision training is enabled (default: False)
     use_amp: bool = cfg.get("training", {}).get("mixed_precision", False)
 
@@ -100,7 +97,6 @@ def run_training(
         log.info(f"Plot metrics: {plot_metrics}")
     else:
         log.info("Training on all data (no validation split)")
-    log.info(f"GPU memory logging: {log_gpu_mem}")
     log.info(f"Mixed precision (AMP): {'Enabled' if use_amp else 'Disabled'}")
 
     # Log deep supervision configuration
@@ -145,7 +141,9 @@ def run_training(
             num_workers=num_workers,
         )
         if val_data:
-            log_and_print(log, f"Caching {int(cache_rate * 100)}% of validation data...")
+            log_and_print(
+                log, f"Caching {int(cache_rate * 100)}% of validation data..."
+            )
             val_ds = CacheDataset(
                 data=val_data,
                 transform=val_transforms,
@@ -163,13 +161,15 @@ def run_training(
         persistent_workers = num_workers > 0
 
     # Create data loaders
+    # pin_memory=False to reduce GPU memory pressure and avoid CUDA transfer issues
+    # This is particularly important for small GPUs (e.g., 4GB RTX A1000)
     train_loader = DataLoader(
         train_ds,
         batch_size=cfg["training"]["batch_size"],
         shuffle=True,
         num_workers=num_workers,
         persistent_workers=persistent_workers,
-        pin_memory=True,
+        pin_memory=False,
     )
 
     val_loader = (
@@ -178,7 +178,7 @@ def run_training(
             batch_size=1,  # Validation uses batch_size=1 for full volumes
             num_workers=num_workers,
             persistent_workers=persistent_workers,
-            pin_memory=True,
+            pin_memory=False,
         )
         if val_ds is not None
         else None
@@ -226,6 +226,7 @@ def run_training(
             # Try alternative checkpoint name
             checkpoint_path = str(Path(results_dir) / "best_model_key_metric*.pt")
             import glob
+
             checkpoints = glob.glob(checkpoint_path)
             if not checkpoints:
                 log_and_print(
@@ -263,7 +264,9 @@ def run_training(
     else:
         # Get best metric value from evaluator if available
         if evaluator and hasattr(evaluator.state, "metrics"):
-            best_metric_val = evaluator.state.metrics.get(f"val_{checkpoint_metric}", -1.0)
+            best_metric_val = evaluator.state.metrics.get(
+                f"val_{checkpoint_metric}", -1.0
+            )
             if isinstance(best_metric_val, torch.Tensor):
                 best_metric_val = best_metric_val.item()
             log.info(f"Best {checkpoint_metric}: {best_metric_val:.4f}")
