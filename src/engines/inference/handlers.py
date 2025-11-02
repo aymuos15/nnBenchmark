@@ -14,7 +14,6 @@ import numpy as np
 import torch
 from ignite.engine import Engine, Events
 
-
 from src.utils.data import get_class_labels
 from src.utils.files import save_json
 
