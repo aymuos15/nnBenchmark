@@ -34,7 +34,6 @@ class TrainingHistoryHandler:
             training_all_data: If True, skip validation metrics (training on all data)
             resume: If True, load existing history file
         """
-        super().__init__()
         self.results_dir = results_dir
         self.history_path = str(Path(results_dir) / "training_history.json")
         self.training_all_data = training_all_data
@@ -147,7 +146,6 @@ class ValidationVisualizationHandler:
             spatial_dims: Number of spatial dimensions (2 or 3)
             skip_if_no_validation: If True, skip visualization when there's no validation
         """
-        super().__init__()
         self.results_dir = results_dir
         self.spatial_dims = spatial_dims
         self.save_viz = spatial_dims in [2, 3] and not skip_if_no_validation
@@ -190,7 +188,6 @@ class TrainingLogger:
         Args:
             logger: Loguru logger instance
         """
-        super().__init__()
         self.logger = logger
 
     def attach(self, engine: Engine) -> None:

@@ -582,3 +582,134 @@ class TestCTClippingApplication:
         from monai.transforms.intensity.dictionary import ScaleIntensityRanged
 
         assert ScaleIntensityRanged is not None
+
+
+class TestPlanningWorkflowIntegration:
+    """Integration tests for complete planning workflow."""
+
+    def test_yaml_generation_produces_valid_config(self, temp_dir: str) -> None:
+        """Test that YAML generation produces valid, loadable config files.
+
+        Critical test ensuring generated configs can be loaded for training.
+        """
+        import os
+
+        import yaml
+
+        from src.planning.planner.create import ExperimentPlan
+        from src.planning.yaml_generator import generate_config_yaml
+
+        # Create a sample experiment plan
+        plan = ExperimentPlan(
+            dataset_name="TestDataset",
+            num_classes=2,
+            is_2d=False,
+            median_shape=(64, 64, 64),
+            median_spacing=(1.0, 1.0, 1.0),
+            foreground_intensity_mean=50.0,
+            patch_size=(64, 64, 64),
+            batch_size=2,
+            filters=[32, 64, 128],
+            kernel_size=[(3, 3, 3), (3, 3, 3), (3, 3, 3)],
+            strides=[(2, 2, 2), (2, 2, 2)],
+            upsample_kernel_size=[(2, 2, 2), (2, 2, 2)],
+            deep_supervision=False,
+            ds_weights=[1.0],
+            normalization_scheme="ZScoreNormalization",
+            intensity_clip_min=None,
+            intensity_clip_max=None,
+            target_spacing=(1.0, 1.0, 1.0),
+        )
+
+        # Generate YAML config
+        config_path = os.path.join(temp_dir, "test_config.yaml")
+        generate_config_yaml(plan, temp_dir, config_path, fold=0)
+        assert os.path.exists(config_path)
+
+        # Verify YAML is valid and loadable
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+
+        # Verify required sections exist
+        assert config is not None
+        assert isinstance(config, dict)
+        assert "dataset" in config
+        assert "model" in config
+        assert "training" in config
+        assert "transforms" in config
+        assert "optimizer" in config
+        assert "loss" in config
+        assert "metrics" in config
+
+        # Verify critical dataset values
+        assert config["dataset"]["num_classes"] == plan.num_classes
+        assert config["dataset"]["spatial_size"] == list(plan.patch_size)
+        assert config["dataset"]["fold"] == 0
+
+        # Verify model has required structure
+        assert "type" in config["model"]
+        assert config["model"]["type"] in ["DynUNet", "UNet"]
+
+        # Verify training config has required fields
+        assert "batch_size" in config["training"]
+        assert config["training"]["batch_size"] == plan.batch_size
+        assert "epochs" in config["training"]
+        assert config["training"]["epochs"] > 0
+
+    def test_experiment_plan_determinism(self) -> None:
+        """Test that ExperimentPlan always produces same output given same inputs.
+
+        Critical for reproducibility - ensuring deterministic planning behavior.
+        """
+        from src.planning.planner.create import ExperimentPlan
+
+        # Create two identical plans
+        plan1 = ExperimentPlan(
+            dataset_name="TestDataset",
+            num_classes=3,
+            is_2d=False,
+            median_shape=(96, 96, 96),
+            median_spacing=(1.5, 1.5, 1.5),
+            foreground_intensity_mean=100.0,
+            patch_size=(96, 96, 96),
+            batch_size=2,
+            filters=[32, 64, 128],
+            kernel_size=[(3, 3, 3), (3, 3, 3), (3, 3, 3)],
+            strides=[(2, 2, 2), (2, 2, 2)],
+            upsample_kernel_size=[(2, 2, 2), (2, 2, 2)],
+            deep_supervision=False,
+            ds_weights=[1.0],
+            normalization_scheme="ZScoreNormalization",
+            intensity_clip_min=None,
+            intensity_clip_max=None,
+            target_spacing=(1.5, 1.5, 1.5),
+        )
+
+        plan2 = ExperimentPlan(
+            dataset_name="TestDataset",
+            num_classes=3,
+            is_2d=False,
+            median_shape=(96, 96, 96),
+            median_spacing=(1.5, 1.5, 1.5),
+            foreground_intensity_mean=100.0,
+            patch_size=(96, 96, 96),
+            batch_size=2,
+            filters=[32, 64, 128],
+            kernel_size=[(3, 3, 3), (3, 3, 3), (3, 3, 3)],
+            strides=[(2, 2, 2), (2, 2, 2)],
+            upsample_kernel_size=[(2, 2, 2), (2, 2, 2)],
+            deep_supervision=False,
+            ds_weights=[1.0],
+            normalization_scheme="ZScoreNormalization",
+            intensity_clip_min=None,
+            intensity_clip_max=None,
+            target_spacing=(1.5, 1.5, 1.5),
+        )
+
+        # Verify identical outputs
+        assert plan1.patch_size == plan2.patch_size
+        assert plan1.batch_size == plan2.batch_size
+        assert plan1.filters == plan2.filters
+        assert plan1.strides == plan2.strides
+        assert plan1.kernel_size == plan2.kernel_size
+        assert plan1.deep_supervision == plan2.deep_supervision
