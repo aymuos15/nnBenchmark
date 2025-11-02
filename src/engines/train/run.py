@@ -161,13 +161,15 @@ def run_training(
         persistent_workers = num_workers > 0
 
     # Create data loaders
+    # pin_memory=False to reduce GPU memory pressure and avoid CUDA transfer issues
+    # This is particularly important for small GPUs (e.g., 4GB RTX A1000)
     train_loader = DataLoader(
         train_ds,
         batch_size=cfg["training"]["batch_size"],
         shuffle=True,
         num_workers=num_workers,
         persistent_workers=persistent_workers,
-        pin_memory=True,
+        pin_memory=False,
     )
 
     val_loader = (
@@ -176,7 +178,7 @@ def run_training(
             batch_size=1,  # Validation uses batch_size=1 for full volumes
             num_workers=num_workers,
             persistent_workers=persistent_workers,
-            pin_memory=True,
+            pin_memory=False,
         )
         if val_ds is not None
         else None

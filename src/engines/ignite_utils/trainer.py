@@ -260,6 +260,15 @@ def create_trainer(
         LrScheduleHandler(lr_scheduler=lr_scheduler),  # type: ignore[arg-type]
     )
 
+    # Add GPU cache clearing after each epoch to prevent fragmentation
+    # This is especially important for small GPUs (e.g., 4GB RTX A1000)
+    def clear_gpu_cache(engine: Engine) -> None:
+        """Clear CUDA cache to prevent memory fragmentation."""
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    trainer.add_event_handler(Events.EPOCH_COMPLETED, clear_gpu_cache)
+
     # Add training history handler
     history_handler = TrainingHistoryHandler(
         results_dir, training_all_data=training_all_data, resume=resume
