@@ -17,7 +17,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from src.inference.strategy import (
+from src.engines.inference.strategy import (
     FullVolumeInferer,
     SlidingWindowInferer,
     create_inferer,

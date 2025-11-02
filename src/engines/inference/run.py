@@ -1,18 +1,26 @@
 """
 Inference orchestration module for running complete inference workflows.
+
+Uses Ignite-based InferenceEngine for event-driven inference.
 """
 
 import warnings
 from pathlib import Path
 
-import numpy as np
+import torch
 from monai.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
+from src.engines.common import setup_experiment
+from src.engines.inference.engine import InferenceEngine
+from src.engines.inference.handlers import (
+    InferenceMetricsHandler,
+    InferenceProgressHandler,
+    InferenceResultsHandler,
+)
 from src.factory import metric_registry, model_registry, transform_registry
-from src.inference.evaluate import evaluate
 from src.logging import (
     log_and_print,
     log_header,
@@ -21,8 +29,6 @@ from src.logging import (
     setup_test_logger,
 )
 from src.utils.data import get_test_data_dicts
-from src.utils.files import ensure_directory, save_json
-from src.utils.runner import setup_experiment
 from src.utils.seeding import (
     enable_cuda_determinism,
     get_seed_from_config,
@@ -141,7 +147,7 @@ def run_inference(
     # Transforms from config
     test_transforms = transform_registry.build(cfg, mode="test")
 
-    # Dataset and loader
+    # Dataset and loader (batch_size=1 for inference)
     test_batch_size: int = cfg.get("inference", {}).get("batch_size", 1)
     test_ds = Dataset(data=test_data, transform=test_transforms)
     test_loader: DataLoader = DataLoader(
@@ -149,8 +155,6 @@ def run_inference(
     )
 
     # Load model checkpoint (MONAI format)
-    import torch
-
     log.info(f"Model: {cfg['model']['type']}")
     if Path(model_path).exists():
         log.info(f"Loading checkpoint from: {model_path}")
@@ -201,21 +205,57 @@ def run_inference(
     metric_names = list(metric_fns.keys())
     log.info(f"Metrics: {', '.join(metric_names)}")
 
-    # Run evaluation
+    # Get include_background from first metric config
+    include_background = False
+    if "metrics" in cfg and len(cfg["metrics"]) > 0:
+        include_background = cfg["metrics"][0].get("include_background", False)
+
+    # Create InferenceEngine
     log_header(log, "Running inference on test set...")
-    all_results = evaluate(
+    inference_engine = InferenceEngine(
         model=model,
-        data_loader=test_loader,
         device=device,
         cfg=cfg,
-        verbose=True,
-        data_dicts=test_data,
-        logger=log,
-        log_gpu_mem=log_gpu_mem,
         metric_fns=metric_fns,
         data_dir=data_dir,
-        use_amp=use_amp,
     )
+
+    # Attach handlers
+    metrics_handler = InferenceMetricsHandler(
+        metric_fns=metric_fns,
+        logger=log,
+        data_dir=data_dir,
+        include_background=include_background,
+        verbose=True,
+        log_gpu_mem=log_gpu_mem,
+        device=device,
+        data_dicts=test_data,
+    )
+    metrics_handler.attach(inference_engine.engine)
+
+    progress_handler = InferenceProgressHandler(
+        logger=log,
+        total_samples=len(test_data),
+        data_dicts=test_data,
+    )
+    progress_handler.attach(inference_engine.engine)
+
+    results_handler = InferenceResultsHandler(
+        results_dir=results_dir,
+        config_name=config_name,
+        cfg=cfg,
+        fold=fold,
+        use_test_set=use_test_set,
+        model_path=model_path,
+        data_dicts=test_data,
+    )
+    results_handler.attach(inference_engine.engine)
+
+    # Run inference
+    inference_engine.run(test_loader)
+
+    # Get results from engine state (set by InferenceMetricsHandler)
+    all_results = inference_engine.engine.state.metrics
 
     # Print results for all metrics
     for metric_name, results in all_results.items():
@@ -239,65 +279,9 @@ def run_inference(
         log.info(f"  Max: {results['max']:.4f}")
     log.info(f"\nNumber of cases: {len(all_results[metric_names[0]]['all_scores'])}")
 
-    # Save results
-    ensure_directory(results_dir)
-
-    # Prepare summary statistics for all metrics
-    summary = {}
-    per_sample_scores = {}
-
-    for metric_name, results in all_results.items():
-        metric_summary = {
-            "mean": results["mean"],
-            "std": results["std"],
-            "min": results["min"],
-            "max": results["max"],
-            "num_cases": len(results["all_scores"]),
-        }
-
-        # Add per-class statistics to summary if available
-        if "per_class" in results:
-            metric_summary["per_class"] = results["per_class"]
-
-        summary[metric_name] = metric_summary
-
-        # Convert per_sample_scores to JSON-serializable format
-        # Handle both scalar and per-class (numpy array) cases
-        metric_per_sample_scores = results["all_scores"]
-        if len(metric_per_sample_scores) > 0 and isinstance(
-            metric_per_sample_scores[0], np.ndarray
-        ):
-            # Per-class scores - convert numpy arrays to lists
-            metric_per_sample_scores = [
-                score.tolist() for score in metric_per_sample_scores
-            ]
-
-        per_sample_scores[metric_name] = metric_per_sample_scores
-
-    # Create test history JSON
-    test_history = {
-        "config_name": config_name,
-        "dataset_name": cfg["dataset"]["name"],
-        "fold": fold,
-        "use_test_set": use_test_set,
-        "model_path": model_path,
-        "metrics": metric_names,  # List of all metrics
-        "summary": summary,  # Summary per metric
-        "per_sample_scores": per_sample_scores,  # Scores per metric
-        "sample_names": [Path(d.get("image", "unknown")).name for d in test_data],
-    }
-
-    # Save test history JSON
-    test_history_path = str(Path(results_dir) / "test_history.json")
-    save_json(test_history, test_history_path)
-
-    # Log to file with separators (not to console to avoid clutter)
+    # Log completion
     log_separator(log, print_too=False)
     log.info(f"Results saved to: {results_dir}")
-    log.info(f"Test history file: {test_history_path}")
+    log.info(f"Test history file: {Path(results_dir) / 'test_history.json'}")
     log.info("Inference completed successfully!")
     log_separator(log, print_too=False)
-
-    # Print clean summary to console
-    log_and_print(log, f"\nResults saved to: {results_dir}")
-    log_and_print(log, f"Test history: {test_history_path}")

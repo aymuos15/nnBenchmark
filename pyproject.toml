@@ -27,6 +27,7 @@ dependencies = [
     "torch>=2.0.0",
     "monai>=1.3.0",
     "pytorch-ignite>=0.4.0",
+    "tqdm>=4.65.0",
     "numpy>=1.24.0",
     "matplotlib>=3.7.0",
     "scikit-learn>=1.3.0",
@@ -52,13 +53,13 @@ dev = [
 ]
 
 [project.scripts]
-"nnBench.train" = "src.train.cli:main"
-"nnBench.inference" = "src.inference.cli:main"
+"nnBench.train" = "src.engines.train.cli:main"
+"nnBench.inference" = "src.engines.inference.cli:main"
 "nnBench.plot" = "src.plotting.cli:main"
 "nnBench.plan" = "src.planning.cli:main"
 
 [tool.setuptools]
-packages = ["src", "src.config", "src.factory", "src.factory.losses", "src.factory.metrics", "src.factory.models", "src.factory.optimizers", "src.factory.transforms", "src.logging", "src.utils", "src.planning", "src.planning.fingerprinting", "src.planning.planner", "src.plotting", "src.monai_trainer", "src.inference", "src.train", "src.preprocessing"]
+packages = ["src", "src.config", "src.factory", "src.factory.losses", "src.factory.metrics", "src.factory.models", "src.factory.optimizers", "src.factory.transforms", "src.logging", "src.utils", "src.planning", "src.planning.fingerprinting", "src.planning.planner", "src.plotting", "src.engines", "src.engines.train", "src.engines.inference", "src.engines.ignite_utils", "src.preprocessing"]
 
 [tool.setuptools.package-data]
 src = ["py.typed"]
@@ -92,6 +93,9 @@ exclude = [".venv", ".tox", "build", "dist"]
 paths = ["src", "tests"]
 ignore_names = [
     "attach",                # MONAI Handler method
+    "forward",               # PyTorch module method / MONAI decorator functions
+    "compute_metrics",       # Ignite engine decorator functions
+    "run_validation",        # Ignite engine decorator functions
     "step",                  # Custom LR scheduler method
     "get_last_lr",           # Custom LR scheduler method
     "return_value",          # Mock attribute
@@ -107,3 +111,4 @@ typeCheckingMode = "standard"
 reportUnusedVariable = true
 reportUnnecessaryIsInstance = true
 reportIncompatibleMethodOverride = true
+reportPrivateImportUsage = false  # Allow using public re-exports from MONAI/torch

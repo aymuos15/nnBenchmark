@@ -1,6 +1,6 @@
 """
-Tests for src.utils.runner module.
-Tests runner utilities including device setup, config name extraction, and experiment setup.
+Tests for src.engines.common module.
+Tests common engine utilities including device setup, config name extraction, and experiment setup.
 """
 
 from __future__ import annotations
@@ -12,13 +12,13 @@ from unittest.mock import Mock, patch
 import pytest
 import torch
 
-from src.planning.fingerprinting.resources import get_gpu_memory_for_planning
-from src.utils.runner import (
+from src.engines.common import (
     get_config_name,
     setup_device,
     setup_experiment,
     setup_results_dir,
 )
+from src.planning.fingerprinting.resources import get_gpu_memory_for_planning
 
 
 class TestSetupDevice:

@@ -1,5 +1,5 @@
 """
-Tests for src.inference.run module.
+Tests for src.engines.inference.run module.
 Tests result formatting utilities including test results and metric history recording.
 """
 
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.inference.run import print_test_results
+from src.engines.inference.run import print_test_results
 
 
 class TestPrintTestResults:

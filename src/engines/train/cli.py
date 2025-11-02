@@ -2,7 +2,7 @@
 
 import argparse
 
-from src.train.run import run_training
+from src.engines.train.run import run_training
 
 
 def main() -> None:

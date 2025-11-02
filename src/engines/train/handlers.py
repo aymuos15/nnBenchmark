@@ -10,14 +10,13 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from ignite.engine import Engine, Events
-from monai.handlers import StatsHandler
 
 from src.logging import log_gpu_memory, log_only
 from src.plotting.validation import save_validation_visualizations
 from src.utils.files import save_json
 
 if TYPE_CHECKING:
-    from logging import Logger
+    from loguru._logger import Logger
 
 
 class TrainingHistoryHandler:
@@ -66,7 +65,7 @@ class TrainingHistoryHandler:
         current_epoch = engine.state.epoch
 
         # Get train_loss from engine state
-        train_loss = engine.state.output.get("loss", None)
+        train_loss = engine.state.output.get("loss", None)  # type: ignore[union-attr]
 
         if train_loss is not None:
             # Avoid duplicates when resuming
@@ -190,13 +189,13 @@ class TrainingLogger:
         max_epochs = engine.state.max_epochs
 
         # Get epoch loss from output
-        epoch_loss = engine.state.output.get("loss", None)
+        epoch_loss = engine.state.output.get("loss", None)  # type: ignore[union-attr]
         loss_str = f"loss={epoch_loss:.4f}" if epoch_loss is not None else "loss=?"
 
         # Get learning rate if available
         lr_str = ""
         if hasattr(engine.state, "optimizer"):
-            current_lr = engine.state.optimizer.param_groups[0]["lr"]
+            current_lr = engine.state.optimizer.param_groups[0]["lr"]  # type: ignore[attr-defined]
             lr_str = f", lr={current_lr:.6f}"
 
         # Build message with loss and learning rate

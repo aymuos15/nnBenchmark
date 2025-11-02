@@ -13,26 +13,27 @@ import torch.nn as nn
 from ignite.engine import Engine, Events
 from monai.data import DataLoader
 from monai.engines import SupervisedEvaluator, SupervisedTrainer
-from monai.handlers import CheckpointSaver, LrScheduleHandler
+from monai.handlers import CheckpointSaver
+from monai.handlers.lr_schedule_handler import LrScheduleHandler
 from monai.networks.utils import one_hot
 
+from src.engines.ignite_utils.progress import ConsoleProgressHandler
+from src.engines.train.handlers import (
+    GPUMemoryHandler,
+    TrainingHistoryHandler,
+    TrainingLogger,
+    ValidationVisualizationHandler,
+)
 from src.factory import (
     loss_registry,
     metric_registry,
     model_registry,
     optimizer_registry,
 )
-from src.monai_trainer.handlers import (
-    GPUMemoryHandler,
-    TrainingHistoryHandler,
-    TrainingLogger,
-    ValidationVisualizationHandler,
-)
-from src.monai_trainer.progress import ConsoleProgressHandler
 from src.utils.lr_scheduler import PolyLRScheduler
 
 if TYPE_CHECKING:
-    from logging import Logger
+    from loguru._logger import Logger
 
 
 def _prepare_batch(
@@ -71,8 +72,8 @@ class DeepSupervisionLossWrapper(nn.Module):
         """
         super().__init__()
         self.loss_fn = loss_fn
-        self.ds_weights = ds_weights
-        self.spatial_dims = spatial_dims
+        self.ds_weights = ds_weights  # type: ignore[misc]
+        self.spatial_dims = spatial_dims  # type: ignore[misc]
 
     def forward(
         self, outputs: torch.Tensor | list[torch.Tensor], labels: torch.Tensor
@@ -142,7 +143,7 @@ def create_trainer(
     results_dir: str,
     logger: Logger,
     resume: bool = False,
-) -> tuple[SupervisedTrainer, SupervisedEvaluator | None]:
+) -> tuple[SupervisedTrainer, SupervisedEvaluator | None]:  # type: ignore[return]
     """
     Create MONAI SupervisedTrainer and Evaluator.
 
@@ -241,7 +242,7 @@ def create_trainer(
 
     # Add learning rate scheduler handler
     trainer.add_event_handler(
-        Events.EPOCH_COMPLETED, LrScheduleHandler(lr_scheduler=lr_scheduler)
+        Events.EPOCH_COMPLETED, LrScheduleHandler(lr_scheduler=lr_scheduler)  # type: ignore[arg-type]
     )
 
     # Add training history handler
@@ -342,9 +343,9 @@ def create_trainer(
             output = engine.state.output
             current_epoch = trainer.state.epoch
             viz_handler.save_visualization(
-                output["images"],
-                output["labels"],
-                output["predictions"],
+                output["images"],  # type: ignore[index, call-overload]
+                output["labels"],  # type: ignore[index, call-overload]
+                output["predictions"],  # type: ignore[index, call-overload]
                 current_epoch,
             )
 
@@ -431,4 +432,4 @@ def create_trainer(
             save_final=True,
         ).attach(trainer)
 
-    return trainer, evaluator
+    return trainer, evaluator  # type: ignore[return-value]

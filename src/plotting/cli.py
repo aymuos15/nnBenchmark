@@ -4,8 +4,8 @@ import argparse
 from pathlib import Path
 
 from src.config import resolve_config_path
+from src.engines.common import get_config_name, setup_results_dir
 from src.plotting.generate import generate_plots
-from src.utils.runner import get_config_name, setup_results_dir
 
 
 def main() -> None:

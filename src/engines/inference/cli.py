@@ -4,7 +4,7 @@ CLI entry point for inference functionality.
 
 import argparse
 
-from src.inference.run import run_inference
+from src.engines.inference.run import run_inference
 
 
 def main() -> None:

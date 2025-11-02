@@ -9,7 +9,8 @@ import warnings
 from pathlib import Path
 
 import torch
-from monai.data import CacheDataset, DataLoader, Dataset
+from monai.data.dataloader import DataLoader
+from monai.data.dataset import CacheDataset, Dataset
 
 from src.config import resolve_config_path
 from src.config.validation import (
@@ -17,11 +18,11 @@ from src.config.validation import (
     validate_metrics_config,
     validate_required_field,
 )
+from src.engines.common import setup_experiment
+from src.engines.ignite_utils import create_trainer
 from src.factory import metric_registry, transform_registry
 from src.logging import log_and_print, log_header, log_system_info, setup_train_logger
-from src.monai_trainer import create_trainer
 from src.utils.data import get_data_dicts
-from src.utils.runner import setup_experiment
 from src.utils.seeding import (
     enable_cuda_determinism,
     get_seed_from_config,
@@ -185,7 +186,7 @@ def run_training(
 
     log.info(f"Training samples: {len(train_ds)}")
     if val_loader is not None:
-        log.info(f"Validation samples: {len(val_ds)}")
+        log.info(f"Validation samples: {len(val_ds)}")  # type: ignore[arg-type]
 
     # Clean up existing checkpoints if not resuming
     results_path = Path(results_dir)

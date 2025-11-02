@@ -3,14 +3,14 @@ MONAI SupervisedTrainer integration for nnBenchmark.
 Handlers for training history, visualization, logging, and checkpointing.
 """
 
-from src.monai_trainer.handlers import (
+from src.engines.ignite_utils.progress import ConsoleProgressHandler
+from src.engines.ignite_utils.trainer import create_trainer
+from src.engines.train.handlers import (
     GPUMemoryHandler,
     TrainingHistoryHandler,
     TrainingLogger,
     ValidationVisualizationHandler,
 )
-from src.monai_trainer.progress import ConsoleProgressHandler
-from src.monai_trainer.trainer import create_trainer
 
 __all__ = [
     "create_trainer",

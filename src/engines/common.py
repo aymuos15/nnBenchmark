@@ -1,5 +1,5 @@
 """
-Common runner utilities for training and testing scripts.
+Common engine utilities for training and inference.
 Provides helpers for experiment setup to reduce code duplication.
 """
 

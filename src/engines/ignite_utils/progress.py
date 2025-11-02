@@ -11,7 +11,7 @@ from ignite.engine import Engine, Events
 from tqdm import tqdm
 
 if TYPE_CHECKING:
-    from logging import Logger
+    from loguru._logger import Logger
 
 
 class ConsoleProgressHandler:
@@ -46,7 +46,7 @@ class ConsoleProgressHandler:
     def _on_epoch_started(self, engine: Engine) -> None:
         """Start progress bar for new epoch."""
         self.current_epoch = engine.state.epoch
-        total_iterations = len(engine.state.dataloader)
+        total_iterations = len(engine.state.dataloader)  # type: ignore[arg-type]
 
         # Create progress bar for this epoch
         self.epoch_pbar = tqdm(
@@ -61,7 +61,7 @@ class ConsoleProgressHandler:
         """Update progress bar after each iteration."""
         if self.epoch_pbar is not None:
             # Get current loss
-            loss = engine.state.output.get("loss", 0.0)
+            loss = engine.state.output.get("loss", 0.0)  # type: ignore[union-attr]
 
             # Update progress bar with loss
             self.epoch_pbar.set_postfix({"loss": f"{loss:.4f}"})
