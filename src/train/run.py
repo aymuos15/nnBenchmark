@@ -9,8 +9,7 @@ import warnings
 from pathlib import Path
 
 import torch
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
+from monai.data import CacheDataset, DataLoader, Dataset
 
 from src.config import resolve_config_path
 from src.config.validation import (
@@ -18,16 +17,10 @@ from src.config.validation import (
     validate_metrics_config,
     validate_required_field,
 )
-from src.factory import metric_registry
-from src.lightning import (
-    GPUMemoryCallback,
-    SegmentationDataModule,
-    SegmentationModule,
-    TrainingHistoryCallback,
-    TrainingStepLogger,
-    ValidationVisualizationCallback,
-)
+from src.factory import metric_registry, transform_registry
 from src.logging import log_and_print, log_header, log_system_info, setup_train_logger
+from src.monai_trainer import create_trainer
+from src.utils.data import get_data_dicts
 from src.utils.runner import setup_experiment
 from src.utils.seeding import (
     enable_cuda_determinism,
@@ -38,19 +31,12 @@ from src.utils.seeding import (
 # Suppress MONAI deprecation warnings for get_mask_edges (used internally by SurfaceDiceMetric)
 warnings.filterwarnings("ignore", category=FutureWarning, module="monai")
 
-# Suppress PyTorch Lightning checkpoint directory not empty warning
-warnings.filterwarnings(
-    "ignore",
-    message=".*Checkpoint directory.*exists and is not empty.*",
-    category=UserWarning,
-)
-
 
 def run_training(
     config_path: str, dataset: str | None = None, resume: bool = False
 ) -> None:
     """
-    Run training using PyTorch Lightning.
+    Run training using MONAI SupervisedTrainer.
 
     Args:
         config_path: Path to YAML config file or relative path (e.g., fold_0.yaml)
@@ -125,9 +111,6 @@ def run_training(
 
     # Configure TF32 precision (new PyTorch API)
     # Use 'high' for balanced precision/performance on Tensor Core GPUs
-    # Note: PyTorch 2.9.0 has a known issue where it internally triggers a deprecation
-    # warning even when using the correct new API. This is a PyTorch internal bug,
-    # not an issue with our code.
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -135,21 +118,82 @@ def run_training(
         )
         torch.set_float32_matmul_precision("high")
 
-    # Create Lightning module
-    log.info("Creating Lightning module...")
-    lit_module = SegmentationModule(cfg=cfg, device=device)
+    # Create data loaders
+    log.info("Creating data loaders...")
 
-    # Create data module
-    log.info("Creating data module...")
-    datamodule = SegmentationDataModule(cfg, data_dir, fold)
+    # Get data dicts
+    train_data, val_data = get_data_dicts(data_dir, fold)
 
-    # Clean up existing checkpoints if not resuming (prevents "directory not empty" warning)
+    # Build transforms
+    train_transforms = transform_registry.build(cfg, mode="train")
+    val_transforms = transform_registry.build(cfg, mode="val")
+
+    # Check if caching is enabled
+    cache_config = cfg.get("dataset", {}).get("cache", {})
+    use_cache = cache_config.get("enabled", False)
+    cache_rate = cache_config.get("cache_rate", 1.0)
+    num_workers = cfg["training"]["num_workers"]
+
+    if use_cache:
+        # Use CacheDataset for faster training
+        log_and_print(log, f"Caching {int(cache_rate * 100)}% of training data...")
+        train_ds = CacheDataset(
+            data=train_data,
+            transform=train_transforms,
+            cache_rate=cache_rate,
+            num_workers=num_workers,
+        )
+        if val_data:
+            log_and_print(log, f"Caching {int(cache_rate * 100)}% of validation data...")
+            val_ds = CacheDataset(
+                data=val_data,
+                transform=val_transforms,
+                cache_rate=cache_rate,
+                num_workers=num_workers,
+            )
+        else:
+            val_ds = None
+        persistent_workers = False  # CacheDataset requires persistent_workers=False
+        log_and_print(log, "Data caching completed!")
+    else:
+        # Use basic Dataset (no caching)
+        train_ds = Dataset(data=train_data, transform=train_transforms)
+        val_ds = Dataset(data=val_data, transform=val_transforms) if val_data else None
+        persistent_workers = num_workers > 0
+
+    # Create data loaders
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=cfg["training"]["batch_size"],
+        shuffle=True,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+        pin_memory=True,
+    )
+
+    val_loader = (
+        DataLoader(
+            val_ds,
+            batch_size=1,  # Validation uses batch_size=1 for full volumes
+            num_workers=num_workers,
+            persistent_workers=persistent_workers,
+            pin_memory=True,
+        )
+        if val_ds is not None
+        else None
+    )
+
+    log.info(f"Training samples: {len(train_ds)}")
+    if val_loader is not None:
+        log.info(f"Validation samples: {len(val_ds)}")
+
+    # Clean up existing checkpoints if not resuming
     results_path = Path(results_dir)
     if not resume and results_path.exists():
         checkpoint_files = [
             f.name
             for f in results_path.iterdir()
-            if f.name.endswith(".ckpt") or f.name.endswith(".pt")
+            if f.name.endswith(".pt") or f.name.endswith(".pth")
         ]
         if checkpoint_files:
             log.info(
@@ -160,100 +204,48 @@ def run_training(
                 ckpt_path = results_path / ckpt_file
                 ckpt_path.unlink()
 
-    # Setup callbacks
-    callbacks = []
-
-    if training_all_data:
-        # For training on all data, use epoch-based checkpointing (no validation metric)
-        callbacks.append(
-            ModelCheckpoint(
-                dirpath=results_dir,
-                filename="best_model",
-                save_top_k=1,
-                save_last=True,  # Creates last.ckpt
-                verbose=False,
-                enable_version_counter=False,  # Overwrite checkpoints instead of versioning
-                every_n_epochs=1,  # Save every epoch
-            )
-        )
-    else:
-        # For cross-validation, use metric-based checkpointing
-        callbacks.append(
-            ModelCheckpoint(
-                dirpath=results_dir,
-                filename="best_model",
-                monitor=f"val_{checkpoint_metric}",
-                mode="max",
-                save_top_k=1,
-                save_last=True,  # Creates last.ckpt
-                verbose=False,
-                enable_version_counter=False,  # Overwrite checkpoints instead of versioning
-            )
-        )
-
-    callbacks.extend(
-        [
-            TrainingHistoryCallback(results_dir, training_all_data=training_all_data),
-            ValidationVisualizationCallback(
-                results_dir, cfg, skip_if_no_validation=training_all_data
-            ),
-        ]
-    )
-
-    # Add step logging callback (always enabled)
-    callbacks.append(TrainingStepLogger(log, log_gpu_mem=log_gpu_mem))
-
-    # Add GPU memory callback if enabled
-    if log_gpu_mem:
-        callbacks.append(GPUMemoryCallback(log))
-
-    # Create Trainer
-    log.info("Creating Lightning Trainer...")
+    # Create MONAI trainer and evaluator
+    log.info("Creating MONAI SupervisedTrainer...")
     log.info("Using GPU device: 0")
 
-    # Configure validation settings based on whether we have validation data
-    if training_all_data:
-        # Skip validation when training on all data
-        val_interval = 1  # Irrelevant, but set a value
-        sanity_val_steps = 0  # Skip sanity validation
-    else:
-        val_interval = cfg["training"]["val_interval"]
-        sanity_val_steps = 2
-
-    trainer = Trainer(
-        max_epochs=cfg["training"]["epochs"],
-        check_val_every_n_epoch=val_interval,
-        num_sanity_val_steps=sanity_val_steps,
-        precision="16-mixed" if use_amp else "32-true",
-        accelerator="auto",
-        devices=[0],  # Use GPU 0 by default
-        strategy="auto",  # Auto-select strategy (single GPU mode)
-        callbacks=callbacks,
-        logger=False,  # Disable Lightning's default loggers, use loguru
-        enable_progress_bar=True,
-        enable_model_summary=False,
-        sync_batchnorm=True,  # Important for DDP
-        deterministic=False,  # Disable torch.use_deterministic_algorithms() as it conflicts with MONAI cross-entropy loss
+    trainer, evaluator = create_trainer(
+        cfg=cfg,
+        device=device,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        results_dir=results_dir,
+        logger=log,
+        resume=resume,
     )
 
-    # Determine checkpoint path for resumption
-    ckpt_path = None
+    # Handle checkpoint resumption
     if resume:
-        ckpt_path = str(Path(results_dir) / "last.ckpt")
-        if not Path(ckpt_path).exists():
-            log_and_print(
-                log,
-                f"ERROR: Resume requested but checkpoint not found: {ckpt_path}",
-                level="ERROR",
-            )
-            sys.exit(1)
-        log_and_print(log, f"Resuming training from: {ckpt_path}")
+        checkpoint_path = str(Path(results_dir) / "checkpoint_final_checkpoint.pt")
+        if not Path(checkpoint_path).exists():
+            # Try alternative checkpoint name
+            checkpoint_path = str(Path(results_dir) / "best_model_key_metric*.pt")
+            import glob
+            checkpoints = glob.glob(checkpoint_path)
+            if not checkpoints:
+                log_and_print(
+                    log,
+                    f"ERROR: Resume requested but checkpoint not found in: {results_dir}",
+                    level="ERROR",
+                )
+                sys.exit(1)
+            checkpoint_path = checkpoints[0]
+
+        log_and_print(log, f"Resuming training from: {checkpoint_path}")
+        # Load checkpoint
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        trainer.network.load_state_dict(checkpoint["model"])
+        log.info("Checkpoint loaded successfully")
 
     # Train
     log_header(log, "STARTING TRAINING")
     log_and_print(log, f"Training for {cfg['training']['epochs']} epochs...")
 
-    trainer.fit(lit_module, datamodule=datamodule, ckpt_path=ckpt_path)
+    trainer.run()
 
     # Log completion
     log_header(log, "TRAINING COMPLETED")
@@ -263,20 +255,22 @@ def run_training(
     # Log output locations
     history_path = str(Path(results_dir) / "training_history.json")
     log.info(f"Training history saved to: {history_path}")
-    log.info(f"Best model checkpoint: {Path(results_dir) / 'best_model.ckpt'}")
-    log.info(f"Last checkpoint: {Path(results_dir) / 'last.ckpt'}")
 
     if training_all_data:
         log.info("Training on all data completed (no validation metrics)")
         log_and_print(log, "\nTraining completed on all data!")
     else:
-        # Get best metric value from trainer
-        best_metric_val = trainer.callback_metrics.get(f"val_{checkpoint_metric}", -1.0)
-        if isinstance(best_metric_val, torch.Tensor):
-            best_metric_val = best_metric_val.item()
-        log.info(f"Best {checkpoint_metric}: {best_metric_val:.4f}")
-        log_and_print(
-            log,
-            f"\nTraining completed! Best {checkpoint_metric}: {best_metric_val:.4f}",
-        )
+        # Get best metric value from evaluator if available
+        if evaluator and hasattr(evaluator.state, "metrics"):
+            best_metric_val = evaluator.state.metrics.get(f"val_{checkpoint_metric}", -1.0)
+            if isinstance(best_metric_val, torch.Tensor):
+                best_metric_val = best_metric_val.item()
+            log.info(f"Best {checkpoint_metric}: {best_metric_val:.4f}")
+            log_and_print(
+                log,
+                f"\nTraining completed! Best {checkpoint_metric}: {best_metric_val:.4f}",
+            )
+        else:
+            log_and_print(log, "\nTraining completed!")
+
     log_and_print(log, f"Training history saved to: {history_path}")

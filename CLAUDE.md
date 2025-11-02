@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## About nnBenchmark
 
-Config-driven 3D medical image segmentation framework using MONAI and PyTorch Lightning. Focuses on reproducibility and benchmarking with automatic configuration generation from dataset properties.
+Config-driven 3D medical image segmentation framework using MONAI SupervisedTrainer. Focuses on reproducibility and benchmarking with automatic configuration generation from dataset properties.
 
 ## Installation
 
@@ -140,11 +140,11 @@ These are accessed via `src/config/paths.py`:
 - Uses native MONAI/PyTorch parameter names (no translation layer)
 - Enables multi-model support by changing single config field
 
-**src/lightning/** - PyTorch Lightning training infrastructure
-- `module.py` - SegmentationModule wraps MONAI models with Lightning
-- `datamodule.py` - Data loading with MONAI transforms
-- `callbacks.py` - Custom callbacks for checkpointing and logging
-- `lr_scheduler.py` - PolyLRScheduler (nnU-Net style learning rate decay)
+**src/monai_trainer/** - MONAI SupervisedTrainer integration
+- `trainer.py` - Trainer and evaluator creation with event-based handlers
+- `handlers.py` - Custom handlers for training history, visualization, logging, GPU memory
+- Deep supervision support via loss wrapper
+- Event-driven validation and checkpointing
 
 **src/config/** - Configuration loading and validation
 - `load.py` - YAML loading with environment variable expansion
@@ -158,8 +158,15 @@ These are accessed via `src/config/paths.py`:
 
 **src/inference/** - Model inference
 - Supports sliding window inference for large volumes
+- Loads MONAI checkpoints directly
 - Handles full-resolution predictions
 - Saves predictions in original dataset format
+
+**src/utils/** - Utility functions
+- `lr_scheduler.py` - PolyLRScheduler (nnU-Net style learning rate decay)
+- `data.py` - Data loading utilities
+- `seeding.py` - Reproducibility utilities
+- `files.py` - File I/O helpers
 
 **src/plotting/** - Results visualization
 - Training curves, validation metrics

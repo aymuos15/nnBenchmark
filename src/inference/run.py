@@ -11,9 +11,8 @@ from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
-from src.factory import metric_registry, transform_registry
+from src.factory import metric_registry, model_registry, transform_registry
 from src.inference.evaluate import evaluate
-from src.lightning import SegmentationModule
 from src.logging import (
     log_and_print,
     log_header,
@@ -88,7 +87,18 @@ def run_inference(
     log_system_info(log, device)
 
     if model_path is None:
-        model_path = str(Path(results_dir) / "best_model.ckpt")
+        # Try to find the best model checkpoint (MONAI format)
+        import glob
+
+        # Look for best model checkpoint
+        best_model_pattern = str(Path(results_dir) / "best_model_key_metric*.pt")
+        checkpoints = glob.glob(best_model_pattern)
+
+        if checkpoints:
+            model_path = checkpoints[0]  # Use most recent if multiple
+        else:
+            # Fall back to final checkpoint
+            model_path = str(Path(results_dir) / "checkpoint_final_checkpoint.pt")
 
     # Get fold number (required unless using dedicated test set)
     fold: int | None
@@ -138,18 +148,26 @@ def run_inference(
         test_ds, batch_size=test_batch_size, num_workers=cfg["training"]["num_workers"]
     )
 
-    # Load Lightning checkpoint
+    # Load model checkpoint (MONAI format)
+    import torch
+
     log.info(f"Model: {cfg['model']['type']}")
     if Path(model_path).exists():
         log.info(f"Loading checkpoint from: {model_path}")
-        lit_module = SegmentationModule.load_from_checkpoint(
-            model_path,
-            cfg=cfg,
-            device=device,
-            map_location=device,
-        )
-        # Extract model for inference
-        model = lit_module.model
+
+        # Build model from config
+        model = model_registry.build(cfg["model"], device)
+
+        # Load checkpoint
+        checkpoint = torch.load(model_path, map_location=device)
+
+        # Extract model state dict (MONAI CheckpointSaver format)
+        if isinstance(checkpoint, dict) and "model" in checkpoint:
+            model.load_state_dict(checkpoint["model"])
+        else:
+            # Direct state dict
+            model.load_state_dict(checkpoint)
+
         model.eval()
         log.info(f"Loaded model from: {model_path}")
     else:
