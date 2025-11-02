@@ -21,6 +21,7 @@ import nibabel as nib
 import numpy as np
 from loguru import logger
 from PIL import Image
+from tqdm import tqdm
 
 from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.splits import create_splits, save_splits
@@ -70,7 +71,7 @@ def extract_training_cases(dataset_path: str | Path) -> list[dict[str, str]]:
         if not label_found:
             logger.warning(f"No matching label found for {img_file.name}")
 
-    logger.info(f"Found {len(training_cases)} training cases")
+    logger.debug(f"Found {len(training_cases)} training cases")
     return training_cases
 
 
@@ -94,7 +95,7 @@ def extract_test_cases(dataset_path: str | Path) -> list[str]:
         test_cases.append(f"./imagesTs/{img_file.name}")
 
     if test_cases:
-        logger.info(f"Found {len(test_cases)} test cases")
+        logger.debug(f"Found {len(test_cases)} test cases")
 
     return test_cases
 
@@ -153,11 +154,11 @@ def preprocess_and_crop_dataset(
 
     # Find all training images
     image_files = sorted(images_dir.glob("*_0000.*"))
-    logger.info(f"Found {len(image_files)} training images to preprocess")
+    logger.debug(f"Found {len(image_files)} training images to preprocess")
 
-    for idx, img_file in enumerate(image_files, 1):
+    for idx, img_file in enumerate(tqdm(image_files, desc="Preprocessing"), 1):
         base_name = extract_case_id(img_file.name, remove_channel_suffix=True)
-        logger.info(f"[{idx}/{len(image_files)}] Processing {base_name}...")
+        logger.debug(f"[{idx}/{len(image_files)}] Processing {base_name}...")
 
         # Find corresponding label file
         label_path = None
@@ -208,7 +209,7 @@ def preprocess_and_crop_dataset(
             logger.warning(f"  ⚠ Failed to crop segmentation for {base_name}, skipping")
             continue
 
-        logger.info(
+        logger.debug(
             f"  Original shape: {img_data.shape} → Cropped shape: {cropped_img.shape} "
             f"(bbox: {bbox})"
         )
@@ -287,7 +288,7 @@ def preprocess_and_crop_dataset(
                 Image.fromarray(img_to_save).save(str(output_img_path))
                 Image.fromarray(seg_to_save).save(str(output_seg_path))
 
-            logger.info("  ✓ Saved cropped image and segmentation")
+            logger.debug("  ✓ Saved cropped image and segmentation")
 
         except Exception as e:
             logger.error(f"  ✗ Failed to save cropped {base_name}: {e}")
@@ -301,7 +302,7 @@ def preprocess_and_crop_dataset(
             "spacing": list(spacing) if spacing else [1.0, 1.0, 1.0],
         }
 
-    logger.info(f"✓ Preprocessed {len(properties_dict)} cases")
+    logger.debug(f"✓ Preprocessed {len(properties_dict)} cases")
     return properties_dict
 
 
@@ -384,13 +385,13 @@ def prepare_dataset(
 
     if dataset_json_path.exists() and not force:
         logger.warning(f"dataset.json already exists: {dataset_json_path}")
-        logger.info("Use force=True to overwrite")
+        logger.debug("Use force=True to overwrite")
         return
 
     with open(dataset_json_path, "w") as f:
         json.dump(dataset_json, f, indent=2)
 
-    logger.info(f"✓ Created {dataset_json_path}")
+    logger.debug(f"✓ Created {dataset_json_path}")
 
     # Create splits.json
     if preprocessed_dir is None:
@@ -401,7 +402,7 @@ def prepare_dataset(
 
     if splits_json_path.exists() and not force:
         logger.warning(f"splits.json already exists: {splits_json_path}")
-        logger.info("Use force=True to overwrite")
+        logger.debug("Use force=True to overwrite")
         return
 
     # Extract case identifiers (just the filenames)
@@ -417,23 +418,23 @@ def prepare_dataset(
 
     # Save splits
     save_splits(splits, str(splits_json_path))
-    logger.info(f"✓ Created {splits_json_path}")
+    logger.debug(f"✓ Created {splits_json_path}")
 
     # Preprocess dataset if requested
     properties = None
     if preprocess:
-        logger.info("\n" + "=" * 60)
-        logger.info("Starting dataset preprocessing (crop to nonzero)...")
-        logger.info("=" * 60)
+        logger.debug("\n" + "=" * 60)
+        logger.debug("Starting dataset preprocessing (crop to nonzero)...")
+        logger.debug("=" * 60)
         properties = preprocess_and_crop_dataset(dataset_path, force=force)
-        logger.info("=" * 60)
+        logger.debug("=" * 60)
 
-    logger.info("\nDataset prepared successfully!")
-    logger.info(f"  Training cases: {len(training_cases)}")
-    logger.info(f"  Test cases: {len(test_cases)}")
-    logger.info("  Folds: 5")
+    logger.debug("\nDataset prepared successfully!")
+    logger.debug(f"  Training cases: {len(training_cases)}")
+    logger.debug(f"  Test cases: {len(test_cases)}")
+    logger.debug("  Folds: 5")
     if preprocess and properties:
-        logger.info(f"  Preprocessed cases: {len(properties)}")
+        logger.debug(f"  Preprocessed cases: {len(properties)}")
 
 
 if __name__ == "__main__":

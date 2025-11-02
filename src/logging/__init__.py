@@ -2,6 +2,7 @@
 
 from src.logging.helpers import log_and_print, log_header, log_only, log_separator
 from src.logging.setup import (
+    setup_dual_logging,
     setup_logger,
     setup_test_logger,
     setup_train_logger,
@@ -19,6 +20,7 @@ __all__ = [
     "setup_train_logger",
     "setup_test_logger",
     "setup_verbose_logger",
+    "setup_dual_logging",
     # Helper functions
     "log_and_print",
     "log_only",

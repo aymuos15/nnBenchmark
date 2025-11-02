@@ -90,12 +90,12 @@ def create_experiment_plan(
         ExperimentPlan with optimized configuration
 
     """
-    logger.info("Creating experiment plan using nnU-Net EXACT heuristics...")
-    logger.info(f"Target GPU memory: {gpu_memory_gb} GB")
+    logger.debug("Creating experiment plan using nnU-Net EXACT heuristics...")
+    logger.debug(f"Target GPU memory: {gpu_memory_gb} GB")
 
     # Step 1: Calculate target spacing
     target_spacing = calculate_target_spacing(fingerprint)
-    logger.info(f"Target spacing: {target_spacing}")
+    logger.debug(f"Target spacing: {target_spacing}")
 
     # Step 2: Calculate initial patch size (nnU-Net exact formula)
     ndim = 2 if fingerprint.is_2d else 3
@@ -110,7 +110,7 @@ def create_experiment_plan(
     initial_patch = calculate_initial_patch_size(
         target_spacing, median_shape, fingerprint.is_2d
     )
-    logger.info(f"Initial patch size: {initial_patch}")
+    logger.debug(f"Initial patch size: {initial_patch}")
 
     # Step 3: Get model topology via get_pool_and_conv_props (nnU-Net exact)
     unet_featuremap_min_edge_length = (
@@ -134,24 +134,24 @@ def create_experiment_plan(
     num_stages = len(
         strides
     )  # Number of encoder stages (including first no-downsample stage)
-    logger.info(f"Model topology: {num_stages} stages")
-    logger.info(f"Strides (includes [1,1,1] at first level): {strides}")
-    logger.info(f"Conv kernel sizes: {conv_kernel_sizes}")
-    logger.info(f"Adjusted patch size: {patch_size}")
-    logger.info(f"Must be divisible by: {shape_must_be_divisible_by}")
+    logger.debug(f"Model topology: {num_stages} stages")
+    logger.debug(f"Strides (includes [1,1,1] at first level): {strides}")
+    logger.debug(f"Conv kernel sizes: {conv_kernel_sizes}")
+    logger.debug(f"Adjusted patch size: {patch_size}")
+    logger.debug(f"Must be divisible by: {shape_must_be_divisible_by}")
 
     # Step 4: Calculate feature channels (nnU-Net exact)
     filters = calculate_feature_channels(num_stages, fingerprint.is_2d)
-    logger.info(f"Feature channels (filters): {filters}")
+    logger.debug(f"Feature channels (filters): {filters}")
 
     # Step 4b: Generate kernel sizes (all 3x3x3 for nnUNet)
     kernel_sizes = [tuple([3] * ndim) for _ in range(num_stages)]
-    logger.info(f"Kernel sizes: {kernel_sizes}")
+    logger.debug(f"Kernel sizes: {kernel_sizes}")
 
     # Step 4c: Calculate upsample kernel sizes (inverse of downsampling strides)
     # Skip first stride since there's no upsampling for the first level
     upsample_kernel_sizes = [stride for stride in strides[1:]]
-    logger.info(f"Upsample kernel sizes: {upsample_kernel_sizes}")
+    logger.debug(f"Upsample kernel sizes: {upsample_kernel_sizes}")
 
     # Step 5: Calculate deep supervision weights (nnU-Net style)
     # For DynUNet, deep_supr_num=1 means we get 2 outputs (final + 1 intermediate)
@@ -159,7 +159,7 @@ def create_experiment_plan(
     deep_supr_num = 1  # DynUNet default for nnU-Net compatibility
     num_ds_outputs = deep_supr_num + 1  # final + intermediate outputs
     ds_weights = calculate_deep_supervision_weights(num_ds_outputs)
-    logger.info(
+    logger.debug(
         f"Deep supervision enabled with {num_ds_outputs} outputs, weights: {ds_weights}"
     )
 
@@ -179,7 +179,7 @@ def create_experiment_plan(
         approximate_n_voxels_dataset=approximate_n_voxels_dataset,
         gpu_memory_target_gb=gpu_memory_gb,
     )
-    logger.info(f"Batch size: {batch_size}")
+    logger.debug(f"Batch size: {batch_size}")
 
     # Step 8: Determine intensity normalization ranges
     if fingerprint.normalization_scheme == "CTNormalization":
@@ -187,7 +187,7 @@ def create_experiment_plan(
         # This follows nnU-Net v2.4.1 for standardized CT Hounsfield unit handling
         clip_min = fingerprint.intensity_percentile_00_5
         clip_max = fingerprint.intensity_percentile_99_5
-        logger.info(
+        logger.debug(
             f"CT Normalization: clipping to percentile range [{clip_min}, {clip_max}]"
         )
     else:
@@ -195,7 +195,7 @@ def create_experiment_plan(
         # Store percentile values for reference but they won't be used in transforms
         clip_min = fingerprint.intensity_percentile_00_5
         clip_max = fingerprint.intensity_percentile_99_5
-        logger.info(
+        logger.debug(
             f"Per-case Z-score Normalization: no clipping applied (intensity range [{clip_min}, {clip_max}] for reference)"
         )
 
@@ -239,8 +239,8 @@ def create_experiment_plan(
         target_spacing=target_spacing,
     )
 
-    logger.info("Experiment plan created successfully!")
-    logger.info(
+    logger.debug("Experiment plan created successfully!")
+    logger.debug(
         f"Final configuration matches nnU-Net: patch={patch_size}, batch={batch_size}, stages={num_stages}"
     )
 

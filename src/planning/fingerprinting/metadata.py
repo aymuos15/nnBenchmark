@@ -76,10 +76,10 @@ def scan_unique_label_values(label_paths: list[str], num_samples: int = 50) -> i
     max_label = int(max(unique_values))
     num_classes = max_label + 1
 
-    logger.info(
+    logger.debug(
         f"Scanned {len(sample_paths)} label files, found {len(unique_values)} unique label values: {sorted(unique_values)}"
     )
-    logger.info(
+    logger.debug(
         f"Determined num_classes = {num_classes} (max label value: {max_label})"
     )
 

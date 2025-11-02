@@ -40,12 +40,6 @@ def main() -> None:
     )
 
     parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging (shows detailed fingerprinting and planning steps)",
-    )
-
-    parser.add_argument(
         "--num-workers",
         type=int,
         default=None,
@@ -58,7 +52,6 @@ def main() -> None:
         gpu_memory_gb=args.gpu_memory_gb,
         fold=args.fold,
         output=args.output,
-        verbose=args.verbose,
         num_workers=args.num_workers,
     )
 
