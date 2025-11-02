@@ -38,6 +38,7 @@ class TrainingHistoryHandler:
         self.results_dir = results_dir
         self.history_path = str(Path(results_dir) / "training_history.json")
         self.training_all_data = training_all_data
+        self.best_val_dice = 0.0
 
         # Load existing history if resuming, otherwise start fresh
         if resume and Path(self.history_path).exists():
@@ -45,12 +46,17 @@ class TrainingHistoryHandler:
 
             with open(self.history_path) as f:
                 self.training_history = json.load(f)
+                # Restore best_val_dice from history if available
+                if "best_val_DiceMetric" in self.training_history:
+                    best_list = self.training_history["best_val_DiceMetric"]
+                    self.best_val_dice = best_list[-1] if best_list else 0.0
         else:
             # Initialize history structure (matches original format)
             self.training_history: dict[str, Any] = {
                 "epochs": [],
                 "train_loss": [],
                 "val_epochs": [],
+                "best_val_DiceMetric": [],
             }
 
     def attach(self, engine: Engine) -> None:
@@ -109,6 +115,18 @@ class TrainingHistoryHandler:
                 # Append metric value
                 metric_val = value.item() if isinstance(value, torch.Tensor) else value
                 self.training_history[key].append(metric_val)
+
+        # Track best validation dice metric
+        val_dice = metrics.get("val_DiceMetric", None)
+        if val_dice is not None:
+            dice_val = val_dice.item() if isinstance(val_dice, torch.Tensor) else val_dice
+            if dice_val > self.best_val_dice:
+                self.best_val_dice = dice_val
+
+            # Store best dice in history (one entry per validation epoch)
+            if "best_val_DiceMetric" not in self.training_history:
+                self.training_history["best_val_DiceMetric"] = []
+            self.training_history["best_val_DiceMetric"].append(self.best_val_dice)
 
         # Save after each validation
         save_json(self.training_history, self.history_path)

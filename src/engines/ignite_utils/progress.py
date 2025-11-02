@@ -14,6 +14,47 @@ if TYPE_CHECKING:
     from loguru._logger import Logger
 
 
+class ValidationProgressHandler:
+    """
+    Displays validation progress with tqdm progress bar.
+    Shows a simple progress bar during validation runs.
+    """
+
+    def __init__(self) -> None:
+        """Initialize validation progress handler."""
+        self.val_pbar = None
+
+    def attach(self, engine: Engine) -> None:
+        """Attach handler to evaluator events."""
+        engine.add_event_handler(Events.STARTED, self._on_started)
+        engine.add_event_handler(Events.ITERATION_COMPLETED, self._on_iteration)
+        engine.add_event_handler(Events.COMPLETED, self._on_completed)
+
+    def _on_started(self, engine: Engine) -> None:
+        """Start progress bar for validation."""
+        total_iterations = len(engine.state.dataloader)  # type: ignore[arg-type]
+
+        # Create progress bar for validation
+        self.val_pbar = tqdm(
+            total=total_iterations,
+            desc="  Validating",
+            unit="batch",
+            leave=False,
+            dynamic_ncols=True,
+        )
+
+    def _on_iteration(self, engine: Engine) -> None:
+        """Update progress bar after each iteration."""
+        if self.val_pbar is not None:
+            self.val_pbar.update(1)
+
+    def _on_completed(self, engine: Engine) -> None:
+        """Close progress bar after validation."""
+        if self.val_pbar is not None:
+            self.val_pbar.close()
+            self.val_pbar = None
+
+
 class ConsoleProgressHandler:
     """
     Displays training progress with tqdm progress bars.
@@ -30,6 +71,8 @@ class ConsoleProgressHandler:
         self.max_epochs = max_epochs
         self.epoch_pbar = None
         self.current_epoch = 0
+        self.best_val_dice = 0.0
+        self.current_val_dice = None
 
     def attach(self, engine: Engine) -> None:
         """Attach handler to engine events."""
@@ -53,7 +96,7 @@ class ConsoleProgressHandler:
             total=total_iterations,
             desc=f"Epoch {self.current_epoch}/{self.max_epochs}",
             unit="batch",
-            leave=True,
+            leave=False,
             dynamic_ncols=True,
         )
 
@@ -63,8 +106,21 @@ class ConsoleProgressHandler:
             # Get current loss
             loss = engine.state.output.get("loss", 0.0)  # type: ignore[union-attr]
 
-            # Update progress bar with loss
-            self.epoch_pbar.set_postfix({"loss": f"{loss:.4f}"})
+            # Build postfix with loss and learning rate
+            postfix = {"loss": f"{loss:.4f}"}
+
+            # Try to get current learning rate from optimizer
+            if hasattr(engine, "optimizer") and engine.optimizer is not None:  # type: ignore[union-attr]
+                lr = engine.optimizer.param_groups[0]["lr"]  # type: ignore[union-attr]
+                postfix["lr"] = f"{lr:.6f}"
+
+            # Add validation metrics if available
+            if self.current_val_dice is not None:
+                postfix["val_dsc"] = f"{self.current_val_dice:.4f}"
+                postfix["val_best_dsc"] = f"{self.best_val_dice:.4f}"
+
+            # Update progress bar with loss and learning rate
+            self.epoch_pbar.set_postfix(postfix)
             self.epoch_pbar.update(1)
 
     def _on_epoch_completed(self, engine: Engine) -> None:
@@ -88,4 +144,7 @@ class ConsoleProgressHandler:
         val_dice = metrics.get("val_DiceMetric", None)
 
         if val_dice is not None:
-            print(f"  Validation - Dice: {val_dice:.4f}")
+            # Track current and best validation dice
+            self.current_val_dice = val_dice
+            if val_dice > self.best_val_dice:
+                self.best_val_dice = val_dice

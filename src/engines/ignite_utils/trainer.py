@@ -17,7 +17,10 @@ from monai.handlers import CheckpointSaver
 from monai.handlers.lr_schedule_handler import LrScheduleHandler
 from monai.networks.utils import one_hot
 
-from src.engines.ignite_utils.progress import ConsoleProgressHandler
+from src.engines.ignite_utils.progress import (
+    ConsoleProgressHandler,
+    ValidationProgressHandler,
+)
 from src.engines.train.handlers import (
     TrainingHistoryHandler,
     TrainingLogger,
@@ -347,6 +350,10 @@ def create_trainer(
 
         # Initialize metrics dict in evaluator state (needed for CheckpointSaver)
         evaluator.state.metrics = {}
+
+        # Add validation progress handler
+        val_progress_handler = ValidationProgressHandler()
+        val_progress_handler.attach(evaluator)
 
         # Add validation visualization handler
         viz_handler = ValidationVisualizationHandler(
