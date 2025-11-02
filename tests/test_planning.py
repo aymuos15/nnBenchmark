@@ -616,8 +616,8 @@ class TestPlanningWorkflowIntegration:
             deep_supervision=False,
             ds_weights=[1.0],
             normalization_scheme="ZScoreNormalization",
-            intensity_clip_min=None,
-            intensity_clip_max=None,
+            intensity_clip_min=0.0,
+            intensity_clip_max=100.0,
             target_spacing=(1.0, 1.0, 1.0),
         )
 
@@ -680,8 +680,8 @@ class TestPlanningWorkflowIntegration:
             deep_supervision=False,
             ds_weights=[1.0],
             normalization_scheme="ZScoreNormalization",
-            intensity_clip_min=None,
-            intensity_clip_max=None,
+            intensity_clip_min=0.0,
+            intensity_clip_max=100.0,
             target_spacing=(1.5, 1.5, 1.5),
         )
 
@@ -701,8 +701,8 @@ class TestPlanningWorkflowIntegration:
             deep_supervision=False,
             ds_weights=[1.0],
             normalization_scheme="ZScoreNormalization",
-            intensity_clip_min=None,
-            intensity_clip_max=None,
+            intensity_clip_min=0.0,
+            intensity_clip_max=100.0,
             target_spacing=(1.5, 1.5, 1.5),
         )
 
