@@ -102,6 +102,7 @@ ignore_names = [
     "side_effect",           # Mock attribute
     "_setup_nnunet_env_vars",  # pytest autouse fixture
     "unregister",            # Part of public registry API for all registries
+    "requires_grad",         # PyTorch tensor attribute set in tests for gradient tracking
 ]
 
 [tool.pyright]

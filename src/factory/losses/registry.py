@@ -11,6 +11,7 @@ import torch.nn as nn
 from monai import losses
 
 from src.factory.base_registry import BaseRegistry
+from src.factory.losses.cc import CCLoss
 
 
 class LossRegistry(BaseRegistry):
@@ -26,7 +27,7 @@ class LossRegistry(BaseRegistry):
         self._register_default_losses()
 
     def _register_default_losses(self) -> None:
-        """Register default MONAI loss functions."""
+        """Register default MONAI loss functions and custom losses."""
         # Register common MONAI losses for segmentation
         self.register("DiceCELoss", getattr(losses, "DiceCELoss"))
         self.register("DiceLoss", getattr(losses, "DiceLoss"))
@@ -39,6 +40,9 @@ class LossRegistry(BaseRegistry):
             getattr(losses, "GeneralizedWassersteinDiceLoss"),
         )
         self.register("MaskedDiceLoss", getattr(losses, "MaskedDiceLoss"))
+
+        # Register custom losses
+        self.register("CCLoss", CCLoss)
 
     def build(self, config: dict[str, Any]) -> nn.Module:
         """Build a loss function from configuration.

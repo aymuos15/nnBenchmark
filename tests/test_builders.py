@@ -20,6 +20,7 @@ from src.factory import (
     optimizer_registry,
     transform_registry,
 )
+from src.factory.losses import CCLoss
 
 
 class TestBuildLoss:
@@ -47,6 +48,49 @@ class TestBuildLoss:
 
         with pytest.raises(KeyError):
             loss_registry.build(sample_config["loss"])
+
+    def test_build_ccloss(self) -> None:
+        """Test building CCLoss from registry."""
+        config = {
+            "type": "CCLoss",
+            "sigmoid": True,
+        }
+        loss_fn = loss_registry.build(config)
+
+        assert isinstance(loss_fn, CCLoss)
+        assert loss_fn.sigmoid is True
+
+    def test_build_ccloss_with_custom_params(self) -> None:
+        """Test building CCLoss with custom parameters."""
+        config = {
+            "type": "CCLoss",
+            "to_onehot_y": True,
+            "softmax": True,
+            "sigmoid": False,
+        }
+        loss_fn = loss_registry.build(config)
+
+        assert isinstance(loss_fn, CCLoss)
+        assert loss_fn.to_onehot_y is True
+        assert loss_fn.softmax is True
+        assert loss_fn.sigmoid is False
+
+    def test_ccloss_forward_pass(self) -> None:
+        """Test that CCLoss works correctly in forward pass."""
+        config = {"type": "CCLoss", "sigmoid": True}
+        loss_fn = loss_registry.build(config)
+
+        # Create sample batch
+        pred = torch.randn(2, 3, 32, 32)
+        target = torch.randint(0, 3, (2, 32, 32))
+
+        # Forward pass
+        loss = loss_fn(pred, target)
+
+        # Check output
+        assert loss.dim() == 0  # Scalar loss
+        assert loss.dtype in [torch.float32, torch.float64]
+        assert torch.isfinite(loss)
 
 
 class TestBuildMetrics:
