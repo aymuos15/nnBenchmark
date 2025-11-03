@@ -131,9 +131,9 @@ class InferenceEngine:
                 final_output = outputs
 
             # Ensure final_output is a tensor
-            assert isinstance(final_output, torch.Tensor), (
-                f"Expected Tensor, got {type(final_output)}"
-            )
+            assert isinstance(
+                final_output, torch.Tensor
+            ), f"Expected Tensor, got {type(final_output)}"
 
             # Get predictions (argmax for multi-class)
             preds = torch.argmax(final_output, dim=1, keepdim=True)

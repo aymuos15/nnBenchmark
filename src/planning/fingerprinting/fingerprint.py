@@ -207,9 +207,7 @@ def fingerprint_dataset(
         logger.debug("Processing images sequentially...")
 
         properties_list = []
-        for img_path, label_path in tqdm(
-            image_label_pairs, desc="Fingerprinting"
-        ):
+        for img_path, label_path in tqdm(image_label_pairs, desc="Fingerprinting"):
             try:
                 props = load_image_properties(img_path, label_path)
                 properties_list.append(props)

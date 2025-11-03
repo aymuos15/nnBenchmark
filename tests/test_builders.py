@@ -193,7 +193,7 @@ class TestBuildModel:
                 "act_name": flat_model["act_name"],
                 "deep_supr_num": flat_model["deep_supr_num"],
                 "res_block": flat_model["res_block"],
-            }
+            },
         }
 
         model = model_registry.build(nested_model, device)
@@ -215,7 +215,7 @@ class TestBuildModel:
                 "channels": [16, 32, 64],
                 "strides": [2, 2],
                 "num_res_units": 2,
-            }
+            },
         }
 
         model = model_registry.build(unet_config, device)
@@ -257,7 +257,7 @@ class TestBuildModel:
                 "channels": [16, 32],
                 "strides": [2],
                 "num_res_units": 0,
-            }
+            },
         }
 
         model = model_registry.build(config, device)
@@ -285,7 +285,7 @@ class TestBuildModel:
             "out_channels": 3,
             "DynUNet": {  # Has DynUNet but type is UNet
                 "filters": [16, 32],
-            }
+            },
         }
 
         # Should build successfully but won't find UNet section

@@ -106,4 +106,3 @@ coverage.xml
 .ruff_cache/
 .mypy_cache/
 .pytype/
-

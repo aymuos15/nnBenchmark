@@ -118,7 +118,9 @@ class TrainingHistoryHandler:
         # Track best validation dice metric
         val_dice = metrics.get("val_DiceMetric", None)
         if val_dice is not None:
-            dice_val = val_dice.item() if isinstance(val_dice, torch.Tensor) else val_dice
+            dice_val = (
+                val_dice.item() if isinstance(val_dice, torch.Tensor) else val_dice
+            )
             if dice_val > self.best_val_dice:
                 self.best_val_dice = dice_val
 

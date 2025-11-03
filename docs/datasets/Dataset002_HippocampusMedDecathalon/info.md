@@ -1,4 +1,4 @@
-# Download 
+# Download
 `curl -O https://msd-for-monai.s3-us-west-2.amazonaws.com/Task04_Hippocampus.tar`
 
 ## File hierarchy
@@ -10,5 +10,5 @@
 0 directories, 2 files
 ```
 
-# Reference 
+# Reference
 [Medical Decathalon](http://medicaldecathlon.com/)

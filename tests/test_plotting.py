@@ -26,7 +26,9 @@ class TestTrainingPlots:
         "num_epochs",
         [1, 5, 100],
     )
-    def test_plot_training_loss_creates_file(self, temp_dir: str, num_epochs: int) -> None:
+    def test_plot_training_loss_creates_file(
+        self, temp_dir: str, num_epochs: int
+    ) -> None:
         """Test that plot_training_loss creates valid plot files with various epoch counts.
 
         Validates plot creation for:
@@ -37,7 +39,7 @@ class TestTrainingPlots:
         # Arrange
         epochs = list(range(1, num_epochs + 1))
         # Exponential decay: realistic loss curve
-        train_loss = [0.5 * (0.98 ** i) for i in range(num_epochs)]
+        train_loss = [0.5 * (0.98**i) for i in range(num_epochs)]
         save_path = os.path.join(temp_dir, f"training_loss_{num_epochs}.png")
 
         # Act
@@ -312,7 +314,9 @@ class TestInferencePlots:
             json.dump(test_history, f)
 
         # Act
-        result_path = plot_classwise_scores(test_history_path, save_path=custom_save_path)
+        result_path = plot_classwise_scores(
+            test_history_path, save_path=custom_save_path
+        )
 
         # Assert
         assert result_path == custom_save_path

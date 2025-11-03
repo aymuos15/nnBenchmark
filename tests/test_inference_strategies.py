@@ -188,9 +188,9 @@ class TestSlidingWindowInferer:
 
             # Output spatial dims should match input spatial dims
             expected_shape = (1, 3, spatial_size, spatial_size, spatial_size)
-            assert outputs.shape == expected_shape, (
-                f"Expected {expected_shape}, got {outputs.shape}"
-            )
+            assert (
+                outputs.shape == expected_shape
+            ), f"Expected {expected_shape}, got {outputs.shape}"
 
     def test_infer_creates_monai_inferer(self) -> None:
         """Test that MONAI inferer is created correctly."""
@@ -596,9 +596,9 @@ class TestSlidingWindowVolumeVariations:
         assert outputs_low_overlap.shape == outputs_high_overlap.shape  # type: ignore[union-attr]
 
         diff = torch.abs(outputs_low_overlap - outputs_high_overlap).max()  # type: ignore[operator]
-        assert diff < 1.0, (
-            "High overlap overlap significantly different from low overlap"
-        )
+        assert (
+            diff < 1.0
+        ), "High overlap overlap significantly different from low overlap"
 
     def test_blending_mode_consistency(self) -> None:
         """Test that different blending modes produce reasonable outputs."""

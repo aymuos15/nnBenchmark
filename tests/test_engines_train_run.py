@@ -123,8 +123,12 @@ class TestRunTrainingDataLoading:
 
         with patch("src.engines.train.run.setup_experiment") as mock_setup:
             with patch("src.engines.train.run.set_random_seeds"):
-                with patch("src.engines.train.run.get_seed_from_config") as mock_get_seed:
-                    with patch("src.engines.train.run.setup_train_logger") as mock_logger:
+                with patch(
+                    "src.engines.train.run.get_seed_from_config"
+                ) as mock_get_seed:
+                    with patch(
+                        "src.engines.train.run.setup_train_logger"
+                    ) as mock_logger:
                         with patch("src.engines.train.run.log_header"):
                             with patch("src.engines.train.run.log_system_info"):
                                 with patch(
@@ -193,8 +197,12 @@ class TestRunTrainingCheckpointHandling:
 
         with patch("src.engines.train.run.setup_experiment") as mock_setup:
             with patch("src.engines.train.run.set_random_seeds"):
-                with patch("src.engines.train.run.get_seed_from_config") as mock_get_seed:
-                    with patch("src.engines.train.run.setup_train_logger") as mock_logger:
+                with patch(
+                    "src.engines.train.run.get_seed_from_config"
+                ) as mock_get_seed:
+                    with patch(
+                        "src.engines.train.run.setup_train_logger"
+                    ) as mock_logger:
                         with patch("src.engines.train.run.log_header"):
                             with patch("src.engines.train.run.log_system_info"):
                                 with patch(

@@ -147,7 +147,7 @@ class TestLoadSplits:
         if preprocessed_root is None:
             pytest.skip("nnBench_preprocessed environment variable not set")
 
-        splits_path = Path(preprocessed_root) / "Dataset001_Hippo" / "splits.json"
+        splits_path = Path(preprocessed_root or "") / "Dataset001_Hippo" / "splits.json"
         with open(splits_path, "r") as f:
             splits = json.load(f)
 

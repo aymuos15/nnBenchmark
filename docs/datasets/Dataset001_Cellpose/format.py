@@ -36,7 +36,7 @@ def unzip_data(dataset_dir: Path, zip_file: str) -> Optional[Path]:
         Path to extracted directory or None if failed
     """
     zip_path = dataset_dir / zip_file
-    extract_dir = dataset_dir / zip_file.replace('.zip', '')
+    extract_dir = dataset_dir / zip_file.replace(".zip", "")
 
     if extract_dir.exists():
         print(f"Directory {extract_dir.name} already exists, skipping unzip")
@@ -47,7 +47,7 @@ def unzip_data(dataset_dir: Path, zip_file: str) -> Optional[Path]:
         return None
 
     print(f"Unzipping {zip_file}...")
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
         zip_ref.extractall(dataset_dir)
 
     print(f"Extracted to {extract_dir}")
@@ -124,18 +124,19 @@ def convert_to_grayscale(image_array: np.ndarray) -> np.ndarray:
     # This preserves perceived brightness better than simple averaging
     if image_array.shape[2] == 3:  # RGB
         grayscale = (
-            0.299 * image_array[:, :, 0] +  # Red channel weight
-            0.587 * image_array[:, :, 1] +  # Green channel weight (most sensitive to human eye)
-            0.114 * image_array[:, :, 2]    # Blue channel weight
+            0.299 * image_array[:, :, 0]  # Red channel weight
+            + 0.587
+            * image_array[:, :, 1]  # Green channel weight (most sensitive to human eye)
+            + 0.114 * image_array[:, :, 2]  # Blue channel weight
         )
         return grayscale.astype(np.uint8)
 
     # For RGBA or other formats, just take first channel or average
     if image_array.shape[2] >= 3:
         grayscale = (
-            0.299 * image_array[:, :, 0] +
-            0.587 * image_array[:, :, 1] +
-            0.114 * image_array[:, :, 2]
+            0.299 * image_array[:, :, 0]
+            + 0.587 * image_array[:, :, 1]
+            + 0.114 * image_array[:, :, 2]
         )
         return grayscale.astype(np.uint8)
 
@@ -149,7 +150,7 @@ def copy_and_rename_files(
     dst_labels_dir: Optional[Path],
     case_ids: Set[str],
     file_ending: str = ".png",
-    is_test: bool = False
+    is_test: bool = False,
 ) -> int:
     """
     Copy and rename files from source to destination directories.
@@ -204,11 +205,7 @@ def copy_and_rename_files(
     return count
 
 
-def create_dataset_json(
-    output_dir: Path,
-    num_training: int,
-    file_ending: str = ".png"
-):
+def create_dataset_json(output_dir: Path, num_training: int, file_ending: str = ".png"):
     """
     Create dataset.json file with semantic segmentation format.
 
@@ -219,16 +216,13 @@ def create_dataset_json(
         "channel_names": {
             "0": "Grayscale"  # Single-channel grayscale for morphological features
         },
-        "labels": {
-            "background": 0,
-            "cell": 1
-        },
+        "labels": {"background": 0, "cell": 1},
         "numTraining": num_training,
-        "file_ending": file_ending
+        "file_ending": file_ending,
     }
 
     json_path = output_dir / "dataset.json"
-    with open(json_path, 'w') as f:
+    with open(json_path, "w") as f:
         json.dump(dataset_json, f, indent=2)
 
     print(f"\nCreated dataset.json with {num_training} training cases")
@@ -286,11 +280,7 @@ def main():
 
     if train_cases:
         num_training = copy_and_rename_files(
-            train_dir,
-            images_tr_dir,
-            labels_tr_dir,
-            train_cases,
-            is_test=False
+            train_dir, images_tr_dir, labels_tr_dir, train_cases, is_test=False
         )
 
         print(f"Successfully converted {num_training} training cases")
@@ -309,11 +299,7 @@ def main():
             labels_ts_dir = script_dir / "labelsTs"
             labels_ts_dir.mkdir(exist_ok=True)
             num_test = copy_and_rename_files(
-                test_dir,
-                images_ts_dir,
-                labels_ts_dir,
-                test_cases,
-                is_test=False
+                test_dir, images_ts_dir, labels_ts_dir, test_cases, is_test=False
             )
             print(f"Successfully converted {num_test} test cases")
     else:
@@ -324,12 +310,20 @@ def main():
     print("=" * 70)
 
     print("\nDirectory structure:")
-    print(f"  imagesTr/   - {len(list(images_tr_dir.glob('*_0000.png')))} training images (grayscale)")
-    print(f"  labelsTr/   - {len(list(labels_tr_dir.glob('*.png')))} training semantic masks")
-    print(f"  imagesTs/   - {len(list(images_ts_dir.glob('*_0000.png')))} test images (grayscale)")
+    print(
+        f"  imagesTr/   - {len(list(images_tr_dir.glob('*_0000.png')))} training images (grayscale)"
+    )
+    print(
+        f"  labelsTr/   - {len(list(labels_tr_dir.glob('*.png')))} training semantic masks"
+    )
+    print(
+        f"  imagesTs/   - {len(list(images_ts_dir.glob('*_0000.png')))} test images (grayscale)"
+    )
     labels_ts_dir = script_dir / "labelsTs"
     if labels_ts_dir.exists():
-        print(f"  labelsTs/   - {len(list(labels_ts_dir.glob('*.png')))} test semantic masks")
+        print(
+            f"  labelsTs/   - {len(list(labels_ts_dir.glob('*.png')))} test semantic masks"
+        )
     print("  dataset.json - metadata file")
 
     print("\nImage format:")

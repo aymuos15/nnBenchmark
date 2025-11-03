@@ -104,7 +104,9 @@ class ModelRegistry(BaseRegistry):
         else:
             # Flat config (backward compatibility)
             # Extract parameters (everything except 'type' and non-model fields)
-            model_params = {k: v for k, v in config.items() if k not in non_model_fields}
+            model_params = {
+                k: v for k, v in config.items() if k not in non_model_fields
+            }
 
         # Model-specific parameter preparation
         if model_type == "DynUNet":

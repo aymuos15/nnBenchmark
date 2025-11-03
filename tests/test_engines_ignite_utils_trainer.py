@@ -103,9 +103,7 @@ class TestDeepSupervisionLossWrapper:
 class TestCreateTrainerBasics:
     """Test basic trainer creation."""
 
-    def test_create_trainer_returns_tuple(
-        self, sample_config: dict, tmp_path
-    ) -> None:
+    def test_create_trainer_returns_tuple(self, sample_config: dict, tmp_path) -> None:
         """Test that create_trainer returns trainer and evaluator."""
         from src.engines.ignite_utils.trainer import create_trainer
 
@@ -113,13 +111,18 @@ class TestCreateTrainerBasics:
         device = torch.device("cpu")
         logger = MagicMock()
         data = [
-            {"image": torch.randn(1, 32, 32, 32), "label": torch.randint(0, 3, (32, 32, 32))}
+            {
+                "image": torch.randn(1, 32, 32, 32),
+                "label": torch.randint(0, 3, (32, 32, 32)),
+            }
             for _ in range(2)
         ]
         ds = Dataset(data=data)
         loader = DataLoader(ds, batch_size=1)
 
-        with patch("src.engines.ignite_utils.trainer.model_registry.build") as mock_model:
+        with patch(
+            "src.engines.ignite_utils.trainer.model_registry.build"
+        ) as mock_model:
             with patch(
                 "src.engines.ignite_utils.trainer.loss_registry.build"
             ) as mock_loss:
@@ -159,13 +162,18 @@ class TestCreateTrainerBasics:
         device = torch.device("cpu")
         logger = MagicMock()
         data = [
-            {"image": torch.randn(1, 32, 32, 32), "label": torch.randint(0, 3, (32, 32, 32))}
+            {
+                "image": torch.randn(1, 32, 32, 32),
+                "label": torch.randint(0, 3, (32, 32, 32)),
+            }
             for _ in range(2)
         ]
         ds = Dataset(data=data)
         loader = DataLoader(ds, batch_size=1)
 
-        with patch("src.engines.ignite_utils.trainer.model_registry.build") as mock_model:
+        with patch(
+            "src.engines.ignite_utils.trainer.model_registry.build"
+        ) as mock_model:
             with patch(
                 "src.engines.ignite_utils.trainer.loss_registry.build"
             ) as mock_loss:
@@ -203,13 +211,18 @@ class TestCreateTrainerBasics:
         device = torch.device("cpu")
         logger = MagicMock()
         data = [
-            {"image": torch.randn(1, 32, 32, 32), "label": torch.randint(0, 3, (32, 32, 32))}
+            {
+                "image": torch.randn(1, 32, 32, 32),
+                "label": torch.randint(0, 3, (32, 32, 32)),
+            }
             for _ in range(2)
         ]
         ds = Dataset(data=data)
         loader = DataLoader(ds, batch_size=1)
 
-        with patch("src.engines.ignite_utils.trainer.model_registry.build") as mock_model:
+        with patch(
+            "src.engines.ignite_utils.trainer.model_registry.build"
+        ) as mock_model:
             with patch(
                 "src.engines.ignite_utils.trainer.loss_registry.build"
             ) as mock_loss:
@@ -247,13 +260,18 @@ class TestCreateTrainerBasics:
         device = torch.device("cpu")
         logger = MagicMock()
         data = [
-            {"image": torch.randn(1, 32, 32, 32), "label": torch.randint(0, 3, (32, 32, 32))}
+            {
+                "image": torch.randn(1, 32, 32, 32),
+                "label": torch.randint(0, 3, (32, 32, 32)),
+            }
             for _ in range(2)
         ]
         ds = Dataset(data=data)
         loader = DataLoader(ds, batch_size=1)
 
-        with patch("src.engines.ignite_utils.trainer.model_registry.build") as mock_model:
+        with patch(
+            "src.engines.ignite_utils.trainer.model_registry.build"
+        ) as mock_model:
             with patch(
                 "src.engines.ignite_utils.trainer.loss_registry.build"
             ) as mock_loss:
@@ -312,13 +330,18 @@ class TestCreateTrainerMixedPrecision:
         device = torch.device("cpu")
         logger = MagicMock()
         data = [
-            {"image": torch.randn(1, 32, 32, 32), "label": torch.randint(0, 3, (32, 32, 32))}
+            {
+                "image": torch.randn(1, 32, 32, 32),
+                "label": torch.randint(0, 3, (32, 32, 32)),
+            }
             for _ in range(2)
         ]
         ds = Dataset(data=data)
         loader = DataLoader(ds, batch_size=1)
 
-        with patch("src.engines.ignite_utils.trainer.model_registry.build") as mock_model:
+        with patch(
+            "src.engines.ignite_utils.trainer.model_registry.build"
+        ) as mock_model:
             with patch(
                 "src.engines.ignite_utils.trainer.loss_registry.build"
             ) as mock_loss:

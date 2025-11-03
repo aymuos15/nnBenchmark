@@ -188,9 +188,7 @@ class TestValidateSlidingWindowConfig:
             pytest.param("linear", False, id="invalid_linear"),
         ],
     )
-    def test_sliding_window_mode_validation(
-        self, mode: str, should_pass: bool
-    ) -> None:
+    def test_sliding_window_mode_validation(self, mode: str, should_pass: bool) -> None:
         """Test sliding_window mode validation with various modes.
 
         Parameters:
@@ -241,9 +239,7 @@ class TestValidateSlidingWindowConfig:
             pytest.param(-4, False, id="negative"),
         ],
     )
-    def test_sw_batch_size_validation(
-        self, batch_size: int, should_pass: bool
-    ) -> None:
+    def test_sw_batch_size_validation(self, batch_size: int, should_pass: bool) -> None:
         """Test sliding_window batch size validation.
 
         Parameters:
@@ -251,7 +247,9 @@ class TestValidateSlidingWindowConfig:
         - should_pass: Whether validation should succeed
         """
         config = {
-            "inference": {"sliding_window": {"enabled": True, "sw_batch_size": batch_size}}
+            "inference": {
+                "sliding_window": {"enabled": True, "sw_batch_size": batch_size}
+            }
         }
         if should_pass:
             validate_sliding_window_config(config)
@@ -300,7 +298,7 @@ class TestValidateModelConfig:
                     "kernel_size": [[3, 3, 3]],
                     "strides": [[1, 1, 1]],
                     "upsample_kernel_size": [[2, 2, 2]],
-                }
+                },
             }
         }
         validate_model_config(config)
@@ -317,7 +315,7 @@ class TestValidateModelConfig:
                     "channels": [16, 32, 64],
                     "strides": [2, 2],
                     "num_res_units": 2,
-                }
+                },
             }
         }
         validate_model_config(config)
@@ -370,7 +368,7 @@ class TestValidateModelConfig:
                     "kernel_size": [[3, 3, 3]],
                     "strides": [[1, 1, 1]],
                     "upsample_kernel_size": [[2, 2, 2]],
-                }
+                },
             }
         }
         with pytest.raises(ValueError) as excinfo:
@@ -387,7 +385,7 @@ class TestValidateModelConfig:
                 "out_channels": 3,
                 "DynUNet": {  # Has DynUNet but type is UNet
                     "filters": [16, 32],
-                }
+                },
             }
         }
         with pytest.raises(ValueError) as excinfo:
@@ -421,7 +419,7 @@ class TestValidateModelConfig:
                 "DynUNet": {
                     "filters": [16, 32],
                     # Missing kernel_size, strides, upsample_kernel_size
-                }
+                },
             }
         }
         with pytest.raises(ValueError) as excinfo:
@@ -454,7 +452,7 @@ class TestValidateModelConfig:
                 "UNet": {
                     "channels": [16, 32],
                     # Missing strides
-                }
+                },
             }
         }
         with pytest.raises(ValueError) as excinfo:

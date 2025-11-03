@@ -26,32 +26,26 @@ class TestExtractCaseId:
         "filename,remove_suffix,expected",
         [
             pytest.param(
-                "Hippo_001_0000.nii.gz", True, "Hippo_001",
-                id="nifti_remove_suffix"
+                "Hippo_001_0000.nii.gz", True, "Hippo_001", id="nifti_remove_suffix"
             ),
             pytest.param(
-                "Hippo_001_0000.nii.gz", False, "Hippo_001_0000",
-                id="nifti_keep_suffix"
+                "Hippo_001_0000.nii.gz", False, "Hippo_001_0000", id="nifti_keep_suffix"
             ),
             pytest.param(
-                "ISIC_0000000_0000.jpg", True, "ISIC_0000000",
-                id="jpg_remove_suffix"
+                "ISIC_0000000_0000.jpg", True, "ISIC_0000000", id="jpg_remove_suffix"
             ),
             pytest.param(
-                "ISIC_0000000_0000.jpg", False, "ISIC_0000000_0000",
-                id="jpg_keep_suffix"
+                "ISIC_0000000_0000.jpg",
+                False,
+                "ISIC_0000000_0000",
+                id="jpg_keep_suffix",
             ),
             pytest.param(
-                "/path/to/Hippo_001_0000.nii.gz", True, "Hippo_001",
-                id="full_path"
+                "/path/to/Hippo_001_0000.nii.gz", True, "Hippo_001", id="full_path"
             ),
+            pytest.param("case_001.nii.gz", True, "case_001", id="no_channel_suffix"),
             pytest.param(
-                "case_001.nii.gz", True, "case_001",
-                id="no_channel_suffix"
-            ),
-            pytest.param(
-                "case_001_00.nii.gz", True, "case_001_00",
-                id="non_standard_suffix"
+                "case_001_00.nii.gz", True, "case_001_00", id="non_standard_suffix"
             ),
         ],
     )
@@ -75,22 +69,14 @@ class TestExtractBaseNameForLabel:
     @pytest.mark.parametrize(
         "filename,expected_base,expected_ext",
         [
+            pytest.param("Hippo_001_0000.nii.gz", "Hippo_001", ".nii.gz", id="nifti"),
             pytest.param(
-                "Hippo_001_0000.nii.gz", "Hippo_001", ".nii.gz",
-                id="nifti"
+                "ISIC_0000000_0000.jpg", "ISIC_0000000", ".png", id="jpg_returns_png"
             ),
             pytest.param(
-                "ISIC_0000000_0000.jpg", "ISIC_0000000", ".png",
-                id="jpg_returns_png"
+                "image_001_0000.jpeg", "image_001", ".png", id="jpeg_returns_png"
             ),
-            pytest.param(
-                "image_001_0000.jpeg", "image_001", ".png",
-                id="jpeg_returns_png"
-            ),
-            pytest.param(
-                "image_001_0000.png", "image_001", ".png",
-                id="png"
-            ),
+            pytest.param("image_001_0000.png", "image_001", ".png", id="png"),
         ],
     )
     def test_extract_base_name_for_label(

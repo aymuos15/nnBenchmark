@@ -100,9 +100,13 @@ def test_dynunet_feature_map_progression():
     )
 
     # Verify output shape
-    assert output.shape == (1, 3, 40, 56, 40), (
-        f"Output shape mismatch: expected (1, 3, 40, 56, 40), got {output.shape}"
-    )
+    assert output.shape == (
+        1,
+        3,
+        40,
+        56,
+        40,
+    ), f"Output shape mismatch: expected (1, 3, 40, 56, 40), got {output.shape}"
 
 
 def test_dynunet_first_level_full_resolution():
@@ -123,9 +127,11 @@ def test_dynunet_first_level_full_resolution():
 
     # Check first conv layer stride
     first_conv = model.input_block.conv1.conv
-    assert first_conv.stride == (1, 1, 1), (
-        f"First conv stride should be (1,1,1), got {first_conv.stride}"
-    )
+    assert first_conv.stride == (
+        1,
+        1,
+        1,
+    ), f"First conv stride should be (1,1,1), got {first_conv.stride}"
 
     # Verify with forward pass
     x = torch.randn(1, 1, 40, 56, 40)
@@ -170,9 +176,9 @@ def test_dynunet_architecture_parameters():
 
     # Check activation
     assert hasattr(model.input_block, "lrelu"), "Should have LeakyReLU activation"
-    assert model.input_block.lrelu.negative_slope == 0.01, (
-        "LeakyReLU slope should be 0.01"
-    )
+    assert (
+        model.input_block.lrelu.negative_slope == 0.01
+    ), "LeakyReLU slope should be 0.01"
     assert model.input_block.lrelu.inplace, "LeakyReLU should be inplace"
 
     # Check normalization
@@ -211,9 +217,9 @@ def test_dynunet_deep_supervision():
 
     # DynUNet with deep_supervision concatenates outputs along a new dimension
     # Shape is (batch, num_outputs, channels, H, W, D)
-    assert len(outputs.shape) == 6, (
-        f"Deep supervision output should have 6 dimensions, got {len(outputs.shape)}"
-    )
+    assert (
+        len(outputs.shape) == 6
+    ), f"Deep supervision output should have 6 dimensions, got {len(outputs.shape)}"
 
 
 def test_nnunet_exact_match_summary():
@@ -260,9 +266,9 @@ def test_nnunet_exact_match_summary():
 
     # Verify exact match
     for level, expected_shape in expected.items():
-        assert activations[level] == expected_shape, (
-            f"{level} mismatch: expected {expected_shape}, got {activations[level]}"
-        )
+        assert (
+            activations[level] == expected_shape
+        ), f"{level} mismatch: expected {expected_shape}, got {activations[level]}"
 
     # Verify output
     assert output.shape == (1, 3, 40, 56, 40), "Output shape should match input"

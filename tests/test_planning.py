@@ -367,9 +367,9 @@ class TestYAMLGenerator:
         common_types = [t["type"] for t in common_transforms]
 
         # CT should have ScaleIntensityRanged with clipping
-        assert "ScaleIntensityRanged" in common_types, (
-            "CT dataset should have ScaleIntensityRanged transform in common transforms"
-        )
+        assert (
+            "ScaleIntensityRanged" in common_types
+        ), "CT dataset should have ScaleIntensityRanged transform in common transforms"
 
         # Find the clipping transform and verify values
         clip_transform = next(
@@ -384,9 +384,9 @@ class TestYAMLGenerator:
         # Verify order: Clipping should come before NormalizeIntensityd
         scale_idx = common_types.index("ScaleIntensityRanged")
         normalize_idx = common_types.index("NormalizeIntensityd")
-        assert scale_idx < normalize_idx, (
-            "ScaleIntensityRanged (clipping) should come before NormalizeIntensityd"
-        )
+        assert (
+            scale_idx < normalize_idx
+        ), "ScaleIntensityRanged (clipping) should come before NormalizeIntensityd"
 
     def test_non_ct_no_clipping_in_yaml(self, temp_dir):
         """Test that non-CT datasets do NOT have clipping transform in generated YAML."""
@@ -429,14 +429,14 @@ class TestYAMLGenerator:
             for t in common_transforms
             if t["type"] == "ScaleIntensityRanged" and t.get("clip") is True
         ]
-        assert len(scale_transforms) == 0, (
-            "Non-CT (MRI) dataset should NOT have clipping transform"
-        )
+        assert (
+            len(scale_transforms) == 0
+        ), "Non-CT (MRI) dataset should NOT have clipping transform"
 
         # Should still have normalization
-        assert "NormalizeIntensityd" in common_types, (
-            "Should have NormalizeIntensityd for per-case normalization"
-        )
+        assert (
+            "NormalizeIntensityd" in common_types
+        ), "Should have NormalizeIntensityd for per-case normalization"
 
     def test_ct_clipping_values_preserved(self, temp_dir):
         """Test that CT clipping values are correctly written to YAML."""
@@ -479,12 +479,12 @@ class TestYAMLGenerator:
         )
 
         assert clip_transform is not None, "Clipping transform should exist for CT"
-        assert clip_transform["a_min"] == -500.5, (
-            "Clipping min should be preserved with full precision"
-        )
-        assert clip_transform["a_max"] == 2500.25, (
-            "Clipping max should be preserved with full precision"
-        )
+        assert (
+            clip_transform["a_min"] == -500.5
+        ), "Clipping min should be preserved with full precision"
+        assert (
+            clip_transform["a_max"] == 2500.25
+        ), "Clipping max should be preserved with full precision"
 
 
 class TestCTClippingApplication:
@@ -530,9 +530,9 @@ class TestCTClippingApplication:
             [[-200.0, -200.0, -100.0, 0.0, 100.0, 200.0, 300.0, 300.0]]
         ).astype(np.float32)
 
-        assert np.allclose(clipped, expected), (
-            "ScaleIntensityRanged with clip=True should clip values outside range"
-        )
+        assert np.allclose(
+            clipped, expected
+        ), "ScaleIntensityRanged with clip=True should clip values outside range"
 
     def test_ct_clipping_before_normalization(self, temp_dir):
         """Test that CT clipping happens before normalization in transform pipeline."""
@@ -574,9 +574,9 @@ class TestCTClippingApplication:
         scale_idx = transform_types.index("ScaleIntensityRanged")
         normalize_idx = transform_types.index("NormalizeIntensityd")
 
-        assert scale_idx < normalize_idx, (
-            "ScaleIntensityRanged (clipping) must come before NormalizeIntensityd"
-        )
+        assert (
+            scale_idx < normalize_idx
+        ), "ScaleIntensityRanged (clipping) must come before NormalizeIntensityd"
 
         # Verify we can import and use ScaleIntensityRanged
         from monai.transforms.intensity.dictionary import ScaleIntensityRanged

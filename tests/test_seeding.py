@@ -130,7 +130,8 @@ class TestGetSeedFromConfig:
 
         # Priority 2: Training (without top-level)
         assert (
-            get_seed_from_config({"training": {"seed": 2}, "inference": {"seed": 3}}) == 2
+            get_seed_from_config({"training": {"seed": 2}, "inference": {"seed": 3}})
+            == 2
         )
 
         # Priority 3: Inference (without top-level or training)

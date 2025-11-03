@@ -74,8 +74,7 @@ def validate_model_config(config: dict[str, Any]) -> None:
     valid_types = ["DynUNet", "UNet"]
     if model_type not in valid_types:
         raise ValueError(
-            f"Invalid model type '{model_type}'. "
-            f"Must be one of: {valid_types}"
+            f"Invalid model type '{model_type}'. " f"Must be one of: {valid_types}"
         )
 
     # Determine if config is nested
@@ -157,9 +156,7 @@ def _validate_unet_params(params: dict[str, Any], is_nested: bool) -> None:
 
     for param in required:
         if param not in params:
-            raise ValueError(
-                f"Missing required UNet parameter '{param}' in {section}"
-            )
+            raise ValueError(f"Missing required UNet parameter '{param}' in {section}")
 
 
 def validate_deep_supervision_config(config: dict[str, Any]) -> None:

@@ -108,9 +108,7 @@ class TestInferenceEngineInitialization:
 
             assert engine.use_amp is True
 
-    def test_inference_engine_creates_inferer(
-        self, sample_config: dict
-    ) -> None:
+    def test_inference_engine_creates_inferer(self, sample_config: dict) -> None:
         """Test that InferenceEngine creates inferer from config."""
         from src.engines.inference.engine import InferenceEngine
 
@@ -188,9 +186,7 @@ class TestInferenceEngineBatchProcessing:
             assert images.device == device
             assert labels.device == device
 
-    def test_prepare_batch_extracts_image_label(
-        self, sample_config: dict
-    ) -> None:
+    def test_prepare_batch_extracts_image_label(self, sample_config: dict) -> None:
         """Test that _prepare_batch extracts image and label tensors."""
         from src.engines.inference.engine import InferenceEngine
 
@@ -272,9 +268,7 @@ class TestInferenceEngineInferenceIteration:
 class TestInferenceEngineOutputHandling:
     """Test inference engine output handling."""
 
-    def test_inference_engine_handles_single_output(
-        self, sample_config: dict
-    ) -> None:
+    def test_inference_engine_handles_single_output(self, sample_config: dict) -> None:
         """Test inference engine with single model output."""
         from src.engines.inference.engine import InferenceEngine
 
