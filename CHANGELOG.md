@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2025-11-03
+
+### Added
+- **CCLoss (Connected Components Loss)**: New loss function for multi-instance segmentation evaluating predictions at region/connected component level
+  - Fully differentiable with backpropagation support
+  - GPU-accelerated connected components detection using cupy and cucim
+  - Configurable activations (sigmoid, softmax)
+  - Support for one-hot and class index targets
+  - Ideal for cell/nuclei segmentation tasks
+- **Documentation**: Comprehensive guide for adding custom loss functions (`docs/examples/adding_custom_loss.md`)
+- **Tests**: New test suite for custom losses (`tests/test_custom_losses.py`)
+
+### Changed
+- Loss Registry: Updated docstring to reflect custom losses inclusion
+- Loss Module: Added `CCLoss` to exports in `src/factory/losses/__init__.py`
+- Pyright Configuration: Added `requires_grad` to ignored names in `pyproject.toml`
+
+### Fixed
+- **CCLoss Target Shape**: Handle spurious single-channel dimensions from MONAI's `LoadImaged` transform
+  - Automatically squeezes `(B, 1, H, W)` targets to `(B, H, W)` for class indices
+  - Prevents `IndexError` when training with CCLoss on class index targets
+
 ## [0.1.2] - 2025-11-03
 
 ### Added
