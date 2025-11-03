@@ -51,6 +51,29 @@ class CCLoss(nn.Module):
         >>> target = torch.randint(0, 3, (2, 64, 64))
         >>> loss = loss_fn(pred, target)
         >>> loss.backward()  # Gradients flow through the loss
+
+    **YAML Configuration Notes for Switching from Other Losses:**
+
+    When switching from DiceCELoss or other losses to CCLoss in your config file:
+
+    BEFORE (DiceCELoss):
+        loss:
+          type: DiceCELoss
+          to_onehot_y: true
+          softmax: true
+          batch: true  # ← Remove this, CCLoss doesn't support it
+
+    AFTER (CCLoss):
+        loss:
+          type: CCLoss
+          to_onehot_y: true
+          sigmoid: true  # ← Change softmax to sigmoid
+          # Do NOT include batch parameter
+
+    Key differences:
+    - Uses `sigmoid` instead of `softmax` for activation
+    - No `batch` parameter (CCLoss evaluates regions, not batch-wise)
+    - Better for multi-instance segmentation tasks
     """
 
     to_onehot_y: bool

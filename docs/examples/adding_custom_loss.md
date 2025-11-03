@@ -165,6 +165,8 @@ loss:
   to_onehot_y: true
 ```
 
+See the CCLoss docstring in `src/factory/losses/cc.py` for important YAML configuration notes when switching from other loss functions.
+
 ## Configuration Parameters
 
 All parameters passed in the YAML config are forwarded to your `__init__` method:
