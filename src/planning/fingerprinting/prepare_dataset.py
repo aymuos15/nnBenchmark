@@ -100,9 +100,6 @@ def extract_test_cases(dataset_path: str | Path) -> list[str]:
     return test_cases
 
 
-# DOC: METADATA_PRESERVATION | Category: Adaptive | Documentation: docs/planning.md
-# Description: Stores original shape, cropped shape, voxel spacing, affine transforms
-# Function: preprocess_and_crop_dataset | Documentation: docs/planning.md Step 0
 def preprocess_and_crop_dataset(
     dataset_path: str | Path,
     output_dir: str | Path | None = None,

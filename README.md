@@ -52,7 +52,7 @@ nnBench_raw/Dataset001_YourDataset/
 └── labelsTr/             # Training labels: case_001.nii.gz, case_002.nii.gz, ...
 ```
 
-See [docs/datasets/format.md](docs/datasets/format.md) for details.
+See [docs/src/dataset_format.md](docs/src/dataset_format.md) for details.
 
 ### Basic Workflow
 
@@ -81,12 +81,12 @@ nnBench.plot --config fold_0.yaml --dataset Dataset001_YourDataset
 # Output: nnBench_results/Dataset001_YourDataset/fold_0/plots/
 ```
 
-For an extended workflow, refer to: **[Workflow](docs/workflow.md)**
+For an extended workflow, refer to: **[Workflow](docs/src/workflow.md)**
 
 ## Important Documentation
 
-- **[Configuration Reference](docs/config.md)** - Complete guide to all config options
-- **[Terminology](docs/terminology.md)** - Key terms and concepts
+- **[Configuration Reference](docs/src/config.md)** - Complete guide to all config options
+- **[Terminology](docs/src/terminology.md)** - Key terms and concepts
 - **[Contributing](CONTRIBUTING.md)** - Development setup and contribution guidelines 
 
 ## Acknowledgement

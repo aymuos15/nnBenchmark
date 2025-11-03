@@ -28,13 +28,33 @@ These frameworks distinguish themselves by requiring **zero (or minimal) manual 
 |-----------|------------------|------------------|-----------------|---------------|------------|---------|--------------|-------------------|---------------|----------------|
 | **nnU-Net** | CNN (2D/3D U-Net) | ⭐⭐⭐⭐⭐ Fully self-configuring | Won MSD 2018; 1st on 6/10 CT tasks; 81.2 DSC (H&N 2024) | ~2 days (Titan X) | High (8GB+ recommended, new VRAM presets available) | Apache 2.0 | 7.4k | ✅ Very active | Gold standard, fully automated, state-of-the-art baseline, robust across 23+ datasets, MICCAI 2024 validated | High compute requirements, 2+ day training, custom preprocessing pipeline |
 | **Auto3DSeg** | Ensemble (DiNTS, SegResNet, SwinUNETR) | ⭐⭐⭐⭐ High automation | 1st: KiTS23, Seg.A.23, MVSEG23, BraTS23 | Reduced with multi-node | Min 8GB | Apache 2.0 | 2.2k (MONAI) | ✅ Active | MONAI integration, multi-GPU/multi-node, challenge winner when tuned, ensemble approach | Out-of-box performance below nnU-Net, more complex setup, requires MONAI ecosystem |
-| **nnBenchmark** | CNN (MONAI UNet with deep supervision) | ⭐⭐⭐⭐⭐ Fully automated (2-command) | Early stage (in development) | ~Hours-days (PyTorch Lightning) | 8GB+ (auto-optimized) | MIT | New (0.1.0) | ✅ Active development | MONAI transforms, nnU-Net heuristics, PyTorch Lightning, config-driven, lightweight, full reproducibility, deep supervision, dataset caching, centralized seeding | New project, no competition validation yet, 2 commands vs 1 for nnU-Net |
+| **nnBenchmark** | CNN (MONAI UNet with deep supervision) | ⭐⭐⭐⭐⭐ Fully automated (2-command) | Early stage (in development) | ~Hours-days (PyTorch Lightning, AMP-enabled) | 8GB+ (auto-optimized) | MIT | New (0.1.0) | ✅ Active development | MONAI transforms, nnU-Net heuristics, PyTorch Lightning, AMP/GradScaler, DDP/FSDP multi-node, config-driven, lightweight, full reproducibility, deep supervision, metric EMA, dataset caching, centralized seeding, advanced checkpointing | New project, no competition validation yet, but modern infrastructure (AMP, DDP, checkpointing) built-in |
 
 **Legend:**
 - ⭐⭐⭐⭐⭐ = Fully automated (no manual config editing required)
 - ⭐⭐⭐⭐ = High automation (requires manual YAML creation/editing)
 
 **Note:** Pre-trained models (TotalSegmentator, VISTA3D), manual-tuning frameworks (Transformers, Mamba models, traditional CNNs), and prompt-based models (MedSAM, SAM-Med3D) are excluded.
+
+---
+
+## Training Infrastructure & Architectural Features
+
+| Feature | nnU-Net v2.4.1 | Auto3DSeg | nnBenchmark | Winner |
+|---------|---|---|---|---|
+| **Automatic Mixed Precision (AMP)** | ✅ Enabled for CUDA by default | ✅ Supported via MONAI | ✅ Enabled for CUDA by default | Tie |
+| **GradScaler** | ✅ Default for CUDA | ✅ MONAI integration | ✅ Default for CUDA with AMP | Tie |
+| **DistributedDataParallel (DDP)** | ⚠️ Possible but not primary design | ✅ Native multi-GPU/multi-node | ✅ Native DDP/FSDP (PyTorch Lightning) | Auto3DSeg / nnBenchmark |
+| **Gradient Clipping** | ✅ max_norm=12 | ✅ Supported | ✅ max_norm=12 | Tie |
+| **Checkpointing Strategy** | ✅ Multi-strategy (latest/best/final) | ✅ MONAI checkpointing | ✅ Multi-strategy with metric EMA | Tie |
+| **Resume Training** | ✅ Full state restoration | ✅ Supported | ✅ Full state restoration | Tie |
+| **Metric EMA** | ✅ Dice EMA (alpha=0.9) | ✅ Supported | ✅ Dice EMA support | Tie |
+| **CUDA Cache Clearing** | ✅ Strategic clearing | ✅ Supported | ✅ Automatic cache clearing | Tie |
+| **Foreground Oversampling** | ✅ Default 33% | ✅ Supported | ✅ Handled by sampler | Tie |
+| **Training Framework** | Custom trainer | MONAI ensemble | PyTorch Lightning | nnBenchmark (modern, mature ecosystem) |
+| **Multi-GPU Ready** | Single-GPU focused | ✅ Multi-GPU native | ✅ Multi-GPU/multi-node native | Auto3DSeg / nnBenchmark |
+
+**Key Insight:** All three frameworks support advanced training features (AMP, GradScaler, checkpointing). Auto3DSeg and nnBenchmark have superior multi-GPU/multi-node support via native infrastructure (MONAI and PyTorch Lightning, respectively).
 
 ---
 
@@ -77,11 +97,16 @@ These frameworks distinguish themselves by requiring **zero (or minimal) manual 
 **Winner: nnU-Net** - Proven gold standard
 
 ### 3. Training Infrastructure Flexibility
-1. 🥇 **nnBenchmark** - PyTorch Lightning (native multi-GPU, multi-node, DDP, FSDP, checkpointing, deep supervision, dataset caching, reproducibility)
-2. 🥇 **Auto3DSeg** - Multi-GPU, multi-node support, ensemble approach
-3. 🥈 **nnU-Net** - Single-GPU focused (multi-GPU possible but not primary design)
+1. 🥇 **nnBenchmark** - PyTorch Lightning (native multi-GPU, multi-node, DDP, FSDP, checkpointing, AMP/GradScaler, metric EMA, deep supervision, dataset caching)
+2. 🥇 **Auto3DSeg** - Native multi-GPU/multi-node (MONAI), ensemble approach, AMP via MONAI
+3. 🥈 **nnU-Net** - Single-GPU primary design, AMP/GradScaler supported, multi-GPU possible but not optimal
 
-**Winner: Tie (nnBenchmark/Auto3DSeg)** - Both have full multi-node support; PyTorch Lightning provides mature distributed training with advanced features
+**Architecture Details:**
+- **nnBenchmark**: AMP ✅, GradScaler ✅, DDP ✅, FSDP ✅, checkpointing ✅, metric EMA ✅
+- **Auto3DSeg**: AMP ✅, DDP ✅, multi-node ✅, ensemble ✅, checkpointing ✅
+- **nnU-Net**: AMP ✅, GradScaler ✅, DDP ⚠️ (possible but not primary), multi-node ❌
+
+**Winner: Tie (nnBenchmark/Auto3DSeg)** - Both have mature multi-node infrastructure; nnBenchmark via PyTorch Lightning (industry standard), Auto3DSeg via MONAI
 
 ### 4. Framework & Ecosystem Integration
 1. 🥇 **nnBenchmark** - Full MONAI transforms + PyTorch Lightning, modular, modern stack
@@ -131,10 +156,23 @@ These frameworks distinguish themselves by requiring **zero (or minimal) manual 
 
 ### ⚡ For Multi-GPU / Multi-Node Training Infrastructure
 **Winner: Tie (Auto3DSeg / nnBenchmark)**
-- **Auto3DSeg:** Built-in multi-GPU/multi-node, ensemble approach, MONAI-based
-- **nnBenchmark:** PyTorch Lightning (native DDP, FSDP, multi-node support, highly mature)
-- **Note:** PyTorch Lightning is used by industry (Tesla, Microsoft, NVIDIA) for large-scale distributed training
-- **nnU-Net:** Single-GPU focused (multi-GPU possible but not primary design)
+
+**Auto3DSeg:**
+- ✅ Native multi-GPU/multi-node via MONAI infrastructure
+- ✅ Ensemble approach (DiNTS, SegResNet, SwinUNETR)
+- ✅ AMP, DDP, checkpointing built-in
+- ⚠️ Requires understanding MONAI ecosystem
+
+**nnBenchmark:**
+- ✅ PyTorch Lightning (native DDP, FSDP, multi-node support)
+- ✅ AMP/GradScaler, metric EMA, checkpointing all built-in
+- ✅ Industry-standard infrastructure (Tesla, Microsoft, NVIDIA usage)
+- ✅ Easier to customize for distributed training
+
+**nnU-Net:**
+- ✅ AMP, GradScaler supported by default (CUDA)
+- ⚠️ Single-GPU primary design; multi-GPU possible but not optimal
+- ❌ No native multi-node support
 
 ### 🏆 For Challenge Participation (KiTS, BraTS, etc.)
 **Winner: Auto3DSeg**
@@ -351,11 +389,11 @@ All three frameworks are fully open source with permissive licensing:
 
 ## Technical Specifications Summary
 
-| Framework | Parameters | Training Time | Inference Time | Min GPU Memory | Training Infrastructure | Preprocessing | Config Management |
+| Framework | Parameters | Training Time | Inference Time | Min GPU Memory | Training Infrastructure | Adv. Features | Config Management |
 |-----------|-----------|---------------|----------------|----------------|------------------------|---------------|------------------|
-| **nnU-Net** | Varies by config (auto-selected) | ~2 days (Titan X, single GPU) | Minutes per volume | 8GB+ (VRAM presets: M/L/XL) | Single-GPU primary (multi-GPU possible) | Fully automatic (custom pipeline) | Auto-generated plans (pickle/JSON) |
-| **Auto3DSeg** | 92M (SwinUNETR in ensemble) | Reduced significantly with multi-node | Minutes per volume | 8GB minimum | Multi-GPU, multi-node native (MONAI) | Fully automatic (MONAI) | YAML-based task configs |
-| **nnBenchmark** | Varies by config (MONAI UNet with deep supervision) | Hours-days (PyTorch Lightning) | Minutes per volume | 8GB+ (auto-optimized) | Multi-GPU, multi-node native (Lightning DDP/FSDP) | Fully automatic (MONAI transforms) | Auto-generated YAML (human-readable) |
+| **nnU-Net** | Varies by config | ~2 days (single GPU) | Minutes per volume | 8GB+ (VRAM presets) | Single-GPU primary; AMP ✅, GradScaler ✅ | Checkpointing, metric EMA, grad clipping | Auto-generated plans (JSON) |
+| **Auto3DSeg** | 92M (ensemble) | Reduced with multi-node | Minutes per volume | 8GB minimum | Multi-GPU/multi-node (MONAI); AMP ✅, DDP ✅ | Ensemble, checkpointing, AMP, grad clipping | YAML-based configs |
+| **nnBenchmark** | Varies by config | Hours-days (Lightning, AMP) | Minutes per volume | 8GB+ (auto-optimized) | Multi-GPU/multi-node (Lightning); AMP ✅, GradScaler ✅, DDP ✅, FSDP ✅ | Checkpointing, metric EMA, deep supervision, dataset caching, grad clipping | Auto-generated YAML |
 
 ---
 
@@ -617,28 +655,35 @@ What's your primary goal?
 
 ### Bottom Line
 
+**Key Finding:** All three frameworks have **architectural parity on core advanced features** (AMP, GradScaler, checkpointing, metric EMA, gradient clipping). The differences lie in ecosystem maturity, performance validation, and design philosophy.
+
 **Three distinct frameworks serve different needs:**
 
 1. **nnU-Net** → Best for SOTA baselines and proven performance
-   - ✅ Choose when you need the gold standard, rigorous validation
-   - ✅ Zero configuration, most automated
-   - ⚠️ Custom preprocessing pipeline, harder to customize
+   - ✅ Choose when you need the gold standard, rigorous validation (MICCAI 2024)
+   - ✅ Zero configuration, single-GPU optimized
+   - ✅ AMP/GradScaler, checkpointing, metric EMA all built-in
+   - ⚠️ Custom preprocessing pipeline, single-GPU primary design, harder to customize
 
 2. **Auto3DSeg** → Best for distributed training and challenges
    - ✅ Choose when you need multi-node infrastructure or ensemble approach
-   - ✅ Proven challenge winner when tuned
-   - ⚠️ Out-of-box performance below nnU-Net
+   - ✅ Native multi-GPU/multi-node support via MONAI
+   - ✅ Proven challenge winner when tuned (KiTS23, BraTS23, Seg.A.23, MVSEG23)
+   - ✅ AMP, DDP, checkpointing all built-in
+   - ⚠️ Out-of-box performance below nnU-Net, requires MONAI ecosystem knowledge
 
 3. **nnBenchmark** → Best for reproducibility and research flexibility
    - ✅ Choose when you need transparent configs, easy customization, or benchmarking
    - ✅ Modern stack (PyTorch Lightning + MONAI), comprehensive visualization
-   - ✅ Deep supervision, dataset caching, centralized seeding for full reproducibility
-   - ⚠️ New project, no competition validation yet
+   - ✅ Native multi-GPU/multi-node support (DDP, FSDP, industry standard)
+   - ✅ Deep supervision, dataset caching, metric EMA, centralized seeding for full reproducibility
+   - ✅ AMP/GradScaler, checkpointing all built-in
+   - ⚠️ New project (v0.1.0), no competition validation yet
 
-**All three are fully open source** (Apache 2.0 or MIT) and deliver automated training. The choice depends on whether you prioritize:
-- **Performance** → nnU-Net
-- **Infrastructure** → Auto3DSeg
-- **Reproducibility/Flexibility** → nnBenchmark
+**All three are fully open source** (Apache 2.0 or MIT) and deliver automated training with modern advanced features. The choice depends on whether you prioritize:
+- **Performance** → nnU-Net (gold standard, MICCAI 2024 validated)
+- **Infrastructure** → Auto3DSeg (multi-node native, proven for competitions)
+- **Reproducibility/Flexibility** → nnBenchmark (config transparency, modern tech stack, research-friendly)
 
 ---
 

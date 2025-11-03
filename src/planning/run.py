@@ -28,7 +28,6 @@ from src.planning.splits import (
 from src.planning.yaml_generator import generate_config_yaml
 
 
-# DOC: AUTOMATIC_PLANNING_EXECUTION | Category: Constant+Adaptive | Documentation: docs/planning.md
 def run_planning(
     dataset: str,
     gpu_memory_gb: float | None = None,

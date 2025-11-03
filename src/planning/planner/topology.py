@@ -52,9 +52,6 @@ def pad_shape(
     return new_shp
 
 
-# DOC: MODEL_TOPOLOGY_DETERMINATION | Category: Constant+Adaptive | Documentation: docs/planning.md
-# Description: Iteratively determines strides, pooling, kernels based on spacing ratios
-# Function: get_pool_and_conv_props | Constants: min_feature_map=4, spacing_ratio<2, pool_kernel=2or1, conv_kernel=3 | Documentation: docs/planning.md Step 2
 def get_pool_and_conv_props(
     spacing: tuple[float, ...],
     patch_size: tuple[int, ...],

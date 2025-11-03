@@ -71,9 +71,6 @@ class ExperimentPlan:
     target_spacing: tuple[float, ...]
 
 
-# DOC: EXPERIMENT_PLAN_CREATION | Category: Constant+Adaptive | Documentation: docs/planning.md
-# Description: 8-step process calculating all architecture parameters from fingerprint
-# Function: create_experiment_plan | Documentation: docs/planning.md Step 2
 def create_experiment_plan(
     fingerprint: DatasetFingerprint, gpu_memory_gb: float = 8.0
 ) -> ExperimentPlan:

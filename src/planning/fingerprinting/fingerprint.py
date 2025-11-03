@@ -64,9 +64,6 @@ class DatasetFingerprint:
     normalization_scheme: str  # 'CTNormalization', 'ZScoreNormalization', etc.
 
 
-# DOC: DATASET_FINGERPRINTING | Category: Adaptive | Documentation: docs/planning.md Step 1
-# Description: Parallel analysis of preprocessed images to extract statistical properties
-# Function: fingerprint_dataset | Documentation: docs/planning.md Step 1
 def fingerprint_dataset(
     dataset_dir: str, num_workers: int | None = None
 ) -> DatasetFingerprint:

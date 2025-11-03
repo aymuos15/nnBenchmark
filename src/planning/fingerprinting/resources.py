@@ -97,9 +97,6 @@ def detect_gpu_memory() -> tuple[bool, float, str]:
         return False, 0.0, "None"
 
 
-# DOC: OPTIMAL_WORKERS_CALCULATION | Category: Adaptive | Documentation: docs/planning.md
-# Description: CPU-based worker calculation with conservative/balanced/aggressive strategies
-# Function: calculate_optimal_workers | Documentation: docs/planning.md Step 3
 def calculate_optimal_workers(
     cpu_count: int,
     strategy: str = "aggressive",
@@ -132,9 +129,6 @@ def calculate_optimal_workers(
     return int(workers)
 
 
-# DOC: CACHE_STRATEGY_CALCULATION | Category: Adaptive | Documentation: docs/planning.md
-# Description: Dataset size vs available RAM calculation for cache_enabled and cache_rate
-# Function: calculate_cache_strategy | Documentation: docs/planning.md Step 3
 def calculate_cache_strategy(
     dataset_size_mb: float,
     available_ram_gb: float,

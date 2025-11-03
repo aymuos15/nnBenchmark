@@ -8,9 +8,6 @@ from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.fingerprinting.fingerprint import DatasetFingerprint
 
 
-# DOC: TARGET_SPACING_CALCULATION | Category: Constant+Adaptive | Documentation: docs/planning.md
-# Description: Median spacing by default, 10th percentile for anisotropic axis
-# Function: calculate_target_spacing | Constants: aniso_threshold=3.0 | Documentation: docs/planning.md Step 2
 def calculate_target_spacing(fingerprint: DatasetFingerprint) -> tuple[float, ...]:
     """
     Calculate target spacing following nnU-Net heuristics.
@@ -32,9 +29,6 @@ def calculate_target_spacing(fingerprint: DatasetFingerprint) -> tuple[float, ..
         return fingerprint.median_spacing
 
 
-# DOC: FEATURE_CHANNELS_CALCULATION | Category: Constant+Adaptive | Documentation: docs/planning.md
-# Description: base=32, doubles per level, capped at 512(2D)/320(3D)
-# Function: calculate_feature_channels | Constants: base=32, max_2d=512, max_3d=320 | Documentation: docs/planning.md Step 2
 def calculate_feature_channels(num_stages: int, is_2d: bool) -> list[int]:
     """
     Calculate feature channels per level following nnU-Net exact conventions.
@@ -68,9 +62,6 @@ def calculate_feature_channels(num_stages: int, is_2d: bool) -> list[int]:
     return channels
 
 
-# DOC: DEEP_SUPERVISION_WEIGHTS | Category: Constant | Documentation: docs/planning.md
-# Description: Exponential decay formula 2^(-i), deep_supr_num=1
-# Function: calculate_deep_supervision_weights | Constants: deep_supr_num=1 | Documentation: docs/planning.md Step 2
 def calculate_deep_supervision_weights(num_stages: int) -> list[float]:
     """
     Calculate deep supervision weights following nnU-Net style (decreasing).

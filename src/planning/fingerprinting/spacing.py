@@ -10,9 +10,6 @@ import numpy as np
 from src.planning.constants import PLANNING_CONSTANTS
 
 
-# DOC: ANISOTROPY_DETECTION | Category: Constant+Adaptive | Documentation: docs/planning.md
-# Description: Threshold >3× spacing ratio AND <25% voxel count
-# Function: detect_anisotropy | Constants: aniso_threshold=3.0, voxel_ratio=0.25 | Documentation: docs/planning.md Step 1
 def detect_anisotropy(
     median_spacing: tuple[float, ...], median_shape: tuple[int, ...]
 ) -> tuple[bool, int | None]:

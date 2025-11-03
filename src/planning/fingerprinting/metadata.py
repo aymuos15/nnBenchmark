@@ -14,9 +14,6 @@ from PIL import Image
 from src.utils.files import detect_file_type, load_nifti_with_metadata
 
 
-# DOC: NORMALIZATION_SCHEME | Category: Constant | Documentation: docs/planning.md
-# Description: CT → CTNormalization, Other → ZScoreNormalization
-# Function: determine_normalization_scheme | Documentation: docs/planning.md Step 1
 def determine_normalization_scheme(channel: str) -> str:
     """
     Determine normalization scheme based on channel.

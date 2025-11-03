@@ -26,7 +26,6 @@ def load_dataset_json(dataset_path: str) -> dict[str, Any]:
     return load_json(dataset_json_path, "dataset.json")
 
 
-# DOC: CASE_IDENTIFIER_EXTRACTION | Category: Adaptive | Documentation: docs/planning.md
 def extract_case_identifiers(
     dataset_json: dict[str, Any], dataset_path: str | Path
 ) -> list[str]:
@@ -95,9 +94,6 @@ def get_labels_for_stratification(
     return labels
 
 
-# DOC: KFOLD_SPLITS_CREATION | Category: Constant+Adaptive | Documentation: docs/planning.md
-# Description: K-fold splitting with deterministic seeding
-# Function: create_splits | Constants: n_folds=5, seed=12345 | Documentation: docs/planning.md Step 4
 def create_splits(
     case_identifiers: list[str],
     n_folds: int = 5,

@@ -10,9 +10,6 @@ from loguru import logger
 from src.planning.constants import PLANNING_CONSTANTS
 
 
-# DOC: PATCH_SIZE_NORMALIZATION | Category: Constant+Adaptive | Documentation: docs/planning.md
-# Description: 3D uses 256³, 2D uses 2048², scaled by spacing and clipped to median shape
-# Function: calculate_initial_patch_size | Constants: norm_3d=256, norm_2d=2048 | Documentation: docs/planning.md Step 2
 def calculate_initial_patch_size(
     spacing: tuple[float, ...], median_shape: tuple[int, ...], is_2d: bool
 ) -> tuple[int, ...]:
@@ -48,9 +45,6 @@ def calculate_initial_patch_size(
     return tuple(initial_patch_size)
 
 
-# DOC: BATCH_SIZE_CALCULATION | Category: Constant+Adaptive | Documentation: docs/planning.md
-# Description: VRAM-scaled with reference values, capped at 5% dataset coverage
-# Function: calculate_batch_size | Constants: ref_val_3d=560M, ref_val_2d=85M, ref_bs_3d=2, ref_bs_2d=12, ref_gpu=8GB, dataset_cap=5%, min_bs=2 | Documentation: docs/planning.md Step 2
 def calculate_batch_size(
     patch_size: tuple[int, ...],
     num_pool_per_axis: list[int],

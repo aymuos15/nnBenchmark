@@ -31,7 +31,6 @@ class ImageProperties:
     intensity_percentile_99_5: float  # 99.5th percentile of foreground intensities
 
 
-# DOC: IMAGE_PROPERTIES_LOADING | Category: Adaptive | Documentation: docs/planning.md Step 1
 def load_image_properties(
     image_path: str, label_path: str | None = None
 ) -> ImageProperties:
@@ -101,9 +100,6 @@ def load_image_properties(
         # No label available, use all voxels
         data_foreground = data.flatten()
 
-    # DOC: FOREGROUND_VOXEL_SAMPLING | Category: Constant | Documentation: docs/planning.md
-    # Description: Fixed 10,000 samples per case with seed 12345 for reproducibility
-    # Constants: num_samples=10000, seed=12345 | Documentation: docs/planning.md Step 1
     # Sample foreground intensities (nnUNet uses 10,000 samples per case)
     num_samples = min(
         PLANNING_CONSTANTS.FOREGROUND_SAMPLES_PER_CASE, len(data_foreground)

@@ -10,7 +10,6 @@ from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.planner.create import ExperimentPlan
 
 
-# DOC: UNET_PARAMETER_DERIVATION | Category: Adaptive | Documentation: docs/planning.md
 def _derive_unet_params_from_dynunet(plan: ExperimentPlan) -> dict[str, Any]:
     """Derive UNet parameters from DynUNet configuration.
 
@@ -172,7 +171,6 @@ def _write_dataset_config(
     )
 
 
-# DOC: MODEL_CONFIG_GENERATION | Category: Adaptive | Documentation: docs/planning.md
 def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> None:
     """Write model architecture configuration with nested DynUNet and UNet options."""
     f.write(
@@ -267,9 +265,6 @@ def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> N
     f.write(f"    num_res_units: {unet_params['num_res_units']}\n\n")
 
 
-# DOC: TRAINING_HYPERPARAMETERS | Category: Constant | Documentation: docs/planning.md
-# Description: epochs=200, lr=0.01, val_interval=5, checkpoint_metric=DiceMetric, mixed_precision=true
-# Function: _write_training_config | Constants: epochs=200, lr=0.01, val_interval=5 | Documentation: docs/planning.md Step 3
 def _write_training_config(
     f: TextIO, plan: ExperimentPlan, num_workers: int | None = None
 ) -> None:
