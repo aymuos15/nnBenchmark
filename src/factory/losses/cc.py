@@ -1,0 +1,357 @@
+"""Connected Components Loss for instance segmentation.
+
+This module provides a differentiable loss function that evaluates predictions
+per connected component, enabling better handling of multi-instance segmentation tasks.
+
+Based on the nnunetv2 implementation but adapted for the nnBenchmark framework.
+"""
+
+from typing import TYPE_CHECKING, Tuple
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+if TYPE_CHECKING:
+    import cupy as cp  # type: ignore[import]
+    from cucim.skimage import measure as cucim_measure  # type: ignore[import]
+    from cupyx.scipy.ndimage import distance_transform_edt  # type: ignore[import]
+else:
+    try:
+        import cupy as cp
+        from cucim.skimage import measure as cucim_measure
+        from cupyx.scipy.ndimage import distance_transform_edt
+    except ImportError:
+        cp = None  # type: ignore
+        cucim_measure = None  # type: ignore
+        distance_transform_edt = None  # type: ignore
+
+
+class CCLoss(nn.Module):
+    """Connected Components Loss for multi-instance segmentation.
+
+    This loss function computes loss by evaluating predictions at the region level
+    using connected components from the ground truth. For each connected component,
+    a dice score is computed, and the loss is derived from the mean dice score.
+
+    This is particularly useful for multi-instance segmentation tasks where
+    instances should be evaluated individually rather than globally.
+
+    The loss is fully differentiable and supports backpropagation through
+    the dice computation.
+
+    Args:
+        to_onehot_y (bool): Convert target to one-hot encoding. Default: False
+        softmax (bool): Apply softmax to predictions. Default: False
+        sigmoid (bool): Apply sigmoid to predictions. Default: True
+
+    Example:
+        >>> loss_fn = CCLoss(sigmoid=True)
+        >>> pred = torch.randn(2, 3, 64, 64, requires_grad=True)
+        >>> target = torch.randint(0, 3, (2, 64, 64))
+        >>> loss = loss_fn(pred, target)
+        >>> loss.backward()  # Gradients flow through the loss
+
+    **YAML Configuration Notes for Switching from Other Losses:**
+
+    When switching from DiceCELoss or other losses to CCLoss in your config file:
+
+    BEFORE (DiceCELoss):
+        loss:
+          type: DiceCELoss
+          to_onehot_y: true
+          softmax: true
+          batch: true  # ← Remove this, CCLoss doesn't support it
+
+    AFTER (CCLoss):
+        loss:
+          type: CCLoss
+          to_onehot_y: true
+          sigmoid: true  # ← Change softmax to sigmoid
+          # Do NOT include batch parameter
+
+    Key differences:
+    - Uses `sigmoid` instead of `softmax` for activation
+    - No `batch` parameter (CCLoss evaluates regions, not batch-wise)
+    - Better for multi-instance segmentation tasks
+    """
+
+    to_onehot_y: bool
+    softmax: bool
+    sigmoid: bool
+
+    def __init__(
+        self,
+        to_onehot_y: bool = False,
+        softmax: bool = False,
+        sigmoid: bool = True,
+    ) -> None:
+        """Initialize CCLoss."""
+        super().__init__()
+        self.to_onehot_y = to_onehot_y  # type: ignore
+        self.softmax = softmax  # type: ignore
+        self.sigmoid = sigmoid  # type: ignore
+
+    def forward(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Compute Connected Components Loss.
+
+        Args:
+            pred: Network predictions of shape (B, C, H, W) or (B, C, H, W, D)
+                Raw logits that will be activated based on sigmoid/softmax settings.
+
+            target: Ground truth labels
+                If to_onehot_y=False: Shape (B, H, W) or (B, H, W, D) with class indices
+                If to_onehot_y=True: Shape (B, C, H, W) or (B, C, H, W, D) one-hot encoded
+
+        Returns:
+            Scalar loss tensor (differentiable)
+        """
+        # Apply activations to predictions
+        if self.softmax:
+            pred = F.softmax(pred, dim=1)
+        elif self.sigmoid:
+            pred = torch.sigmoid(pred)
+
+        # Convert target to one-hot if needed
+        if self.to_onehot_y and target.dim() != pred.dim():
+            target = self._to_onehot(target, pred.shape[1])
+
+        # Ensure target is float32
+        if target.dtype != torch.float32:
+            target = target.float()
+
+        # Normalize target shape for class indices with spurious channel dimension
+        # When LoadImaged with ensure_channel_first=true is applied to class index targets,
+        # they arrive as (B, 1, H, W) or (B, 1, H, W, D) instead of the expected (B, H, W) or (B, H, W, D).
+        # Following MONAI's philosophy of robustness, we squeeze this spurious single dimension.
+        # This is consistent with how DiceCELoss handles target shape normalization internally.
+        if target.dim() == pred.dim() and target.shape[1] == 1:
+            # Target is class indices with spurious channel: (B, 1, H, W) -> (B, H, W)
+            target = target.squeeze(1)
+
+        # Process each sample in the batch
+        batch_size = pred.shape[0]
+        batch_losses = []
+
+        for b in range(batch_size):
+            # Extract single sample
+            pred_volume = pred[b]  # (C, H, W) or (C, H, W, D)
+            target_volume = target[b]  # (C, H, W) or (C, H, W, D) or (H, W) etc.
+
+            # Handle different target shapes
+            if target_volume.dim() == pred_volume.dim() - 1:
+                # Target is class indices, convert to one-hot
+                target_onehot = F.one_hot(target_volume.long(), num_classes=pred_volume.shape[0])
+                # Permute from (H, W, C) to (C, H, W)
+                target_onehot = target_onehot.permute(-1, *range(target_onehot.dim() - 1)).float()
+            else:
+                target_onehot = target_volume
+
+            # Get connected components from target
+            sample_loss = self._compute_region_loss(pred_volume, target_onehot)
+            batch_losses.append(sample_loss)
+
+        # Mean loss across batch
+        loss = torch.mean(torch.stack(batch_losses))
+        return loss
+
+    def _compute_region_loss(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Compute loss for a single sample by evaluating regions separately.
+
+        Args:
+            pred: Predictions of shape (C, H, W) or (C, H, W, D)
+            target: One-hot target of shape (C, H, W) or (C, H, W, D)
+
+        Returns:
+            Scalar loss tensor for this sample
+        """
+        num_classes = pred.shape[0]
+        class_losses = []
+
+        # Process each class separately
+        for c in range(num_classes):
+            pred_class = pred[c]  # (H, W) or (H, W, D)
+            target_class = target[c]  # (H, W) or (H, W, D)
+
+            # Get connected components in ground truth
+            try:
+                region_map, num_regions = get_gt_regions(target_class, pred.device)
+            except Exception:
+                # If region detection fails, use whole class as one region
+                num_regions = 1
+                region_map = torch.ones_like(target_class, dtype=torch.long)
+
+            if num_regions == 0:
+                # No ground truth for this class, loss = 1.0
+                class_losses.append(torch.tensor(1.0, device=pred.device, dtype=pred.dtype))
+                continue
+
+            # Compute dice score for each region
+            region_dice_scores = []
+
+            for region_id in range(1, num_regions + 1):
+                region_mask = (region_map == region_id)
+
+                # Extract predictions and target for this region
+                pred_region = pred_class[region_mask]
+                target_region = target_class[region_mask]
+
+                # Handle empty regions
+                if target_region.sum() == 0:
+                    # Ground truth is empty for this region
+                    region_dice_scores.append(torch.tensor(1.0, device=pred.device, dtype=pred.dtype))
+                    continue
+
+                # Compute differentiable dice score
+                dice_score = self._dice_score(pred_region, target_region)
+                region_dice_scores.append(dice_score)
+
+            # Mean dice score across regions for this class
+            if region_dice_scores:
+                mean_dice = torch.mean(torch.stack(region_dice_scores))
+            else:
+                mean_dice = torch.tensor(1.0, device=pred.device, dtype=pred.dtype)
+
+            # Convert to loss: loss = 1 - dice_score
+            class_loss = 1.0 - mean_dice
+            class_losses.append(class_loss)
+
+        # Mean loss across all classes (skip background class 0 if only one class present)
+        if class_losses:
+            # Average from class 1 onwards (skip background)
+            if len(class_losses) > 1:
+                sample_loss = torch.mean(torch.stack(class_losses[1:]))
+            else:
+                sample_loss = class_losses[0]
+        else:
+            sample_loss = torch.tensor(1.0, device=pred.device, dtype=pred.dtype)
+
+        return sample_loss
+
+    @staticmethod
+    def _dice_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-7) -> torch.Tensor:
+        """
+        Compute differentiable dice score.
+
+        Args:
+            pred: Prediction tensor (flattened or 1D)
+            target: Target tensor (flattened or 1D)
+            smooth: Smoothing factor
+
+        Returns:
+            Scalar dice score tensor (differentiable)
+        """
+        intersection = torch.sum(pred * target)
+        dice = (2.0 * intersection + smooth) / (torch.sum(pred) + torch.sum(target) + smooth)
+        return dice
+
+    @staticmethod
+    def _to_onehot(target: torch.Tensor, num_classes: int) -> torch.Tensor:
+        """
+        Convert class indices to one-hot encoding.
+
+        Args:
+            target: Tensor of shape (B, H, W) or (B, H, W, D) with class indices
+            num_classes: Number of classes
+
+        Returns:
+            One-hot encoded tensor of shape (B, C, H, W) or (B, C, H, W, D)
+        """
+        return F.one_hot(target.long(), num_classes=num_classes).permute(
+            0, -1, *range(1, target.dim())
+        ).float()
+
+
+# ============================================================================
+# Helper Functions for Connected Components
+# ============================================================================
+
+
+def gpu_connected_components(img: torch.Tensor, connectivity=None) -> Tuple[torch.Tensor, int]:
+    """
+    PyTorch wrapper for calculating connected components on a GPU using cupy and cucim.skimage.
+
+    From: https://github.com/aymuos15/GPU-Connected-Components
+
+    Args:
+        img (torch.Tensor): Input image.
+        connectivity (int, optional): Connectivity defining the neighborhood. Default is None.
+
+    Returns:
+        tuple: (labeled_img, num_features)
+            - labeled_img: Labeled image with each connected component having a unique label
+            - num_features: Number of connected components found
+    """
+    img_cupy = cp.asarray(img)
+    labeled_img, num_features = cucim_measure.label(img_cupy, connectivity=connectivity, return_num=True)
+    labeled_img_torch = torch.as_tensor(labeled_img, device=img.device)
+    return labeled_img_torch, num_features
+
+
+def get_gt_regions(gt: torch.Tensor, device: torch.device) -> Tuple[torch.Tensor, int]:
+    """
+    Divides the ground truth segmentation space into regions based on proximity to instances.
+
+    This function uses GPU-accelerated distance transforms to create a Voronoi-like partition
+    of the image space, where each pixel is assigned to the closest ground truth instance.
+
+    Args:
+        gt (torch.Tensor): Ground truth segmentation for a single class
+        device (torch.device): Device to place tensors on
+
+    Returns:
+        tuple: (region_map, num_features)
+            - region_map: Tensor where each pixel is labeled with the nearest region ID
+            - num_features: Number of distinct regions/connected components
+    """
+    # Identify connected components in the ground truth
+    labeled_gt, num_features = gpu_connected_components(gt)
+
+    # Initialize distance map (stores distance to nearest instance)
+    distance_map = torch.zeros_like(gt, dtype=torch.float32)
+    # Initialize region map (stores region ID for each pixel)
+    region_map = torch.zeros_like(gt, dtype=torch.long)
+
+    # Process each connected component (region) in the ground truth
+    for region_label in range(1, num_features + 1):
+        # Create binary mask for current region
+        region_mask = (labeled_gt == region_label)
+
+        # Convert PyTorch tensor to CuPy array (stays on GPU)
+        region_mask_cupy = cp.asarray(region_mask)
+
+        # Calculate Euclidean distance transform using GPU-accelerated cupyx
+        # Note: We use ~region_mask_cupy to get distances from outside the region
+        distance_cupy = distance_transform_edt(
+            ~region_mask_cupy,
+            float64_distances=False  # Use float32 for faster computation
+        )
+
+        # Convert CuPy array back to PyTorch tensor (stays on GPU)
+        distance = torch.as_tensor(distance_cupy, device=device)
+
+        # For the first region or if we haven't set distances yet, initialize directly
+        if region_label == 1 or distance_map.max() == 0:
+            distance_map = distance
+            region_map = region_label * torch.ones_like(gt, dtype=torch.long)
+        else:
+            # For subsequent regions, update pixels that are closer to this region
+            # than to any previously processed region
+            update_mask = distance < distance_map
+            distance_map[update_mask] = distance[update_mask]
+            region_map[update_mask] = region_label
+
+    return region_map, num_features
+
+
+__all__ = ["CCLoss", "gpu_connected_components", "get_gt_regions"]
