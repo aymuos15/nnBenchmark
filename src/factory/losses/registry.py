@@ -11,6 +11,7 @@ import torch.nn as nn
 from monai import losses
 
 from src.factory.base_registry import BaseRegistry
+from src.factory.losses.blob import BlobLoss
 from src.factory.losses.cc import CCLoss
 
 
@@ -42,6 +43,7 @@ class LossRegistry(BaseRegistry):
         self.register("MaskedDiceLoss", getattr(losses, "MaskedDiceLoss"))
 
         # Register custom losses
+        self.register("BlobLoss", BlobLoss)
         self.register("CCLoss", CCLoss)
 
     def build(self, config: dict[str, Any]) -> nn.Module:

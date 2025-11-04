@@ -1,13 +1,14 @@
 """Tests for custom loss implementations.
 
 Tests cover instantiation, forward pass, gradient flow, and batch processing
-for the Connected Components Loss (CCLoss).
+for the Connected Components Loss (CCLoss) and Blob Loss (BlobLoss).
 """
 
 import pytest
 import torch
 import torch.nn as nn
 
+from src.factory.losses.blob import BlobLoss
 from src.factory.losses.cc import CCLoss
 
 
@@ -27,10 +28,14 @@ class TestCCLoss:
         spatial_size = 32
 
         # Predictions: logits from network
-        pred = torch.randn(batch_size, num_classes, spatial_size, spatial_size, device=device)
+        pred = torch.randn(
+            batch_size, num_classes, spatial_size, spatial_size, device=device
+        )
 
         # Target: class indices
-        target = torch.randint(0, num_classes, (batch_size, spatial_size, spatial_size), device=device)
+        target = torch.randint(
+            0, num_classes, (batch_size, spatial_size, spatial_size), device=device
+        )
 
         return pred, target
 
@@ -93,10 +98,16 @@ class TestCCLoss:
         num_classes = 3
         spatial_size = 32
 
-        pred = torch.randn(batch_size, num_classes, spatial_size, spatial_size, device=device)
+        pred = torch.randn(
+            batch_size, num_classes, spatial_size, spatial_size, device=device
+        )
         # One-hot encoded target
-        target_indices = torch.randint(0, num_classes, (batch_size, spatial_size, spatial_size), device=device)
-        target_onehot = torch.nn.functional.one_hot(target_indices, num_classes=num_classes)
+        target_indices = torch.randint(
+            0, num_classes, (batch_size, spatial_size, spatial_size), device=device
+        )
+        target_onehot = torch.nn.functional.one_hot(
+            target_indices, num_classes=num_classes
+        )
         target_onehot = target_onehot.permute(0, 3, 1, 2).float()
 
         loss_fn = CCLoss(to_onehot_y=False)  # Input is already one-hot
@@ -143,7 +154,9 @@ class TestCCLoss:
         spatial_size = 32
 
         pred = torch.randn(1, num_classes, spatial_size, spatial_size, device=device)
-        target = torch.randint(0, num_classes, (1, spatial_size, spatial_size), device=device)
+        target = torch.randint(
+            0, num_classes, (1, spatial_size, spatial_size), device=device
+        )
 
         loss_fn = CCLoss()
         loss = loss_fn(pred, target)
@@ -180,10 +193,14 @@ class TestCCLoss:
         spatial_size = 32
 
         # Create target
-        target = torch.randint(0, num_classes, (batch_size, spatial_size, spatial_size), device=device)
+        target = torch.randint(
+            0, num_classes, (batch_size, spatial_size, spatial_size), device=device
+        )
 
         # Create predictions that exactly match target (after sigmoid)
-        pred = torch.zeros(batch_size, num_classes, spatial_size, spatial_size, device=device)
+        pred = torch.zeros(
+            batch_size, num_classes, spatial_size, spatial_size, device=device
+        )
         for b in range(batch_size):
             for c in range(num_classes):
                 pred[b, c] = (target[b] == c).float()
@@ -204,7 +221,9 @@ class TestCCLoss:
         pred = torch.randn(1, num_classes, spatial_size, spatial_size, device=device)
 
         # Target with only one class (others empty)
-        target = torch.zeros(1, spatial_size, spatial_size, dtype=torch.long, device=device)
+        target = torch.zeros(
+            1, spatial_size, spatial_size, dtype=torch.long, device=device
+        )
         target[0, :16, :16] = 1  # Only class 1 is present
 
         loss_fn = CCLoss()
@@ -220,7 +239,9 @@ class TestCCLoss:
         spatial_size = 16
 
         # Create target with class indices
-        target = torch.randint(0, num_classes, (batch_size, spatial_size, spatial_size), device=device)
+        target = torch.randint(
+            0, num_classes, (batch_size, spatial_size, spatial_size), device=device
+        )
 
         # Convert to one-hot
         onehot = CCLoss._to_onehot(target, num_classes)
@@ -258,8 +279,17 @@ class TestCCLoss:
         spatial_size = 32
 
         # Test with float32
-        pred_f32 = torch.randn(2, num_classes, spatial_size, spatial_size, device=device, dtype=torch.float32)
-        target = torch.randint(0, num_classes, (2, spatial_size, spatial_size), device=device)
+        pred_f32 = torch.randn(
+            2,
+            num_classes,
+            spatial_size,
+            spatial_size,
+            device=device,
+            dtype=torch.float32,
+        )
+        target = torch.randint(
+            0, num_classes, (2, spatial_size, spatial_size), device=device
+        )
 
         loss_fn = CCLoss()
         loss = loss_fn(pred_f32, target)
@@ -277,3 +307,211 @@ class TestCCLoss:
 
         # Losses should be identical for the same input
         assert torch.allclose(loss1, loss2)
+
+
+class TestBlobLoss:
+    """Test suite for Blob Loss."""
+
+    @pytest.fixture
+    def device(self):
+        """Use CPU for testing to avoid GPU memory issues."""
+        return torch.device("cpu")
+
+    @pytest.fixture
+    def batch_data(self, device):
+        """Generate sample batch data for testing."""
+        batch_size = 2
+        num_channels = 1
+        spatial_size = 32
+
+        # Predictions: logits from network
+        pred = torch.randn(
+            batch_size, num_channels, spatial_size, spatial_size, device=device
+        )
+
+        # Target: binary mask
+        target = torch.randint(
+            0, 2, (batch_size, num_channels, spatial_size, spatial_size), device=device
+        ).float()
+
+        return pred, target
+
+    def test_blobloss_instantiation(self):
+        """Test that BlobLoss can be instantiated with default parameters."""
+        loss_fn = BlobLoss()
+        assert isinstance(loss_fn, nn.Module)
+        assert loss_fn.sigmoid is True
+        assert loss_fn.softmax is False
+        assert loss_fn.main_weight == 1.0
+        assert loss_fn.blob_weight == 0.0
+
+    def test_blobloss_custom_parameters(self):
+        """Test BlobLoss instantiation with custom parameters."""
+        loss_fn = BlobLoss(
+            base_loss="DiceLoss",
+            main_weight=0.5,
+            blob_weight=1.5,
+            sigmoid=True,
+        )
+        assert loss_fn.main_weight == 0.5
+        assert loss_fn.blob_weight == 1.5
+        assert loss_fn.sigmoid is True
+
+    def test_blobloss_forward_basic(self, batch_data):
+        """Test forward pass with basic input."""
+        loss_fn = BlobLoss(main_weight=1.0, blob_weight=0.5)
+        pred, target = batch_data
+
+        loss = loss_fn(pred, target)
+
+        # Check loss is scalar
+        assert loss.dim() == 0
+        # Check loss is float tensor
+        assert loss.dtype in [torch.float32, torch.float64]
+        # Loss should be a finite number
+        assert torch.isfinite(loss)
+
+    def test_blobloss_main_only(self, batch_data):
+        """Test BlobLoss with main loss only (blob_weight=0)."""
+        loss_fn = BlobLoss(main_weight=1.0, blob_weight=0.0)
+        pred, target = batch_data
+
+        loss = loss_fn(pred, target)
+
+        assert loss.dim() == 0
+        assert torch.isfinite(loss)
+
+    def test_blobloss_blob_only(self, batch_data):
+        """Test BlobLoss with blob loss only (main_weight=0)."""
+        loss_fn = BlobLoss(main_weight=0.0, blob_weight=1.0)
+        pred, target = batch_data
+
+        loss = loss_fn(pred, target)
+
+        assert loss.dim() == 0
+        assert torch.isfinite(loss)
+
+    def test_blobloss_combined_weights(self, batch_data):
+        """Test BlobLoss with both main and blob losses."""
+        loss_fn = BlobLoss(main_weight=1.0, blob_weight=1.0)
+        pred, target = batch_data
+
+        loss = loss_fn(pred, target)
+
+        assert loss.dim() == 0
+        assert torch.isfinite(loss)
+
+    def test_blobloss_backward(self, batch_data):
+        """Test that gradients flow through the loss."""
+        loss_fn = BlobLoss(main_weight=1.0, blob_weight=0.5)
+        pred, target = batch_data
+
+        # Enable gradient computation
+        pred.requires_grad = True
+
+        loss = loss_fn(pred, target)
+
+        # Check loss is computed successfully
+        assert loss.dim() == 0
+        assert torch.isfinite(loss)
+
+        # Test backward pass
+        loss.backward()
+
+        # Check gradients exist and are not all zero
+        assert pred.grad is not None
+        assert not torch.all(pred.grad == 0)
+
+    def test_blobloss_different_base_losses(self, batch_data):
+        """Test BlobLoss with different base loss functions."""
+        pred, target = batch_data
+
+        # Test with DiceLoss
+        loss_fn_dice = BlobLoss(base_loss="DiceLoss", main_weight=1.0, blob_weight=0.5)
+        loss_dice = loss_fn_dice(pred, target)
+        assert torch.isfinite(loss_dice)
+
+        # Test with DiceCELoss
+        loss_fn_dicece = BlobLoss(
+            base_loss="DiceCELoss", main_weight=1.0, blob_weight=0.5
+        )
+        loss_dicece = loss_fn_dicece(pred, target)
+        assert torch.isfinite(loss_dicece)
+
+    def test_blobloss_batch_processing(self, batch_data):
+        """Test that BlobLoss handles batch dimension correctly."""
+        loss_fn = BlobLoss(main_weight=1.0, blob_weight=0.5)
+
+        pred, target = batch_data
+        loss = loss_fn(pred, target)
+
+        # Loss should be computed for the entire batch
+        assert loss.dim() == 0  # Scalar
+        assert torch.isfinite(loss)
+
+    def test_blobloss_single_sample(self, device):
+        """Test BlobLoss with single sample (batch_size=1)."""
+        spatial_size = 32
+
+        pred = torch.randn(1, 1, spatial_size, spatial_size, device=device)
+        target = torch.randint(
+            0, 2, (1, 1, spatial_size, spatial_size), device=device
+        ).float()
+
+        loss_fn = BlobLoss(main_weight=1.0, blob_weight=0.5)
+        loss = loss_fn(pred, target)
+
+        assert loss.dim() == 0
+        assert torch.isfinite(loss)
+
+    def test_blobloss_deterministic(self, batch_data):
+        """Test that BlobLoss produces deterministic results."""
+        loss_fn = BlobLoss(main_weight=1.0, blob_weight=0.5)
+        pred, target = batch_data
+
+        loss1 = loss_fn(pred, target)
+        loss2 = loss_fn(pred, target)
+
+        assert torch.allclose(loss1, loss2)
+
+    def test_blobloss_device_handling(self):
+        """Test BlobLoss device handling."""
+        # Test with CPU
+        loss_fn = BlobLoss()
+        pred_cpu = torch.randn(2, 1, 32, 32)
+        target_cpu = torch.randint(0, 2, (2, 1, 32, 32)).float()
+
+        loss_cpu = loss_fn(pred_cpu, target_cpu)
+        assert loss_cpu.device.type == "cpu"
+
+    def test_blobloss_multiple_forward_passes(self, batch_data):
+        """Test that BlobLoss can handle multiple forward passes."""
+        loss_fn = BlobLoss(main_weight=1.0, blob_weight=0.5)
+        pred, target = batch_data
+
+        # Multiple forward passes should produce consistent results
+        loss1 = loss_fn(pred, target)
+        loss2 = loss_fn(pred, target)
+
+        # Losses should be identical for the same input
+        assert torch.allclose(loss1, loss2)
+
+    def test_blobloss_registry_integration(self, batch_data):
+        """Test that BlobLoss can be built from registry config."""
+        from src.factory.losses import loss_registry
+
+        config = {
+            "type": "BlobLoss",
+            "base_loss": "DiceLoss",
+            "main_weight": 1.0,
+            "blob_weight": 0.5,
+            "sigmoid": True,
+        }
+
+        loss_fn = loss_registry.build(config)
+        pred, target = batch_data
+
+        loss = loss_fn(pred, target)
+
+        assert loss.dim() == 0
+        assert torch.isfinite(loss)
