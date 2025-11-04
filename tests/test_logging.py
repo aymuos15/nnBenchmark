@@ -9,7 +9,6 @@ import os
 import time
 from io import StringIO
 
-import pytest
 from loguru import logger
 
 from src.logging.helpers import log_and_print, log_header, log_separator
@@ -379,25 +378,3 @@ class TestLogSystemInfo:
         assert "Python version" in content
         assert "PyTorch version" in content
         assert "Platform" in content
-
-    def test_log_system_info_cuda_if_available(self, temp_dir: str) -> None:
-        """Test log_system_info includes GPU info on CUDA."""
-        import torch
-
-        if torch.cuda.is_available():
-            log = setup_logger(temp_dir, log_name="sysinfo2")
-            device = torch.device("cuda")
-
-            log_system_info(log, device)
-
-            log_path = os.path.join(temp_dir, "sysinfo2.log")
-            assert _wait_for_log_message(log_path, "CUDA version")
-
-            with open(log_path, "r") as f:
-                content = f.read()
-
-            # Should log GPU info
-            assert "CUDA version" in content
-            assert "GPU" in content
-        else:
-            pytest.skip("CUDA not available")

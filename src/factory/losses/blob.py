@@ -79,6 +79,14 @@ class BlobLoss(nn.Module):
     - Fully differentiable with gradient flow through both loss components
     """
 
+    main_weight: float
+    blob_weight: float
+    to_onehot_y: bool
+    softmax: bool
+    sigmoid: bool
+    main_criterion: nn.Module | None
+    blob_criterion: nn.Module | None
+
     def __init__(
         self,
         base_loss: str = "DiceLoss",
@@ -92,17 +100,17 @@ class BlobLoss(nn.Module):
         """Initialize BlobLoss."""
         super().__init__()
 
-        self.main_weight = main_weight
-        self.blob_weight = blob_weight
-        self.to_onehot_y = to_onehot_y
-        self.softmax = softmax
-        self.sigmoid = sigmoid
+        self.main_weight = main_weight  # type: ignore
+        self.blob_weight = blob_weight  # type: ignore
+        self.to_onehot_y = to_onehot_y  # type: ignore
+        self.softmax = softmax  # type: ignore
+        self.sigmoid = sigmoid  # type: ignore
 
         # Get the base loss class from MONAI
         base_loss_class = getattr(losses, base_loss)
 
         # Create base loss instance for main loss (global)
-        self.main_criterion = (
+        self.main_criterion = (  # type: ignore
             base_loss_class(
                 to_onehot_y=to_onehot_y,
                 softmax=False,  # We handle activation ourselves
@@ -114,7 +122,7 @@ class BlobLoss(nn.Module):
         )
 
         # Create base loss instance for blob loss (per-instance)
-        self.blob_criterion = (
+        self.blob_criterion = (  # type: ignore
             base_loss_class(
                 to_onehot_y=False,  # We handle conversion ourselves
                 softmax=False,
