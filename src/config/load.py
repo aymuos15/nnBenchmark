@@ -84,6 +84,14 @@ def load_splits(data_dir: str, fold: int) -> tuple[list[str], list[str]]:
     with open(splits_path, "r") as f:
         splits = json.load(f)
 
+    # Handle fold=-1: train on all data
+    if fold == -1:
+        all_cases = set()
+        for fold_data in splits.values():
+            all_cases.update(fold_data["train"])
+            all_cases.update(fold_data["val"])
+        return sorted(list(all_cases)), []
+
     fold_key = f"fold_{fold}"
     if fold_key not in splits:
         raise ValueError(
