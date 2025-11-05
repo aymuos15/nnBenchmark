@@ -33,8 +33,115 @@ from src.utils.seeding import (
 warnings.filterwarnings("ignore", category=FutureWarning, module="monai")
 
 
+def find_latest_checkpoint(results_dir: str) -> str | None:
+    """
+    Find the most recent checkpoint in results directory.
+
+    Args:
+        results_dir: Path to results directory
+
+    Returns:
+        Path to latest checkpoint file, or None if no checkpoint found
+    """
+    results_path = Path(results_dir)
+    if not results_path.exists():
+        return None
+
+    # Look for checkpoint files (in priority order)
+    checkpoint_patterns = [
+        "checkpoint_final_checkpoint.pt",
+        "best_model_model_key_metric*.pt",
+        "best_model_model_final_iteration*.pt",
+    ]
+
+    for pattern in checkpoint_patterns:
+        if "*" in pattern:
+            checkpoints = list(results_path.glob(pattern))
+        else:
+            checkpoint_file = results_path / pattern
+            checkpoints = [checkpoint_file] if checkpoint_file.exists() else []
+
+        if checkpoints:
+            # Return most recent by modification time
+            return str(max(checkpoints, key=lambda p: p.stat().st_mtime))
+
+    return None
+
+
+def validate_checkpoint_config(checkpoint: dict, cfg: dict) -> list[str]:
+    """
+    Validate that checkpoint config matches current training config.
+
+    Args:
+        checkpoint: Loaded checkpoint dictionary
+        cfg: Current training configuration
+
+    Returns:
+        List of warning messages (empty if all valid)
+    """
+    warnings_list = []
+
+    # Check if checkpoint has config metadata
+    if "config_metadata" not in checkpoint:
+        warnings_list.append("Checkpoint missing config metadata (old checkpoint format)")
+        return warnings_list
+
+    metadata = checkpoint["config_metadata"]
+
+    # Validate dataset name
+    current_dataset = cfg.get("dataset", {}).get("name", "unknown")
+    checkpoint_dataset = metadata.get("dataset_name", "unknown")
+    if current_dataset != checkpoint_dataset:
+        warnings_list.append(
+            f"Dataset mismatch: checkpoint={checkpoint_dataset}, current={current_dataset}"
+        )
+
+    # Validate fold number
+    current_fold = cfg.get("dataset", {}).get("fold", -999)
+    checkpoint_fold = metadata.get("fold", -999)
+    if current_fold != checkpoint_fold:
+        warnings_list.append(
+            f"Fold mismatch: checkpoint={checkpoint_fold}, current={current_fold}"
+        )
+
+    # Validate model type
+    current_model = cfg.get("model", {}).get("type", "unknown")
+    checkpoint_model = metadata.get("model_type", "unknown")
+    if current_model != checkpoint_model:
+        warnings_list.append(
+            f"Model type mismatch: checkpoint={checkpoint_model}, current={current_model}"
+        )
+
+    return warnings_list
+
+
+def is_training_complete(checkpoint: dict, cfg: dict) -> bool:
+    """
+    Check if training is already complete based on checkpoint epoch.
+
+    Args:
+        checkpoint: Loaded checkpoint dictionary
+        cfg: Current training configuration
+
+    Returns:
+        True if training is complete, False otherwise
+    """
+    # Check if checkpoint has epoch information
+    if "epoch" not in checkpoint:
+        return False
+
+    checkpoint_epoch = checkpoint["epoch"]
+    total_epochs = cfg.get("training", {}).get("epochs", 0)
+
+    # Training is complete if we've reached or exceeded the configured epochs
+    return checkpoint_epoch >= total_epochs
+
+
 def run_training(
-    config_path: str, dataset: str | None = None, resume: bool = False
+    config_path: str,
+    dataset: str | None = None,
+    resume: bool = False,
+    force_fresh: bool = False,
 ) -> None:
     """
     Run training using MONAI SupervisedTrainer.
@@ -42,7 +149,8 @@ def run_training(
     Args:
         config_path: Path to YAML config file or relative path (e.g., fold_0.yaml)
         dataset: Dataset name (required if config_path is relative)
-        resume: Whether to resume from last checkpoint
+        resume: Whether to resume from last checkpoint (deprecated - now automatic)
+        force_fresh: Force fresh start, delete existing checkpoints
     """
     # Resolve config path (handles both absolute and relative paths)
     resolved_config_path = str(resolve_config_path(config_path, dataset))
@@ -188,28 +296,32 @@ def run_training(
     if val_loader is not None:
         log.info(f"Validation samples: {len(val_ds)}")  # type: ignore[arg-type]
 
-    # Clean up existing checkpoints if not resuming
+    # Check for existing checkpoint (automatic detection)
+    checkpoint_exists = find_latest_checkpoint(results_dir) is not None
+
+    # Handle force_fresh: delete all checkpoints if requested
     results_path = Path(results_dir)
-    if not resume and results_path.exists():
+    if force_fresh and results_path.exists():
         checkpoint_files = [
             f.name
             for f in results_path.iterdir()
             if f.name.endswith(".pt") or f.name.endswith(".pth")
         ]
         if checkpoint_files:
-            log.info(
-                f"Removing {len(checkpoint_files)} existing checkpoint file(s) "
-                f"(not resuming, starting fresh)"
+            log_and_print(
+                log,
+                f"Force fresh start: Removing {len(checkpoint_files)} existing checkpoint(s)",
             )
             for ckpt_file in checkpoint_files:
                 ckpt_path = results_path / ckpt_file
                 ckpt_path.unlink()
+            checkpoint_exists = False  # Update flag after deletion
 
     # Create MONAI trainer and evaluator
     log.info("Creating MONAI SupervisedTrainer...")
     log.info("Using GPU device: 0")
 
-    trainer, evaluator = create_trainer(
+    trainer, evaluator, optimizer, lr_scheduler, scaler = create_trainer(
         cfg=cfg,
         device=device,
         train_loader=train_loader,
@@ -219,29 +331,108 @@ def run_training(
         resume=resume,
     )
 
-    # Handle checkpoint resumption
-    if resume:
-        checkpoint_path = str(Path(results_dir) / "checkpoint_final_checkpoint.pt")
-        if not Path(checkpoint_path).exists():
-            # Try alternative checkpoint name
-            checkpoint_path = str(Path(results_dir) / "best_model_key_metric*.pt")
-            import glob
+    # Automatic checkpoint detection and loading (unless force_fresh)
+    checkpoint_path = find_latest_checkpoint(results_dir) if not force_fresh else None
 
-            checkpoints = glob.glob(checkpoint_path)
-            if not checkpoints:
-                log_and_print(
-                    log,
-                    f"ERROR: Resume requested but checkpoint not found in: {results_dir}",
-                    level="ERROR",
-                )
-                sys.exit(1)
-            checkpoint_path = checkpoints[0]
+    if checkpoint_path:
+        log_and_print(log, f"Checkpoint detected: {checkpoint_path}")
 
-        log_and_print(log, f"Resuming training from: {checkpoint_path}")
         # Load checkpoint
         checkpoint = torch.load(checkpoint_path, map_location=device)
+
+        # Check if training is already complete
+        if is_training_complete(checkpoint, cfg):
+            checkpoint_epoch = checkpoint.get("epoch", "?")
+            total_epochs = cfg.get("training", {}).get("epochs", 0)
+            log_and_print(
+                log,
+                f"\nTraining already complete! Checkpoint at epoch {checkpoint_epoch}/{total_epochs}",
+            )
+            log_and_print(log, "No further training needed. Exiting.")
+            sys.exit(0)
+
+        # Validate checkpoint config
+        config_warnings = validate_checkpoint_config(checkpoint, cfg)
+        if config_warnings:
+            log_and_print(
+                log,
+                "⚠️  WARNING: Checkpoint config validation issues detected:",
+                level="WARNING",
+            )
+            for warning in config_warnings:
+                log_and_print(log, f"  - {warning}", level="WARNING")
+            log_and_print(
+                log, "Continuing with checkpoint load (proceed with caution)..."
+            )
+
+        # Load all training state
+        log_and_print(log, "Loading training state from checkpoint...")
+
+        # Load model weights
         trainer.network.load_state_dict(checkpoint["model"])
-        log.info("Checkpoint loaded successfully")
+        log.info("✓ Model weights loaded")
+
+        # Load optimizer state
+        if "optimizer" in checkpoint:
+            optimizer.load_state_dict(checkpoint["optimizer"])
+            log.info("✓ Optimizer state loaded")
+        else:
+            log_and_print(
+                log,
+                "⚠️  WARNING: Optimizer state not found in checkpoint (old format)",
+                level="WARNING",
+            )
+
+        # Load learning rate scheduler state
+        if "lr_scheduler" in checkpoint:
+            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            log.info("✓ LR scheduler state loaded")
+        else:
+            log_and_print(
+                log,
+                "⚠️  WARNING: LR scheduler state not found in checkpoint (old format)",
+                level="WARNING",
+            )
+
+        # Load GradScaler state (for AMP)
+        if "scaler" in checkpoint:
+            scaler.load_state_dict(checkpoint["scaler"])
+            log.info("✓ GradScaler state loaded")
+        else:
+            log_and_print(
+                log,
+                "⚠️  WARNING: GradScaler state not found in checkpoint (old format)",
+                level="WARNING",
+            )
+
+        # Restore epoch number
+        if "epoch" in checkpoint:
+            starting_epoch = checkpoint["epoch"]
+            # Set trainer state to resume from next epoch
+            trainer.state.epoch = starting_epoch
+            trainer.state.iteration = starting_epoch * len(train_loader)
+            log_and_print(
+                log, f"✓ Resuming from epoch {starting_epoch}/{cfg['training']['epochs']}"
+            )
+        else:
+            log_and_print(
+                log,
+                "⚠️  WARNING: Epoch number not found in checkpoint (old format)",
+                level="WARNING",
+            )
+
+        log_and_print(log, "Checkpoint loaded successfully - resuming training")
+    elif resume:
+        # User explicitly requested resume but no checkpoint found
+        log_and_print(
+            log,
+            f"ERROR: Resume requested but no checkpoint found in: {results_dir}",
+            level="ERROR",
+        )
+        sys.exit(1)
+    else:
+        # No checkpoint found, starting fresh
+        log.info("No checkpoint found - starting fresh training")
 
     # Train
     log_header(log, "STARTING TRAINING")

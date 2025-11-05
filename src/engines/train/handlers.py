@@ -260,3 +260,148 @@ class TrainingLogger:
 
         # Log to file only
         log_only(self.logger, msg)
+
+
+class ComprehensiveCheckpointHandler:
+    """
+    Saves comprehensive checkpoints with all training state.
+    Includes model, optimizer, lr_scheduler, scaler, epoch, and config metadata.
+    """
+
+    def __init__(
+        self,
+        save_dir: str,
+        model: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        lr_scheduler: Any,
+        scaler: torch.amp.GradScaler,
+        cfg: dict[str, Any],
+        save_interval: int = 1,
+        checkpoint_metric: str | None = None,
+        evaluator: Engine | None = None,
+    ):
+        """
+        Args:
+            save_dir: Directory to save checkpoints
+            model: Model to checkpoint
+            optimizer: Optimizer to checkpoint
+            lr_scheduler: Learning rate scheduler to checkpoint
+            scaler: GradScaler to checkpoint
+            cfg: Configuration dictionary (for metadata)
+            save_interval: Save checkpoint every N epochs (default: 1)
+            checkpoint_metric: Metric name for best checkpoint (e.g., 'val_DiceMetric')
+            evaluator: Evaluator engine (required if checkpoint_metric is provided)
+        """
+        self.save_dir = Path(save_dir)
+        self.model = model
+        self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
+        self.scaler = scaler
+        self.cfg = cfg
+        self.save_interval = save_interval
+        self.checkpoint_metric = checkpoint_metric
+        self.evaluator = evaluator
+        self.best_metric_value = float("-inf")
+        self.trainer_engine = None  # Will be set in attach()
+
+        # Create config metadata once
+        self.config_metadata = {
+            "dataset_name": cfg.get("dataset", {}).get("name", "unknown"),
+            "fold": cfg.get("dataset", {}).get("fold", -1),
+            "model_type": cfg.get("model", {}).get("type", "unknown"),
+            "epochs": cfg.get("training", {}).get("epochs", 0),
+        }
+
+    def attach(self, trainer_engine: Engine) -> None:
+        """Attach handler to trainer engine events."""
+        # Store trainer engine reference for accessing epoch number
+        self.trainer_engine = trainer_engine
+
+        # Save checkpoint at specified intervals
+        trainer_engine.add_event_handler(
+            Events.EPOCH_COMPLETED, self._save_checkpoint
+        )
+
+        # If using validation-based checkpointing, also monitor evaluator
+        if self.checkpoint_metric and self.evaluator:
+            self.evaluator.add_event_handler(
+                Events.EPOCH_COMPLETED, self._save_best_checkpoint
+            )
+
+    def _save_checkpoint(self, engine: Engine) -> None:
+        """Save regular checkpoint at specified intervals."""
+        current_epoch = engine.state.epoch
+
+        # Only save at specified intervals
+        if current_epoch % self.save_interval != 0:
+            return
+
+        checkpoint_path = self.save_dir / "checkpoint_final_checkpoint.pt"
+        self._save(checkpoint_path, current_epoch, is_best=False)
+
+    def _save_best_checkpoint(self, evaluator_engine: Engine) -> None:
+        """Save best checkpoint based on validation metric."""
+        if not self.checkpoint_metric or not self.trainer_engine:
+            return
+
+        # Get metric value from evaluator state
+        metrics = evaluator_engine.state.metrics
+        metric_value = metrics.get(self.checkpoint_metric, None)
+
+        if metric_value is None:
+            return
+
+        # Convert tensor to float if needed
+        if isinstance(metric_value, torch.Tensor):
+            metric_value = metric_value.item()
+
+        # Check if this is the best metric so far
+        if metric_value > self.best_metric_value:
+            self.best_metric_value = metric_value
+
+            # Get current epoch from trainer engine
+            current_epoch = self.trainer_engine.state.epoch
+
+            # Save checkpoint with metric value in filename
+            checkpoint_path = (
+                self.save_dir
+                / f"best_model_model_key_metric={metric_value:.4f}.pt"
+            )
+
+            self._save(checkpoint_path, current_epoch, is_best=True)
+
+            # Remove old best checkpoints
+            self._cleanup_old_best_checkpoints(checkpoint_path)
+
+    def _save(self, path: Path, epoch: int, is_best: bool = False) -> None:
+        """
+        Save comprehensive checkpoint to disk.
+
+        Args:
+            path: Path to save checkpoint
+            epoch: Current epoch number
+            is_best: Whether this is the best checkpoint
+        """
+        # Create checkpoint dictionary with all training state
+        checkpoint = {
+            "model": self.model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "lr_scheduler": self.lr_scheduler.state_dict(),
+            "scaler": self.scaler.state_dict(),
+            "epoch": epoch,
+            "config_metadata": self.config_metadata,
+        }
+
+        # If this is a best checkpoint, also save the best metric value
+        if is_best and self.checkpoint_metric:
+            checkpoint["best_metric_value"] = self.best_metric_value
+
+        # Save checkpoint
+        torch.save(checkpoint, path)
+
+    def _cleanup_old_best_checkpoints(self, current_best_path: Path) -> None:
+        """Remove old best checkpoint files (keep only current best)."""
+        pattern = "best_model_model_key_metric*.pt"
+        for old_checkpoint in self.save_dir.glob(pattern):
+            if old_checkpoint != current_best_path:
+                old_checkpoint.unlink()

@@ -22,10 +22,19 @@ def main() -> None:
         "-c",
         dest="resume",
         action="store_true",
-        help="Resume training from last checkpoint",
+        help="Resume training from last checkpoint (deprecated - now automatic)",
+    )
+    parser.add_argument(
+        "--fresh",
+        "--no-resume",
+        dest="force_fresh",
+        action="store_true",
+        help="Force fresh start, delete existing checkpoints",
     )
     args = parser.parse_args()
-    run_training(args.config, dataset=args.dataset, resume=args.resume)
+    run_training(
+        args.config, dataset=args.dataset, resume=args.resume, force_fresh=args.force_fresh
+    )
 
 
 if __name__ == "__main__":

@@ -13,7 +13,6 @@ import torch.nn as nn
 from ignite.engine import Engine, Events
 from monai.data import DataLoader
 from monai.engines import SupervisedEvaluator, SupervisedTrainer
-from monai.handlers import CheckpointSaver
 from monai.handlers.lr_schedule_handler import LrScheduleHandler
 from monai.networks.utils import one_hot
 
@@ -22,6 +21,7 @@ from src.engines.ignite_utils.progress import (
     ValidationProgressHandler,
 )
 from src.engines.train.handlers import (
+    ComprehensiveCheckpointHandler,
     TrainingHistoryHandler,
     TrainingLogger,
     ValidationVisualizationHandler,
@@ -143,7 +143,13 @@ def create_trainer(
     results_dir: str,
     logger: Logger,
     resume: bool = False,
-) -> tuple[SupervisedTrainer, SupervisedEvaluator | None]:  # type: ignore[return]
+) -> tuple[
+    SupervisedTrainer,
+    SupervisedEvaluator | None,
+    torch.optim.Optimizer,
+    Any,  # LR scheduler
+    torch.amp.GradScaler,
+]:  # type: ignore[return]
     """
     Create MONAI SupervisedTrainer and Evaluator.
 
@@ -428,30 +434,37 @@ def create_trainer(
             if current_epoch % val_interval == 0:
                 evaluator.run(val_loader)
 
-        # Add checkpoint saver based on validation metric
+        # Add comprehensive checkpoint saver based on validation metric
         from src.config.validation import validate_metrics_config
 
         checkpoint_metric, _ = validate_metrics_config(cfg, metric_fns)
 
-        CheckpointSaver(
+        checkpoint_handler = ComprehensiveCheckpointHandler(
             save_dir=str(checkpoint_dir),
-            save_dict={"model": model},
-            save_key_metric=True,
-            key_metric_name=f"val_{checkpoint_metric}",
-            key_metric_n_saved=1,  # Keep only best checkpoint
-            file_prefix="best_model",
-            save_final=True,  # Save final checkpoint as well
-        ).attach(evaluator)
+            model=model,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            scaler=scaler,
+            cfg=cfg,
+            save_interval=1,
+            checkpoint_metric=f"val_{checkpoint_metric}",
+            evaluator=evaluator,
+        )
+        checkpoint_handler.attach(trainer)
 
     else:
-        # No validation - save checkpoint every epoch
-        CheckpointSaver(
+        # No validation - save comprehensive checkpoint every epoch
+        checkpoint_handler = ComprehensiveCheckpointHandler(
             save_dir=str(checkpoint_dir),
-            save_dict={"model": model},
+            model=model,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            scaler=scaler,
+            cfg=cfg,
             save_interval=1,
-            n_saved=1,  # Keep only latest
-            file_prefix="checkpoint",
-            save_final=True,
-        ).attach(trainer)
+            checkpoint_metric=None,
+            evaluator=None,
+        )
+        checkpoint_handler.attach(trainer)
 
-    return trainer, evaluator  # type: ignore[return-value]
+    return trainer, evaluator, optimizer, lr_scheduler, scaler  # type: ignore[return-value]
