@@ -10,6 +10,7 @@ from typing import Any
 from monai import metrics
 
 from src.factory.base_registry import BaseRegistry
+from src.factory.metrics.cc import CCMetric
 
 
 class MetricRegistry(BaseRegistry):
@@ -43,6 +44,8 @@ class MetricRegistry(BaseRegistry):
         self.register(
             "ConfusionMatrixMetric", getattr(metrics, "ConfusionMatrixMetric")
         )
+        # Register custom Connected Components metric
+        self.register("CCMetric", CCMetric)
 
     def build(self, config: dict[str, Any]) -> dict[str, Any]:
         """Build all metrics from configuration.
