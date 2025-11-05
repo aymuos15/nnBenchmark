@@ -12,6 +12,7 @@ import torch.nn as nn
 from monai.networks import nets as monai_nets
 
 from src.factory.base_registry import BaseRegistry
+from src.factory.models.kiunet import KiUNet2D, KiUNet3D
 
 
 def _initialize_weights(module: nn.Module) -> None:
@@ -50,6 +51,9 @@ class ModelRegistry(BaseRegistry):
         self.register("DynUNet", getattr(monai_nets, "DynUNet"))
         # UNet provides a faster alternative with simpler architecture
         self.register("UNet", getattr(monai_nets, "UNet"))
+        # KiU-Net uses dual-branch architecture with cross-resolution fusion
+        self.register("KiUNet2D", KiUNet2D)
+        self.register("KiUNet3D", KiUNet3D)
 
     def build(self, config: dict[str, Any], device: torch.device) -> nn.Module:
         """Build a model from configuration with weight initialization.
@@ -81,7 +85,7 @@ class ModelRegistry(BaseRegistry):
         model_class = self._validate_type(model_type)
 
         # Determine if config is nested (has model-specific sections)
-        nested_keys = {"DynUNet", "UNet"}
+        nested_keys = {"DynUNet", "UNet", "KiUNet2D", "KiUNet3D"}
         is_nested = any(key in config for key in nested_keys)
 
         # Non-model fields that should never be passed to model constructors
@@ -113,6 +117,8 @@ class ModelRegistry(BaseRegistry):
             model_params = self._prepare_dynunet_params(model_params)
         elif model_type == "UNet":
             model_params = self._prepare_unet_params(model_params)
+        elif model_type in ("KiUNet2D", "KiUNet3D"):
+            model_params = self._prepare_kiunet_params(model_params)
 
         # Instantiate and move to device
         model = model_class(**model_params).to(device)
@@ -166,6 +172,40 @@ class ModelRegistry(BaseRegistry):
         # UNet parameters are straightforward - just return a copy
         # No special processing needed unlike DynUNet
         return params.copy()
+
+    def _prepare_kiunet_params(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Prepare KiU-Net-specific parameters.
+
+        KiU-Net uses a configurable dual-branch architecture with:
+        - features: list of channel counts at each encoder level
+        - norm_name: normalization type ('batch', 'instance', 'group')
+        - act_name: activation type ('relu', 'leakyrelu', 'prelu')
+        - deep_supervision/deep_supr_num: deep supervision configuration
+
+        Note: spatial_dims is removed since KiUNet2D/3D set it internally.
+
+        Args:
+            params: Raw parameter dictionary from config
+
+        Returns:
+            Processed parameters ready for KiUNet instantiation
+        """
+        processed = params.copy()
+
+        # Remove spatial_dims - KiUNet2D/3D set this internally
+        processed.pop("spatial_dims", None)
+
+        # Convert features list if provided as tuple
+        if "features" in processed and isinstance(processed["features"], tuple):
+            processed["features"] = list(processed["features"])
+
+        # Ensure deep_supervision defaults match nnBenchmark conventions
+        if "deep_supervision" not in processed:
+            processed["deep_supervision"] = False
+        if "deep_supr_num" not in processed:
+            processed["deep_supr_num"] = 1
+
+        return processed
 
 
 # Create a global registry instance

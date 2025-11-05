@@ -7,7 +7,7 @@ The factory pattern provides flexible component creation from configuration file
 A registry system that instantiates models, losses, optimizers, metrics, and transforms from YAML configuration without hardcoding implementations.
 
 **Components**:
-- **Models**: DynUNet, UNet, and custom architectures
+- **Models**: DynUNet, UNet, KiUNet2D, KiUNet3D, and custom architectures
 - **Losses**: DiceCELoss, FocalLoss, TverskyLoss, and variants
 - **Optimizers**: SGD, Adam, AdamW, and others
 - **Metrics**: Dice, Surface Dice, Hausdorff Distance, IoU
@@ -21,7 +21,9 @@ A registry system that instantiates models, losses, optimizers, metrics, and tra
 4. **Native parameters** - Uses original MONAI/PyTorch parameter names (no translation)
 5. **Multi-model support** - Switch models by changing one config field
 
-## Configuration Example
+## Configuration Examples
+
+### DynUNet (nnU-Net Architecture)
 
 ```yaml
 model:
@@ -30,8 +32,29 @@ model:
   in_channels: 1
   out_channels: 3
   filters: [32, 64, 128, 256]
-  # ... model-specific parameters
+  kernel_size: [[3,3,3], [3,3,3], ...]
+  strides: [[1,1,1], [2,2,2], ...]
+  # ... more DynUNet-specific parameters
+```
 
+### KiU-Net (Dual-Branch Architecture)
+
+```yaml
+model:
+  type: KiUNet2D  # or KiUNet3D for 3D data
+  spatial_dims: 2
+  in_channels: 1
+  out_channels: 2
+  deep_supervision: true
+  KiUNet2D:
+    features: [32, 64, 128, 256]  # Channels at each encoder level
+    norm_name: instance  # 'instance', 'batch', or 'group'
+    act_name: relu  # 'relu', 'leakyrelu', or 'prelu'
+```
+
+### Loss and Optimizer
+
+```yaml
 loss:
   type: DiceCELoss
   to_onehot_y: true
@@ -56,9 +79,41 @@ loss_registry.register("CustomLoss", CustomLossClass)
 config = {"type": "CustomModel", "param1": value1}
 ```
 
+## Model Architectures
+
+### DynUNet
+Exact replication of nnU-Net's PlainConvUNet architecture using MONAI's implementation. Features:
+- Configurable encoder/decoder depth
+- InstanceNorm + LeakyReLU (nnU-Net defaults)
+- Deep supervision support
+- Residual blocks (optional)
+
+### UNet
+MONAI's standard U-Net implementation. Simpler and faster than DynUNet but less configurable.
+
+### KiU-Net (Dual-Branch Architecture)
+Novel dual-branch architecture that combines over-complete and under-complete paths:
+
+**Architecture**:
+- **U-Net Branch**: Standard encoder-decoder with max pooling (under-complete)
+- **Ki-Net Branch**: Encoder-decoder with upsampling (over-complete)
+- **Feature Fusion**: Branches fused at output resolution for final prediction
+- **Deep Supervision**: Optional auxiliary outputs from intermediate decoder levels
+
+**Key Features**:
+- Captures both coarse (U-Net) and fine (Ki-Net) scale features
+- Configurable feature channels, normalization, and activation
+- Both 2D (KiUNet2D) and 3D (KiUNet3D) variants
+- MONAI-style configuration and integration
+
+**Reference**: Valanarasu et al. "KiU-Net: Overcomplete Convolutional Architectures for Biomedical Image and Volumetric Segmentation." IEEE TMI, 2021.
+
+**Example Configs**: See `docs/datasets/Dataset001_Cellpose/KiUNet2D_fold_0.yaml` and `KiUNet3D_example.yaml`
+
 ## Implementation
 
 - **Registries**: `src/factory/models/registry.py`, `src/factory/losses/registry.py`, etc.
+- **KiU-Net Implementation**: `src/factory/models/kiunet.py`
 - **Builders**: `src/factory/builders.py` - High-level build functions
 - **Weight Initialization**: Kaiming Normal (nnU-Net style)
 

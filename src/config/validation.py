@@ -71,14 +71,14 @@ def validate_model_config(config: dict[str, Any]) -> None:
         )
 
     model_type = model_cfg["type"]
-    valid_types = ["DynUNet", "UNet"]
+    valid_types = ["DynUNet", "UNet", "KiUNet2D", "KiUNet3D"]
     if model_type not in valid_types:
         raise ValueError(
             f"Invalid model type '{model_type}'. " f"Must be one of: {valid_types}"
         )
 
     # Determine if config is nested
-    nested_keys = {"DynUNet", "UNet"}
+    nested_keys = {"DynUNet", "UNet", "KiUNet2D", "KiUNet3D"}
     is_nested = any(key in model_cfg for key in nested_keys)
 
     if is_nested:
@@ -105,6 +105,8 @@ def validate_model_config(config: dict[str, Any]) -> None:
             _validate_dynunet_params(model_specific, is_nested=True)
         elif model_type == "UNet":
             _validate_unet_params(model_specific, is_nested=True)
+        elif model_type in ("KiUNet2D", "KiUNet3D"):
+            _validate_kiunet_params(model_specific, is_nested=True)
     else:
         # Flat config: validate all required params at top level
         required = ["spatial_dims", "in_channels", "out_channels"]
@@ -119,6 +121,8 @@ def validate_model_config(config: dict[str, Any]) -> None:
             _validate_dynunet_params(model_cfg, is_nested=False)
         elif model_type == "UNet":
             _validate_unet_params(model_cfg, is_nested=False)
+        elif model_type in ("KiUNet2D", "KiUNet3D"):
+            _validate_kiunet_params(model_cfg, is_nested=False)
 
 
 def _validate_dynunet_params(params: dict[str, Any], is_nested: bool) -> None:
@@ -157,6 +161,36 @@ def _validate_unet_params(params: dict[str, Any], is_nested: bool) -> None:
     for param in required:
         if param not in params:
             raise ValueError(f"Missing required UNet parameter '{param}' in {section}")
+
+
+def _validate_kiunet_params(params: dict[str, Any], is_nested: bool) -> None:
+    """Validate KiU-Net-specific parameters.
+
+    Args:
+        params: Parameter dictionary to validate
+        is_nested: Whether this is a nested model-specific section
+
+    Raises:
+        ValueError: If required parameters are missing
+    """
+    required = ["features"]
+    section = "KiUNet section" if is_nested else "model config"
+
+    for param in required:
+        if param not in params:
+            raise ValueError(f"Missing required KiUNet parameter '{param}' in {section}")
+
+    # Validate features is a list/tuple
+    if "features" in params:
+        features = params["features"]
+        if not isinstance(features, (list, tuple)):
+            raise ValueError(
+                f"KiUNet 'features' must be a list or tuple, got {type(features).__name__}"
+            )
+        if len(features) < 2:
+            raise ValueError(
+                f"KiUNet 'features' must have at least 2 levels, got {len(features)}"
+            )
 
 
 def validate_deep_supervision_config(config: dict[str, Any]) -> None:
