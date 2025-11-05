@@ -12,16 +12,47 @@ import yaml
 
 def load_config(config_path: str) -> dict[str, Any]:
     """
-    Load YAML configuration file.
+    Load YAML configuration file with optional base_config inheritance.
+
+    Supports minimal override configs that reference a base config:
+        base_config: path/to/base_fold_0.yaml
+        overrides:
+          training:
+            epochs: 400
 
     Args:
         config_path: Path to YAML config file
 
     Returns:
-        Dictionary containing configuration
+        Dictionary containing configuration (merged if base_config specified)
+
+    Raises:
+        ConfigValidationError: If override keys don't exist in base config
     """
     with open(config_path, "r") as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+
+    # Check if this config uses inheritance
+    if "base_config" not in config:
+        return config
+
+    # Import here to avoid circular dependency
+    from src.config.merge import load_config_with_inheritance
+
+    # Resolve base_config path relative to current config file
+    base_config_path = config["base_config"]
+    config_dir = Path(config_path).parent
+
+    # If base_config is relative, resolve it relative to current config
+    if not Path(base_config_path).is_absolute():
+        base_config_path = str(config_dir / base_config_path)
+
+    # Use load_config_with_inheritance, passing this function as loader
+    # (creates a proper config dict for the merge function)
+    config_with_resolved_path = config.copy()
+    config_with_resolved_path["base_config"] = base_config_path
+
+    return load_config_with_inheritance(config_with_resolved_path, load_config)
 
 
 def load_training_history(results_dir: str) -> dict[str, list[float]]:

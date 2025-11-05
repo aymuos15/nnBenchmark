@@ -19,6 +19,90 @@ transforms:  # Data augmentation and preprocessing
 inference:   # Inference configuration
 ```
 
+## Config Inheritance (Minimal Override Configs)
+
+nnBenchmark supports creating minimal override configs that only specify what you want to change from a base configuration. This is useful for running quick experiments or parameter sweeps without duplicating entire config files.
+
+### Usage
+
+Create a minimal YAML file with two keys:
+- `base_config`: Path to the base config file (relative or absolute)
+- `overrides`: Dictionary of values to override
+
+**Example:**
+
+```yaml
+# experiments/quick_test.yaml
+base_config: ../docs/datasets/Dataset002_Kits/fold_0.yaml
+overrides:
+  training:
+    epochs: 400
+    batch_size: 4
+```
+
+Then train with: `nnBench.train --config experiments/quick_test.yaml`
+
+### Features
+
+- **Relative paths**: `base_config` paths are resolved relative to the override config file location
+- **Deep merging**: Override nested values while preserving unchanged settings
+- **Strict validation**: Raises `ConfigValidationError` if you try to override non-existent keys (prevents typos)
+- **Backward compatible**: Regular configs (without `base_config`) work as before
+
+### Examples
+
+**Override only epochs:**
+```yaml
+base_config: ../docs/datasets/Dataset001_Hippo/fold_0.yaml
+overrides:
+  training:
+    epochs: 10  # Quick test run
+```
+
+**Override multiple training parameters:**
+```yaml
+base_config: ../docs/datasets/Dataset002_Kits/fold_0.yaml
+overrides:
+  training:
+    epochs: 400
+    batch_size: 4
+    learning_rate: 0.001
+```
+
+**Override cache settings:**
+```yaml
+base_config: fold_0.yaml  # Relative to current directory
+overrides:
+  dataset:
+    cache:
+      enabled: true
+      cache_rate: 0.5  # Cache 50% of data
+```
+
+**Override multiple sections:**
+```yaml
+base_config: ../base_configs/fold_0.yaml
+overrides:
+  training:
+    epochs: 500
+    mixed_precision: false
+  optimizer:
+    weight_decay: 0.00001
+  dataset:
+    batch_size: 8
+```
+
+### Error Handling
+
+If you try to override a non-existent key, you'll get a clear error:
+
+```
+ConfigValidationError: Override key 'training.invalid_param' does not exist in base config.
+Available keys at this level: ['epochs', 'batch_size', 'learning_rate', ...]
+```
+
+This prevents typos and ensures your overrides are applied correctly.
+
 ## Top-Level Options
 
 ```yaml
