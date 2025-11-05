@@ -68,11 +68,11 @@ def run_planning(
 
     # Determine output path
     if output is None:
-        # Auto-generate output path: nnBench_results/<dataset_name>/fold_0/fold_0.yaml
+        # Auto-generate output path: nnBench_results/<dataset_name>/configs/fold_0.yaml
         dataset_name = dataset_path.name
         config_name = "fold_0"
         output_path = str(
-            get_results_root() / dataset_name / config_name / f"{config_name}.yaml"
+            get_results_root() / dataset_name / "configs" / f"{config_name}.yaml"
         )
     else:
         output_path = output
@@ -244,10 +244,10 @@ def run_planning(
         print()
         print("Next steps:")
         dataset_name = dataset_path.name
-        config_name = Path(output_path).parent.name
+        config_name = Path(output_path).name
         print(f"  1. Review the generated config: {output_path}")
         print(
-            f"  2. Train the model: nnBench.train --config {config_name}.yaml --dataset {dataset_name}"
+            f"  2. Train the model: nnBench.train --config {config_name} --dataset {dataset_name}"
         )
         print()
         print(f"Detailed logs saved to: {log_file}")

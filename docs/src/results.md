@@ -5,18 +5,22 @@ Results are saved in `nnBench_results/` (or `nnUNet_results/` for backward compa
 ## Directory Structure
 
 ```
-{config_name}/
-├── training_history.json              # Training/validation metrics per epoch
-├── test_history.json                  # Test/inference results (if nnBench.inference run)
-├── best_model_model_key_metric=*.pt   # Best checkpoint (selected by validation metric)
-├── best_model_model_final_iteration=*.pt  # Final epoch checkpoint (fallback)
-├── train.log                          # Training logs
-├── test.log                           # Inference logs
-├── visualizations/                    # Validation slice visualizations
-└── plots/                             # Generated plots
-    ├── training_loss.png
-    ├── val_{MetricName}.png
-    └── test_cls_wise_{MetricName}_scores.png
+{dataset_name}/
+├── configs/
+│   ├── fold_0.yaml                    # Training configurations
+│   └── custom_exp.yaml
+└── {config_name}/                     # Results directory (created during training)
+    ├── training_history.json          # Training/validation metrics per epoch
+    ├── test_history.json              # Test/inference results (if nnBench.inference run)
+    ├── best_model_model_key_metric=*.pt   # Best checkpoint (selected by validation metric)
+    ├── best_model_model_final_iteration=*.pt  # Final epoch checkpoint (fallback)
+    ├── train.log                      # Training logs
+    ├── test.log                       # Inference logs
+    ├── visualizations/                # Validation slice visualizations
+    └── plots/                         # Generated plots
+        ├── training_loss.png
+        ├── val_{MetricName}.png
+        └── test_cls_wise_{MetricName}_scores.png
 ```
 
 ## Key Files

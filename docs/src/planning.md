@@ -218,7 +218,7 @@ nnBench.plan --dataset Dataset001_Name --gpu-memory-gb 24
 **Optional**:
 - `--gpu-memory-gb`: GPU VRAM in GB (default: auto-detect from system)
 - `--fold`: Fold number for training (default: 0). Use fold -1 to train on all data without validation
-- `--output`: Config output path (default: `nnBench_results/<dataset_name>/fold_<N>/fold_<N>.yaml`)
+- `--output`: Config output path (default: `nnBench_results/<dataset_name>/configs/fold_<N>.yaml`)
 - `--num-workers`: Parallel workers for fingerprinting (default: auto-detect, max 8)
 - `--verbose`: Enable detailed logging
 
@@ -230,7 +230,7 @@ Generated files:
 - `<dataset_dir>/dataset.json` - Dataset metadata and channel information
 - `preprocessed/<dataset_name>/fingerprint.json` - Statistical properties from Step 1
 - `preprocessed/<dataset_name>/splits.json` - Cross-validation fold assignments
-- `nnBench_results/<dataset_name>/fold_0/fold_0.yaml` - Complete training configuration
+- `nnBench_results/<dataset_name>/configs/fold_0.yaml` - Complete training configuration
 
 ## Implementation
 
