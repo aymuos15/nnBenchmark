@@ -58,8 +58,9 @@ dev = [
 "nnBench.plot" = "src.plotting.cli:main"
 "nnBench.plan" = "src.planning.cli:main"
 
-[tool.setuptools]
-packages = ["src", "src.config", "src.factory", "src.factory.losses", "src.factory.metrics", "src.factory.models", "src.factory.optimizers", "src.factory.transforms", "src.logging", "src.utils", "src.planning", "src.planning.fingerprinting", "src.planning.planner", "src.plotting", "src.engines", "src.engines.train", "src.engines.inference", "src.engines.ignite_utils", "src.preprocessing"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
 
 [tool.setuptools.package-data]
 src = ["py.typed"]
