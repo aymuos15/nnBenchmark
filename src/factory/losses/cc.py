@@ -85,12 +85,14 @@ class CCLoss(nn.Module):
         to_onehot_y: bool = False,
         softmax: bool = False,
         sigmoid: bool = True,
+        batch: bool = True,  # Ignored, kept for config compatibility
     ) -> None:
         """Initialize CCLoss."""
         super().__init__()
         self.to_onehot_y = to_onehot_y  # type: ignore
         self.softmax = softmax  # type: ignore
         self.sigmoid = sigmoid  # type: ignore
+        # batch parameter is ignored - CCLoss evaluates per region, not batch-wise
 
     def forward(
         self,
