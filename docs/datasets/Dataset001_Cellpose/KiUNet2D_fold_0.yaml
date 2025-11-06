@@ -1,0 +1,66 @@
+#===============================================================================
+# KiU-Net 2D - Dual-Branch Architecture Configuration
+#===============================================================================
+#
+# KiU-Net uses a dual-branch encoder-decoder architecture:
+# - U-Net Branch: Under-complete path with max pooling (captures coarse features)
+# - Ki-Net Branch: Over-complete path with upsampling (captures fine details)
+# - Cross-Resolution Fusion: Fuses features from both branches at decoder
+#
+# Reference:
+#   Valanarasu et al. "KiU-Net: Overcomplete Convolutional Architectures for
+#   Biomedical Image and Volumetric Segmentation." IEEE TMI, 2021.
+#
+# Key KiU-Net Parameters:
+#   - Features: Channel counts at each encoder level [16, 32, 64]
+#   - Normalization: InstanceNorm (nnU-Net style)
+#   - Deep Supervision: Enabled for improved gradient flow
+#   - Dual-Branch Fusion: Features combined at output resolution
+#
+# Inherits base configuration from fold_0.yaml
+#===============================================================================
+
+base_config: fold_0.yaml
+
+overrides:
+  # ============================================================================
+  # Model Architecture - KiU-Net 2D
+  # ============================================================================
+
+  model:
+    type: KiUNet2D  # Dual-branch 2D architecture
+
+    # Shared Parameters
+    spatial_dims: 2
+    in_channels: 1
+    out_channels: 2
+
+    # Deep Supervision (recommended for KiU-Net)
+    deep_supervision: true
+    deep_supr_num: 1
+    ds_weights: [1.0, 0.5]
+
+    # KiU-Net Specific Parameters
+    KiUNet2D:
+      # Feature channels at each encoder level
+      # KiU-Net typically uses fewer levels than DynUNet (3-4 vs 6-7)
+      # Each level doubles channel count: 32 -> 64 -> 128 -> 256
+      features: [32, 64, 128, 256]
+
+      # Normalization strategy
+      # Options: 'instance' (nnU-Net style), 'batch', 'group'
+      norm_name: instance
+
+      # Activation function
+      # Options: 'leakyrelu' (nnU-Net style, default), 'relu', 'prelu'
+      act_name: leakyrelu
+
+  # ============================================================================
+  # Training Configuration Overrides
+  # ============================================================================
+
+  training:
+    epochs: 1000
+    batch_size: 2  # Adjust based on GPU memory
+    num_workers: 4
+    val_interval: 5

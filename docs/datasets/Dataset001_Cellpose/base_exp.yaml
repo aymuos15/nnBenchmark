@@ -1,0 +1,37 @@
+#===============================================================================
+# Base Experiment Configuration for Dataset001_Cellpose
+#===============================================================================
+# Common settings for all fold=-1 experiments.
+# All experiment configs should inherit from this.
+#
+# Settings:
+#   - fold: -1 (full dataset)
+#   - epochs: 1000
+#   - num_workers: 5
+#   - CCMetric added to evaluation
+#===============================================================================
+
+base_config: fold_0.yaml
+
+overrides:
+  dataset:
+    fold: -1
+
+  training:
+    epochs: 1000
+    num_workers: 5
+
+  metrics:
+    - type: DiceMetric
+      include_background: false
+      reduction: mean_batch
+      num_classes: 2
+    - type: SurfaceDiceMetric
+      include_background: false
+      reduction: mean_batch
+      class_thresholds:
+        - 2.0
+    - type: CCMetric
+      include_background: false
+      reduction: mean_batch
+      num_classes: 2

@@ -1,0 +1,15 @@
+#===============================================================================
+# DiceLoss Configuration for Dataset001_Cellpose (fold=-1) - DynUNet
+#===============================================================================
+# Inherits: fold_0.yaml → base_exp.yaml → this config
+# Model: DynUNet (default), 1000 epochs, CCMetric included
+#===============================================================================
+
+base_config: base_exp.yaml
+
+overrides:
+  loss:
+    type: DiceLoss
+    to_onehot_y: true
+    softmax: true
+    include_background: false
