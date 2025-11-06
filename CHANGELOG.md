@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2025-11-06
+
 ### Added
 - **Surface Dice Support in CCMetric**: Extended CCMetric to support Normalized Surface Dice (NSD) metrics on connected components
   - New parameter `metric_type`: Choose between "dice", "surface_dice", or "both" per region

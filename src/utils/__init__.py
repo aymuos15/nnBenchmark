@@ -12,4 +12,4 @@ Modules:
     logging: Logging utilities for training and testing
 """
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
