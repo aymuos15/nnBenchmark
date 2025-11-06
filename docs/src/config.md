@@ -331,7 +331,54 @@ metrics:
   # - type: ConfusionMatrixMetric
   #   include_background: false
   #   metric_name: [sensitivity, specificity, precision, accuracy]
+
+  # Connected Components Metric (multi-instance segmentation)
+  - type: CCMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 3
+    metric_type: dice              # Options: "dice", "surface_dice", "both"
+    # Note: class_thresholds and distance_metric required if metric_type is "surface_dice" or "both"
+
+  # CCMetric with Surface Dice (boundary accuracy)
+  # - type: CCMetric
+  #   include_background: false
+  #   reduction: mean_batch
+  #   num_classes: 3
+  #   metric_type: surface_dice    # Compute Normalized Surface Dice per region
+  #   class_thresholds: [2.0]      # Distance tolerance (pixels/mm) per class
+  #   distance_metric: euclidean   # Options: "euclidean", "chessboard", "taxicab"
+
+  # CCMetric with combined Dice and Surface Dice
+  # - type: CCMetric
+  #   include_background: false
+  #   reduction: mean_batch
+  #   num_classes: 3
+  #   metric_type: both            # Average Dice and Surface Dice per region
+  #   class_thresholds: [2.0]
+  #   distance_metric: euclidean
 ```
+
+### Connected Components Metric (CCMetric)
+
+Evaluates segmentation at the region/connected component level, ideal for multi-instance segmentation tasks (e.g., cell/nuclei segmentation).
+
+**Parameters:**
+- `metric_type`: Type of metric computation
+  - `"dice"`: Standard Dice coefficient per region (default)
+  - `"surface_dice"`: Normalized Surface Dice (NSD) per region, focuses on boundary accuracy
+  - `"both"`: Average of Dice and Surface Dice per region
+- `class_thresholds`: Distance tolerance (pixels or mm) per class when using surface dice
+  - Required if metric_type is "surface_dice" or "both"
+  - Example: `[2.0]` for single class, `[2.0, 3.0]` for two classes
+- `distance_metric`: Metric for distance computation in surface dice
+  - `"euclidean"`: Euclidean distance (default)
+  - `"chessboard"`: Chessboard/Chebyshev distance
+  - `"taxicab"`: Manhattan/L1 distance
+
+**Example:** See `docs/datasets/Dataset001_Cellpose/CCMetric_surface_dice_example.yaml` for a complete example using config inheritance with multiple CCMetric variants.
+
+**Backward Compatibility:** Previous configurations using CCMetric without `metric_type` parameter continue to work. The default behavior (metric_type="dice") is preserved.
 
 ## Transforms Configuration
 

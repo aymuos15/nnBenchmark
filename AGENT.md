@@ -188,7 +188,7 @@ Key sections:
 - `training`: epochs, batch_size, learning_rate, mixed_precision
 - `optimizer`: type, weight_decay, momentum
 - `loss`: type (DiceCELoss, etc.), parameters
-- `metrics`: list of metrics (DiceMetric, SurfaceDiceMetric, etc.)
+- `metrics`: list of metrics (DiceMetric, SurfaceDiceMetric, CCMetric with metric_type parameter, etc.)
 - `transforms`: common/train/val/test pipelines
 
 Supports nested format for multi-model configs (DynUNet + UNet in single file).

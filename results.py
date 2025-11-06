@@ -11,6 +11,7 @@ from typing import Dict, List, Any
 try:
     from rich.table import Table
     from rich.console import Console
+    console = Console()
 except ImportError:
     print("Error: rich package not found. Install it with: pip install rich")
     sys.exit(1)
@@ -127,7 +128,6 @@ def format_results_table(results: List[Dict[str, Any]]) -> None:
         table.add_row(*row)
 
     # Display table
-    console = Console()
     console.print(table)
 
 
@@ -159,7 +159,6 @@ def main():
     results = collect_test_results(dataset_path)
 
     if results:
-        console = Console()
         console.print(f"\n[bold]Test Results for {dataset_name}[/bold]")
         format_results_table(results)
     else:

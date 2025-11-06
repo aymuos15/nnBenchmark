@@ -6,7 +6,7 @@ per connected component, enabling better assessment of multi-instance segmentati
 The metric can be used as a drop-in replacement for DiceMetric in configuration files.
 """
 
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import torch
 
@@ -277,20 +277,14 @@ class CCMetric:
 
                 # Compute metric for this region based on metric_type
                 if self.metric_type == "dice":
-                    # Original dice computation on masked region
-                    pred_region = pred_class[region_mask]
-                    target_region = target_class[region_mask]
-                    pred_region = torch.clamp(pred_region, 0, 1)
-                    target_region = torch.clamp(target_region, 0, 1)
-                    region_score = self._dice_coefficient(pred_region, target_region)
+                    region_score = self._compute_region_dice(
+                        pred_class, target_class, region_mask
+                    )
 
                 elif self.metric_type == "surface_dice":
-                    # Surface dice computation needs spatial structure
-                    pred_masked = pred_class.clone()
-                    pred_masked[~region_mask] = 0
-                    target_masked = target_class.clone()
-                    target_masked[~region_mask] = 0
-
+                    pred_masked, target_masked = self._create_masked_region(
+                        pred_class, target_class, region_mask
+                    )
                     region_score = self._surface_dice_coefficient(
                         pred_masked,
                         target_masked,
@@ -300,27 +294,18 @@ class CCMetric:
 
                 elif self.metric_type == "both":
                     # Compute both metrics and average
-                    # Dice on masked region
-                    pred_region = pred_class[region_mask]
-                    target_region = target_class[region_mask]
-                    pred_region = torch.clamp(pred_region, 0, 1)
-                    target_region = torch.clamp(target_region, 0, 1)
-                    dice_score = self._dice_coefficient(pred_region, target_region)
-
-                    # Surface dice on spatial structure
-                    pred_masked = pred_class.clone()
-                    pred_masked[~region_mask] = 0
-                    target_masked = target_class.clone()
-                    target_masked[~region_mask] = 0
-
+                    dice_score = self._compute_region_dice(
+                        pred_class, target_class, region_mask
+                    )
+                    pred_masked, target_masked = self._create_masked_region(
+                        pred_class, target_class, region_mask
+                    )
                     surface_score = self._surface_dice_coefficient(
                         pred_masked,
                         target_masked,
                         threshold=threshold,
                         distance_metric=self.distance_metric,
                     )
-
-                    # Average the two metrics
                     region_score = (dice_score + surface_score) / 2.0
 
                 region_scores.append(region_score)
@@ -334,6 +319,52 @@ class CCMetric:
             class_scores.append(mean_score)
 
         return torch.stack(class_scores)
+
+    @staticmethod
+    def _compute_region_dice(
+        pred_class: torch.Tensor,
+        target_class: torch.Tensor,
+        region_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Compute Dice coefficient for a specific region.
+
+        Args:
+            pred_class: Prediction tensor for a class
+            target_class: Ground truth tensor for a class
+            region_mask: Boolean mask identifying the region
+
+        Returns:
+            Dice coefficient score as tensor
+        """
+        pred_region = pred_class[region_mask]
+        target_region = target_class[region_mask]
+        pred_region = torch.clamp(pred_region, 0, 1)
+        target_region = torch.clamp(target_region, 0, 1)
+        return CCMetric._dice_coefficient(pred_region, target_region)
+
+    @staticmethod
+    def _create_masked_region(
+        pred_class: torch.Tensor,
+        target_class: torch.Tensor,
+        region_mask: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Create masked versions of prediction and target for surface dice computation.
+
+        Args:
+            pred_class: Prediction tensor for a class
+            target_class: Ground truth tensor for a class
+            region_mask: Boolean mask identifying the region
+
+        Returns:
+            tuple: (pred_masked, target_masked) tensors with region isolated
+        """
+        pred_masked = pred_class.clone()
+        pred_masked[~region_mask] = 0
+        target_masked = target_class.clone()
+        target_masked[~region_mask] = 0
+        return pred_masked, target_masked
 
     @staticmethod
     def _handle_empty_classes(

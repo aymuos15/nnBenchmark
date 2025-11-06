@@ -10,7 +10,7 @@ A registry system that instantiates models, losses, optimizers, metrics, and tra
 - **Models**: DynUNet, UNet, KiUNet2D, KiUNet3D, and custom architectures
 - **Losses**: DiceCELoss, FocalLoss, TverskyLoss, and variants
 - **Optimizers**: SGD, Adam, AdamW, and others
-- **Metrics**: Dice, Surface Dice, Hausdorff Distance, IoU
+- **Metrics**: Dice, Surface Dice, Hausdorff Distance, IoU, Connected Components Metric (CCMetric)
 - **Transforms**: MONAI augmentation pipelines
 
 ## Why Use It?
@@ -109,6 +109,24 @@ Novel dual-branch architecture that combines over-complete and under-complete pa
 **Reference**: Valanarasu et al. "KiU-Net: Overcomplete Convolutional Architectures for Biomedical Image and Volumetric Segmentation." IEEE TMI, 2021.
 
 **Example Configs**: See `docs/datasets/Dataset001_Cellpose/KiUNet2D_fold_0.yaml` and `KiUNet3D_example.yaml`
+
+## Metrics
+
+### Available Metrics
+
+- `DiceMetric` - Dice Similarity Coefficient
+- `SurfaceDiceMetric` - Surface Dice (boundary accuracy)
+- `HausdorffDistanceMetric` - Hausdorff Distance
+- `SurfaceDistanceMetric` - Average Surface Distance
+- `MeanIoU` - Mean Intersection over Union
+- `ConfusionMatrixMetric` - Confusion matrix metrics
+- `CCMetric` - Connected Components Metric for multi-instance segmentation
+  - Evaluates predictions at region level using connected components
+  - Supports dice, surface dice, or combined metrics per region
+  - Parameters: `metric_type`, `class_thresholds`, `distance_metric`
+  - Ideal for cell/nuclei segmentation and other multi-instance tasks
+
+See [Configuration Reference - Metrics](config.md#metrics-configuration) for complete parameter documentation and examples.
 
 ## Implementation
 

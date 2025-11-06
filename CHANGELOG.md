@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Surface Dice Support in CCMetric**: Extended CCMetric to support Normalized Surface Dice (NSD) metrics on connected components
+  - New parameter `metric_type`: Choose between "dice", "surface_dice", or "both" per region
+  - New parameter `class_thresholds`: Distance tolerance (pixels/mm) for boundary matching
+  - New parameter `distance_metric`: Euclidean, chessboard, or taxicab distance metrics
+  - Boundary-focused metric evaluation for improved multi-instance segmentation assessment
+- **Dynamic Metric Key Generation**: MetricRegistry now auto-generates unique metric keys for instances with `metric_type` parameter
+  - Example: CCMetric with metric_type="dice" becomes "CCMetric_dice"
+  - Enables multiple metric variants in single configuration
+- **Enhanced Results Table Formatting**: format_results_table now displays fixed set of 4 metrics (Dice, CC-Dice, NSD, CC-NSD)
+  - Improved readability with mean ± std formatting
+  - Support for both standard and connected component metric variants
+
+### Changed
+- **Metrics**: CCMetric now defaults to metric_type="dice" (backward compatible)
+- **Results Output**: test_history.json metric keys now include metric_type suffix for uniqueness
+
+### Fixed
+- **Code Quality**: Removed unused Union import, extracted duplicate logic into helper methods
+  - _compute_region_dice(): Unified dice computation across metric types
+  - _create_masked_region(): Unified tensor masking for surface dice computation
+  - Consolidated Console instantiations in results.py
+
 ## [0.1.4] - 2025-11-04
 
 ### Added
