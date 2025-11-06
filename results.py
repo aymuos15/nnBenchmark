@@ -70,7 +70,8 @@ def collect_test_results(dataset_path: Path) -> List[Dict[str, Any]]:
 
 def format_results_table(results: List[Dict[str, Any]]) -> None:
     """
-    Display results as a rich table.
+    Display results as a rich table with 4 columns: Experiment, Dice, CCMetric, SurfaceDice.
+    Each metric shows mean ± std.
 
     Args:
         results: List of result dictionaries
@@ -79,30 +80,50 @@ def format_results_table(results: List[Dict[str, Any]]) -> None:
         print("No results found.")
         return
 
-    # Get all unique keys/columns
-    all_keys = set()
-    for result in results:
-        all_keys.update(result.keys())
-
-    # Sort columns with 'Experiment' first
-    columns = ["Experiment"] + sorted([k for k in all_keys if k != "Experiment"])
+    # Define the 4 metrics we want to display
+    # Each tuple is (display_name, [possible_mean_keys], [possible_std_keys])
+    metrics = [
+        ("Dice", ["DiceMetric_mean"], ["DiceMetric_std"]),
+        ("CC-Dice", ["CCMetric_dice_mean", "CCMetric_mean"], ["CCMetric_dice_std", "CCMetric_std"]),
+        ("NSD", ["SurfaceDiceMetric_mean"], ["SurfaceDiceMetric_std"]),
+        ("CC-NSD", ["CCMetric_surface_dice_mean"], ["CCMetric_surface_dice_std"]),
+    ]
 
     # Create rich table
     table = Table(title="Test Results", show_header=True, header_style="bold magenta")
+    table.add_column("Experiment", style="cyan")
 
-    # Add columns
-    for col in columns:
-        table.add_column(col, style="cyan")
+    # Add metric columns
+    for display_name, _, _ in metrics:
+        table.add_column(display_name, style="cyan")
 
     # Add rows
     for result in results:
-        row = []
-        for col in columns:
-            value = result.get(col, "")
-            # Format float values to 4 decimal places
-            if isinstance(value, float):
-                value = f"{value:.4f}"
-            row.append(str(value))
+        row = [result.get("Experiment", "")]
+
+        for display_name, mean_keys, std_keys in metrics:
+            # Try to find the metric in the result using possible key variations
+            mean_val = None
+            std_val = None
+
+            for mean_key in mean_keys:
+                if mean_key in result:
+                    mean_val = result[mean_key]
+                    break
+
+            for std_key in std_keys:
+                if std_key in result:
+                    std_val = result[std_key]
+                    break
+
+            # Format as mean ± std
+            if isinstance(mean_val, (int, float)) and isinstance(std_val, (int, float)):
+                formatted = f"{mean_val:.4f} ± {std_val:.4f}"
+            else:
+                formatted = ""
+
+            row.append(formatted)
+
         table.add_row(*row)
 
     # Display table

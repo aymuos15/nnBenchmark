@@ -54,6 +54,10 @@ class MetricRegistry(BaseRegistry):
         dictionary and returns them as a dictionary mapping full type names
         to metric instances.
 
+        For metrics with duplicate types (e.g., multiple CCMetric instances),
+        unique names are auto-generated using the metric_type parameter if available.
+        For example, "CCMetric" with metric_type="dice" becomes "CCMetric_dice".
+
         Args:
             config: Configuration dictionary with 'metrics' section containing
                    a list of metric configurations. Each metric config must have:
@@ -68,6 +72,7 @@ class MetricRegistry(BaseRegistry):
             TypeError: If config parameters don't match metric signature
         """
         metric_dict: dict[str, Any] = {}
+        metric_type_counts: dict[str, int] = {}  # Track metric type occurrences
 
         for metric_cfg in config["metrics"]:
             metric_type = metric_cfg["type"]
@@ -76,10 +81,50 @@ class MetricRegistry(BaseRegistry):
             # Extract parameters (everything except 'type')
             metric_params = self._extract_params(metric_cfg)
 
-            # Instantiate metric and store with full type name as key
-            metric_dict[metric_type] = metric_class(**metric_params)
+            # Generate unique key for this metric instance
+            metric_key = self._generate_metric_key(metric_type, metric_cfg, metric_type_counts)
+
+            # Instantiate metric and store with generated key
+            metric_dict[metric_key] = metric_class(**metric_params)
 
         return metric_dict
+
+    @staticmethod
+    def _generate_metric_key(
+        metric_type: str,
+        metric_cfg: dict[str, Any],
+        type_counts: dict[str, int],
+    ) -> str:
+        """Generate a unique key for a metric instance.
+
+        For metrics with a 'metric_type' parameter (e.g., CCMetric), uses that
+        to create a descriptive name like "CCMetric_dice" or "CCMetric_surface_dice".
+        For duplicate metric types without metric_type parameter, appends a counter.
+
+        Args:
+            metric_type: The metric class name (e.g., 'CCMetric')
+            metric_cfg: The full metric configuration dict
+            type_counts: Dictionary tracking occurrences of each metric type
+
+        Returns:
+            Unique key for this metric instance (e.g., "CCMetric_dice")
+        """
+        # Track how many times we've seen this metric type
+        type_counts[metric_type] = type_counts.get(metric_type, 0) + 1
+        count = type_counts[metric_type]
+
+        # If this metric has a 'metric_type' parameter, use it for naming
+        # (commonly used by CCMetric for dice/surface_dice variants)
+        if "metric_type" in metric_cfg:
+            subtype = metric_cfg["metric_type"]
+            return f"{metric_type}_{subtype}"
+
+        # If this is the first occurrence of this metric type, use it as-is
+        if count == 1:
+            return metric_type
+
+        # For duplicate metric types without metric_type param, append counter
+        return f"{metric_type}_{count}"
 
 
 # Create a global registry instance

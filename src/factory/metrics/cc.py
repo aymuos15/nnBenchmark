@@ -45,6 +45,15 @@ class CCMetric:
             Required parameter.
         get_not_nans (bool): Whether to return only non-NaN values.
             Default: False
+        metric_type (str): Type of metric to compute per region.
+            Options: "dice", "surface_dice", "both"
+            Default: "dice"
+        class_thresholds (list[float]): Distance thresholds for surface dice per class.
+            Required if metric_type is "surface_dice" or "both".
+            Example: [2.0] for single class, [2.0, 3.0] for two classes
+        distance_metric (str): Distance metric for surface dice computation.
+            Options: "euclidean", "chessboard", "taxicab"
+            Default: "euclidean"
 
     Example:
         >>> # In YAML config, replace DiceMetric with CCMetric
@@ -88,6 +97,9 @@ class CCMetric:
         reduction: str = "mean_batch",
         num_classes: Optional[int] = None,
         get_not_nans: bool = False,
+        metric_type: str = "dice",
+        class_thresholds: Optional[list[float]] = None,
+        distance_metric: str = "euclidean",
     ) -> None:
         """Initialize CCMetric."""
         if num_classes is None:
@@ -97,6 +109,9 @@ class CCMetric:
         self.reduction = reduction
         self.num_classes = num_classes
         self.get_not_nans = get_not_nans
+        self.metric_type = metric_type
+        self.class_thresholds = class_thresholds
+        self.distance_metric = distance_metric
 
         # Validate reduction method
         valid_reductions = ["mean", "mean_batch", "sum", "none"]
@@ -104,6 +119,22 @@ class CCMetric:
             raise ValueError(
                 f"reduction must be one of {valid_reductions}, got '{reduction}'"
             )
+
+        # Validate metric_type
+        valid_metric_types = ["dice", "surface_dice", "both"]
+        if metric_type not in valid_metric_types:
+            raise ValueError(
+                f"metric_type must be one of {valid_metric_types}, got '{metric_type}'"
+            )
+
+        # Validate surface dice parameters
+        if metric_type in ["surface_dice", "both"]:
+            if class_thresholds is None:
+                raise ValueError(
+                    f"class_thresholds is required when metric_type='{metric_type}'"
+                )
+            if not isinstance(class_thresholds, (list, tuple)):
+                raise ValueError("class_thresholds must be a list or tuple")
 
         # State for accumulating results (MONAI pattern)
         self._scores: list[torch.Tensor] = []
@@ -235,16 +266,64 @@ class CCMetric:
             for region_id in range(1, num_regions + 1):
                 region_mask = region_map == region_id
 
-                pred_region = pred_class[region_mask]
-                target_region = target_class[region_mask]
+                # Get threshold for this class if using surface dice
+                if self.metric_type in ["surface_dice", "both"]:
+                    # Use class-specific threshold if available, otherwise use first threshold
+                    threshold = (
+                        self.class_thresholds[c]
+                        if c < len(self.class_thresholds)
+                        else self.class_thresholds[0]
+                    )
 
-                # Clamp to [0, 1]
-                pred_region = torch.clamp(pred_region, 0, 1)
-                target_region = torch.clamp(target_region, 0, 1)
+                # Compute metric for this region based on metric_type
+                if self.metric_type == "dice":
+                    # Original dice computation on masked region
+                    pred_region = pred_class[region_mask]
+                    target_region = target_class[region_mask]
+                    pred_region = torch.clamp(pred_region, 0, 1)
+                    target_region = torch.clamp(target_region, 0, 1)
+                    region_score = self._dice_coefficient(pred_region, target_region)
 
-                # Compute dice for this region
-                region_dice = self._dice_coefficient(pred_region, target_region)
-                region_scores.append(region_dice)
+                elif self.metric_type == "surface_dice":
+                    # Surface dice computation needs spatial structure
+                    pred_masked = pred_class.clone()
+                    pred_masked[~region_mask] = 0
+                    target_masked = target_class.clone()
+                    target_masked[~region_mask] = 0
+
+                    region_score = self._surface_dice_coefficient(
+                        pred_masked,
+                        target_masked,
+                        threshold=threshold,
+                        distance_metric=self.distance_metric,
+                    )
+
+                elif self.metric_type == "both":
+                    # Compute both metrics and average
+                    # Dice on masked region
+                    pred_region = pred_class[region_mask]
+                    target_region = target_class[region_mask]
+                    pred_region = torch.clamp(pred_region, 0, 1)
+                    target_region = torch.clamp(target_region, 0, 1)
+                    dice_score = self._dice_coefficient(pred_region, target_region)
+
+                    # Surface dice on spatial structure
+                    pred_masked = pred_class.clone()
+                    pred_masked[~region_mask] = 0
+                    target_masked = target_class.clone()
+                    target_masked[~region_mask] = 0
+
+                    surface_score = self._surface_dice_coefficient(
+                        pred_masked,
+                        target_masked,
+                        threshold=threshold,
+                        distance_metric=self.distance_metric,
+                    )
+
+                    # Average the two metrics
+                    region_score = (dice_score + surface_score) / 2.0
+
+                region_scores.append(region_score)
 
             # Mean across regions for this class
             if region_scores:
@@ -303,6 +382,53 @@ class CCMetric:
             torch.sum(pred) + torch.sum(gt) + smooth
         )
         return dice
+
+    @staticmethod
+    def _surface_dice_coefficient(
+        pred: torch.Tensor,
+        gt: torch.Tensor,
+        threshold: float = 2.0,
+        distance_metric: str = "euclidean",
+    ) -> torch.Tensor:
+        """
+        Calculate Surface Dice coefficient between prediction and ground truth.
+
+        This computes the Normalized Surface Dice (NSD), which measures the fraction
+        of the ground truth boundary that is correctly predicted within a distance threshold.
+
+        Args:
+            pred: Prediction tensor of shape (H, W) or (H, W, D)
+            gt: Ground truth tensor of shape (H, W) or (H, W, D)
+            threshold: Distance threshold in pixels/mm for boundary matching
+            distance_metric: Distance metric ("euclidean", "chessboard", "taxicab")
+
+        Returns:
+            Surface Dice coefficient score as tensor (scalar between 0 and 1)
+        """
+        from monai.metrics import compute_surface_dice
+
+        # Convert to binary if needed (thresholding at 0.5)
+        pred_binary = (pred > 0.5).float()
+        gt_binary = gt.float()
+
+        # Add batch and channel dimensions for MONAI
+        if pred_binary.dim() == 2:  # (H, W)
+            pred_binary = pred_binary.unsqueeze(0).unsqueeze(0)  # (1, 1, H, W)
+            gt_binary = gt_binary.unsqueeze(0).unsqueeze(0)
+        elif pred_binary.dim() == 3:  # (H, W, D)
+            pred_binary = pred_binary.unsqueeze(0).unsqueeze(0)  # (1, 1, H, W, D)
+            gt_binary = gt_binary.unsqueeze(0).unsqueeze(0)
+
+        # Compute surface dice using MONAI
+        surface_dice = compute_surface_dice(
+            y_pred=pred_binary,
+            y=gt_binary,
+            class_thresholds=[threshold],
+            include_background=True,
+            distance_metric=distance_metric,
+        )
+        # Result is tensor, squeeze to scalar
+        return surface_dice.squeeze()
 
     def reset(self) -> None:
         """Reset accumulated scores. Required for MONAI compatibility."""
