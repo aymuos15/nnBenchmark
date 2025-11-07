@@ -1,0 +1,68 @@
+#===============================================================================
+# Example: CCMetric with Surface Dice Support
+#===============================================================================
+# This configuration demonstrates the new surface dice functionality in CCMetric.
+#
+# The metric_type parameter controls what metric is computed per region:
+#   - "dice": Standard Dice coefficient per region (original behavior)
+#   - "surface_dice": Surface Dice per region (boundary-focused)
+#   - "both": Average of Dice and Surface Dice per region
+#
+# When metric_type is "surface_dice" or "both", class_thresholds must be
+# specified. This defines the tolerance (in pixels/mm) for boundary matching.
+#
+# Common threshold values:
+#   - 2.0 pixels: Standard for most applications
+#   - 1.0 pixels: Strict boundary matching
+#   - 3.0+ pixels: More lenient boundary tolerance
+#===============================================================================
+
+base_config: fold_0.yaml
+
+overrides:
+  dataset:
+    fold: -1
+
+  training:
+    epochs: 1000
+    num_workers: 5
+
+  metrics:
+    # Standard Dice metric for baseline
+    - type: DiceMetric
+      include_background: false
+      reduction: mean_batch
+      num_classes: 2
+
+    # CCMetric with regular Dice per region (original)
+    - type: CCMetric
+      include_background: false
+      reduction: mean_batch
+      num_classes: 2
+      metric_type: dice
+
+    # CCMetric with Surface Dice per region
+    # Measures boundary accuracy for each connected component
+    - type: CCMetric
+      include_background: false
+      reduction: mean_batch
+      num_classes: 2
+      metric_type: surface_dice
+      class_thresholds: [2.0]  # 2.0 pixel tolerance
+      distance_metric: euclidean
+
+    # CCMetric with both Dice and Surface Dice (averaged)
+    # Provides a balanced assessment of volume and boundary accuracy
+    - type: CCMetric
+      include_background: false
+      reduction: mean_batch
+      num_classes: 2
+      metric_type: both
+      class_thresholds: [2.0]
+      distance_metric: euclidean
+
+    # Also include standard Surface Dice for comparison
+    - type: SurfaceDiceMetric
+      include_background: false
+      reduction: mean_batch
+      class_thresholds: [2.0]

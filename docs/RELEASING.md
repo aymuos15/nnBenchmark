@@ -26,7 +26,7 @@ Before starting, determine:
 
 Example:
 ```bash
-git log v0.1.2..HEAD --oneline
+git log v0.1.4..HEAD --oneline
 ```
 
 ### 2. Update Version Numbers
@@ -38,13 +38,13 @@ Change the version in the `[project]` section:
 ```toml
 [project]
 name = "nnbenchmark"
-version = "0.1.3"  # Update this
+version = "0.1.5"  # Update this
 ```
 
 #### Update `src/utils/__init__.py`
 Change the `__version__` variable:
 ```python
-__version__ = "0.1.3"  # Update this
+__version__ = "0.1.5"  # Update this
 ```
 
 ### 3. Update CHANGELOG.md
@@ -52,7 +52,7 @@ __version__ = "0.1.3"  # Update this
 Add a new section at the top of `CHANGELOG.md` following the [Keep a Changelog](https://keepachangelog.com/) format:
 
 ```markdown
-## [0.1.3] - 2025-11-03
+## [0.1.5] - 2025-11-06
 
 ### Added
 - Feature 1 description
@@ -84,7 +84,7 @@ Stage and commit all version updates:
 git add pyproject.toml src/utils/__init__.py CHANGELOG.md
 
 git commit -m "$(cat <<'EOF'
-chore: release v0.1.3
+chore: release v0.1.5
 
 🤖 Generated with Claude Code
 
@@ -103,10 +103,10 @@ git log --oneline -1
 Create a signed tag pointing to the release commit:
 
 ```bash
-git tag v0.1.3
+git tag v0.1.5
 
 # Verify the tag
-git tag -l -n1 v0.1.3
+git tag -l -n1 v0.1.5
 ```
 
 ### 6. Build Distribution Package
@@ -118,12 +118,12 @@ python -m build
 ```
 
 This creates:
-- `dist/nnbenchmark-0.1.3.tar.gz` (source distribution)
-- `dist/nnbenchmark-0.1.3-py3-none-any.whl` (wheel)
+- `dist/nnbenchmark-0.1.5.tar.gz` (source distribution)
+- `dist/nnbenchmark-0.1.5-py3-none-any.whl` (wheel)
 
 Verify the build:
 ```bash
-ls -lh dist/nnbenchmark-0.1.3*
+ls -lh dist/nnbenchmark-0.1.5*
 ```
 
 ### 7. Publish to PyPI
@@ -159,15 +159,15 @@ chmod 600 ~/.pypirc
 #### Publish to Test PyPI (Recommended First)
 
 ```bash
-python -m twine upload --repository testpypi dist/nnbenchmark-0.1.3*
+python -m twine upload --repository testpypi dist/nnbenchmark-0.1.5*
 ```
 
 View the uploaded package:
-- Test PyPI: https://test.pypi.org/project/nnbenchmark/0.1.3/
+- Test PyPI: https://test.pypi.org/project/nnbenchmark/0.1.5/
 
 **Test the installation**:
 ```bash
-pip install -i https://test.pypi.org/simple/ nnbenchmark==0.1.3
+pip install -i https://test.pypi.org/simple/ nnbenchmark==0.1.5
 ```
 
 #### Publish to Production PyPI
@@ -175,11 +175,11 @@ pip install -i https://test.pypi.org/simple/ nnbenchmark==0.1.3
 Once verified on Test PyPI:
 
 ```bash
-python -m twine upload dist/nnbenchmark-0.1.3*
+python -m twine upload dist/nnbenchmark-0.1.5*
 ```
 
 View the package:
-- PyPI: https://pypi.org/project/nnbenchmark/0.1.3/
+- PyPI: https://pypi.org/project/nnbenchmark/0.1.5/
 
 ### 8. Push to Remote Repository
 
@@ -187,27 +187,27 @@ Push the commit and tag to GitHub:
 
 ```bash
 git push origin master
-git push origin v0.1.3
+git push origin v0.1.5
 ```
 
 Verify:
 - Commit appears on GitHub: https://github.com/aymuos15/nnBenchmark/commit/<commit-hash>
-- Tag appears on GitHub: https://github.com/aymuos15/nnBenchmark/releases/tag/v0.1.3
+- Tag appears on GitHub: https://github.com/aymuos15/nnBenchmark/releases/tag/v0.1.5
 
 ### 9. Create GitHub Release
 
 Create a formal GitHub Release with the changelog:
 
 ```bash
-gh release create v0.1.3 \
-  --title "v0.1.3" \
-  --notes "$(cat CHANGELOG.md | sed -n '/## \[0.1.3\]/,/## \[/p' | head -n -1)"
+gh release create v0.1.5 \
+  --title "v0.1.5" \
+  --notes "$(cat CHANGELOG.md | sed -n '/## \[0.1.5\]/,/## \[/p' | head -n -1)"
 ```
 
 Or manually on GitHub:
 1. Go to https://github.com/aymuos15/nnBenchmark/releases/new
-2. Select tag: `v0.1.3`
-3. Title: `v0.1.3`
+2. Select tag: `v0.1.5`
+3. Title: `v0.1.5`
 4. Description: Copy the relevant section from CHANGELOG.md
 5. Click "Publish release"
 
@@ -218,13 +218,13 @@ Or manually on GitHub:
 - [ ] Updated `src/utils/__init__.py` version
 - [ ] Updated CHANGELOG.md with release notes
 - [ ] Created release commit
-- [ ] Created git tag (v0.1.3)
+- [ ] Created git tag (v0.1.5)
 - [ ] Built distribution (`python -m build`)
 - [ ] Published to Test PyPI and verified
 - [ ] Tested installation from Test PyPI
 - [ ] Published to Production PyPI
 - [ ] Pushed commit to GitHub (`git push origin master`)
-- [ ] Pushed tag to GitHub (`git push origin v0.1.3`)
+- [ ] Pushed tag to GitHub (`git push origin v0.1.5`)
 - [ ] Created GitHub Release with changelog
 
 ## Troubleshooting
@@ -244,10 +244,10 @@ The token may be invalid or expired:
 ### Tag Already Exists
 If the tag was already pushed but you need to retag:
 ```bash
-git tag -d v0.1.3  # Delete local tag
-git push origin :refs/tags/v0.1.3  # Delete remote tag
-git tag v0.1.3  # Create new tag
-git push origin v0.1.3
+git tag -d v0.1.5  # Delete local tag
+git push origin :refs/tags/v0.1.5  # Delete remote tag
+git tag v0.1.5  # Create new tag
+git push origin v0.1.5
 ```
 
 ## References

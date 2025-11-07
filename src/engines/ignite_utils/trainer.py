@@ -390,11 +390,13 @@ def create_trainer(
             for name, metric_fn in metric_fns.items():
                 result = metric_fn.aggregate()
 
-                # Extract mean value
-                if hasattr(result, "mean"):
+                # Extract mean value and per-class values
+                if hasattr(result, "mean") and hasattr(result, "shape") and len(result.shape) > 0:
+                    # Multi-dimensional result (per-class metrics)
                     mean_val = result.mean().item()
                     per_class_vals = result
                 else:
+                    # Scalar result (single metric value)
                     mean_val = result.item()
                     per_class_vals = None
 
