@@ -195,7 +195,8 @@ class CCLoss(nn.Module):
 
             if num_regions == 0:
                 # No ground truth for this class, loss = 1.0
-                class_losses.append(torch.tensor(1.0, device=pred.device, dtype=pred.dtype))
+                # Use pred to create a tensor that's part of the computation graph
+                class_losses.append(pred_class.sum() * 0.0 + 1.0)
                 continue
 
             # Compute dice score for each region
@@ -211,7 +212,8 @@ class CCLoss(nn.Module):
                 # Handle empty regions
                 if target_region.sum() == 0:
                     # Ground truth is empty for this region
-                    region_dice_scores.append(torch.tensor(1.0, device=pred.device, dtype=pred.dtype))
+                    # Use pred_region to create a tensor that's part of the computation graph
+                    region_dice_scores.append(pred_region.sum() * 0.0 + 1.0)
                     continue
 
                 # Compute differentiable dice score
@@ -222,7 +224,8 @@ class CCLoss(nn.Module):
             if region_dice_scores:
                 mean_dice = torch.mean(torch.stack(region_dice_scores))
             else:
-                mean_dice = torch.tensor(1.0, device=pred.device, dtype=pred.dtype)
+                # Use pred_class to create a tensor that's part of the computation graph
+                mean_dice = pred_class.sum() * 0.0 + 1.0
 
             # Convert to loss: loss = 1 - dice_score
             class_loss = 1.0 - mean_dice
@@ -236,7 +239,8 @@ class CCLoss(nn.Module):
             else:
                 sample_loss = class_losses[0]
         else:
-            sample_loss = torch.tensor(1.0, device=pred.device, dtype=pred.dtype)
+            # Use pred to create a tensor that's part of the computation graph
+            sample_loss = pred.sum() * 0.0 + 1.0
 
         return sample_loss
 
