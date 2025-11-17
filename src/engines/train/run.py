@@ -182,10 +182,6 @@ def run_training(
     # Check if mixed precision training is enabled (default: False)
     use_amp: bool = cfg.get("training", {}).get("mixed_precision", False)
 
-    # Build metrics for config validation
-    metric_fns = metric_registry.build(cfg)
-    checkpoint_metric, plot_metrics = validate_metrics_config(cfg, metric_fns)
-
     # Validate deep supervision configuration
     validate_deep_supervision_config(cfg)
 
@@ -195,10 +191,8 @@ def run_training(
     log.info(f"Epochs: {cfg['training']['epochs']}")
     log.info(f"Batch size: {cfg['training']['batch_size']}")
     if training_all_data:
-        log.info("Training on all data (fold=-1): using training set as validation set")
-    log.info(f"Validation: Every epoch")
-    log.info(f"Checkpoint metric: {checkpoint_metric}")
-    log.info(f"Plot metrics: {plot_metrics}")
+        log.info("Training on all data (fold=-1): training without validation split")
+    log.info(f"Checkpoint: Best model based on training loss")
     log.info(f"Mixed precision (AMP): {'Enabled' if use_amp else 'Disabled'}")
 
     # Log deep supervision configuration
@@ -278,21 +272,7 @@ def run_training(
         pin_memory=False,
     )
 
-    val_loader = (
-        DataLoader(
-            val_ds,
-            batch_size=1,  # Validation uses batch_size=1 for full volumes
-            num_workers=num_workers,
-            persistent_workers=persistent_workers,
-            pin_memory=False,
-        )
-        if val_ds is not None
-        else None
-    )
-
     log.info(f"Training samples: {len(train_ds)}")
-    if val_loader is not None:
-        log.info(f"Validation samples: {len(val_ds)}")  # type: ignore[arg-type]
 
     # Check for existing checkpoint (automatic detection)
     checkpoint_exists = find_latest_checkpoint(results_dir) is not None
@@ -315,15 +295,14 @@ def run_training(
                 ckpt_path.unlink()
             checkpoint_exists = False  # Update flag after deletion
 
-    # Create MONAI trainer and evaluator
+    # Create MONAI trainer
     log.info("Creating MONAI SupervisedTrainer...")
     log.info("Using GPU device: 0")
 
-    trainer, evaluator, optimizer, lr_scheduler, scaler = create_trainer(
+    trainer, optimizer, lr_scheduler, scaler = create_trainer(
         cfg=cfg,
         device=device,
         train_loader=train_loader,
-        val_loader=val_loader,
         results_dir=results_dir,
         logger=log,
     )
@@ -438,25 +417,20 @@ def run_training(
     history_path = str(Path(results_dir) / "training_history.json")
     log.info(f"Training history saved to: {history_path}")
 
-    # Get best metric value from evaluator if available
-    if evaluator and hasattr(evaluator.state, "metrics"):
-        best_metric_val = evaluator.state.metrics.get(
-            f"val_{checkpoint_metric}", -1.0
-        )
-        if isinstance(best_metric_val, torch.Tensor):
-            best_metric_val = best_metric_val.item()
-        log.info(f"Best {checkpoint_metric}: {best_metric_val:.4f}")
-        if training_all_data:
-            log_and_print(
-                log,
-                f"\nTraining completed on all data! Best {checkpoint_metric}: {best_metric_val:.4f} (on training set)",
-            )
-        else:
-            log_and_print(
-                log,
-                f"\nTraining completed! Best {checkpoint_metric}: {best_metric_val:.4f}",
-            )
-    else:
-            log_and_print(log, "\nTraining completed!")
-
+    # Report training completion
+    log_and_print(log, "\nTraining completed!")
     log_and_print(log, f"Training history saved to: {history_path}")
+
+    # Report best checkpoint if loss-based tracking was used
+    best_checkpoint_pattern = str(Path(results_dir) / "best_model_model_loss*.pt")
+    import glob
+    best_checkpoints = glob.glob(best_checkpoint_pattern)
+    if best_checkpoints:
+        best_checkpoint = best_checkpoints[0]
+        # Extract loss value from filename
+        import re
+        match = re.search(r'loss=([\d.]+)\.pt', best_checkpoint)
+        if match:
+            best_loss = float(match.group(1))
+            log_and_print(log, f"Best training loss: {best_loss:.4f}")
+            log_and_print(log, f"Best checkpoint saved to: {best_checkpoint}")

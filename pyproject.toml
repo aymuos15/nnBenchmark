@@ -54,6 +54,7 @@ dev = [
 
 [project.scripts]
 "nnBench.train" = "src.engines.train.cli:main"
+"nnBench.validate" = "src.engines.validate.cli:main"
 "nnBench.inference" = "src.engines.inference.cli:main"
 "nnBench.plot" = "src.plotting.cli:main"
 "nnBench.plan" = "src.planning.cli:main"

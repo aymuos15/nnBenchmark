@@ -12,19 +12,14 @@ import torch
 import torch.nn as nn
 from ignite.engine import Engine, Events
 from monai.data import DataLoader
-from monai.engines import SupervisedEvaluator, SupervisedTrainer
+from monai.engines import SupervisedTrainer
 from monai.handlers.lr_schedule_handler import LrScheduleHandler
-from monai.networks.utils import one_hot
 
-from src.engines.ignite_utils.progress import (
-    ConsoleProgressHandler,
-    ValidationProgressHandler,
-)
+from src.engines.ignite_utils.progress import ConsoleProgressHandler
 from src.engines.train.handlers import (
     ComprehensiveCheckpointHandler,
     TrainingHistoryHandler,
     TrainingLogger,
-    ValidationVisualizationHandler,
 )
 from src.factory import (
     loss_registry,
@@ -139,30 +134,28 @@ def create_trainer(
     cfg: dict[str, Any],
     device: torch.device,
     train_loader: DataLoader,
-    val_loader: DataLoader | None,
     results_dir: str,
     logger: Logger,
 ) -> tuple[
     SupervisedTrainer,
-    SupervisedEvaluator | None,
     torch.optim.Optimizer,
     Any,  # LR scheduler
     torch.amp.GradScaler,
 ]:  # type: ignore[return]
     """
-    Create MONAI SupervisedTrainer and Evaluator.
+    Create MONAI SupervisedTrainer.
     Logs always append to existing files.
+    Validation is now performed post-training via nnBench.validate.
 
     Args:
         cfg: Configuration dictionary
         device: Device to use
         train_loader: Training data loader
-        val_loader: Validation data loader (None if training on all data)
         results_dir: Directory to save results
         logger: Loguru logger instance
 
     Returns:
-        Tuple of (trainer, evaluator). Evaluator is None if val_loader is None.
+        Tuple of (trainer, optimizer, lr_scheduler, scaler).
     """
     # Build model
     model = model_registry.build(cfg["model"], device)
@@ -189,7 +182,6 @@ def create_trainer(
     # Get training parameters
     max_epochs = cfg["training"]["epochs"]
     use_amp = cfg.get("training", {}).get("mixed_precision", False)
-    training_all_data = val_loader is None
 
     # Create learning rate scheduler
     lr_config = cfg.get("lr_scheduler", {})
@@ -278,10 +270,7 @@ def create_trainer(
     trainer.add_event_handler(Events.EPOCH_COMPLETED, clear_gpu_cache)
 
     # Add training history handler (always appends to existing history)
-    # Note: training_all_data is now False since we always have validation (uses train set when fold=-1)
-    history_handler = TrainingHistoryHandler(
-        results_dir, training_all_data=False
-    )
+    history_handler = TrainingHistoryHandler(results_dir)
     history_handler.attach(trainer)
 
     # Add console progress handler
@@ -292,177 +281,19 @@ def create_trainer(
     training_logger = TrainingLogger(logger)
     training_logger.attach(trainer)
 
-    # Add checkpoint saver
+    # Add checkpoint saver based on training loss
     checkpoint_dir = Path(results_dir)
+    checkpoint_handler = ComprehensiveCheckpointHandler(
+        save_dir=str(checkpoint_dir),
+        model=model,
+        optimizer=optimizer,
+        lr_scheduler=lr_scheduler,
+        scaler=scaler,
+        cfg=cfg,
+        save_interval=1,
+        checkpoint_metric="loss",  # Use training loss for best model
+        evaluator=None,  # No validation during training
+    )
+    checkpoint_handler.attach(trainer)
 
-    # Create evaluator for validation if validation data exists
-    evaluator = None
-    if val_loader is not None:
-        # Build metrics
-        metric_fns = metric_registry.build(cfg)
-        num_classes = cfg["dataset"]["num_classes"]
-        spatial_dims = model_cfg.get("spatial_dims", 3)
-
-        # Validation post-processing function
-        def validation_iteration(engine: Engine, batch: Any) -> dict[str, Any]:
-            """Validation iteration with metric computation."""
-            model.eval()
-
-            with torch.no_grad():
-                # Prepare batch
-                images, labels = _prepare_batch(batch, device, non_blocking=True)
-
-                # Ensure labels are integers and within valid range
-                labels = torch.round(labels).long()
-                labels = torch.clamp(labels, min=0, max=num_classes - 1)
-
-                # Forward pass
-                with torch.amp.autocast(device_type="cuda", enabled=use_amp):
-                    outputs = model(images)
-
-                # Handle deep supervision output format (use only final output)
-                expected_ds_ndim = 3 + spatial_dims
-                if (
-                    deep_supervision
-                    and isinstance(outputs, torch.Tensor)
-                    and outputs.ndim == expected_ds_ndim
-                ):
-                    final_output = outputs[:, 0, ...]  # First output is final
-                elif deep_supervision and isinstance(outputs, list):
-                    final_output = outputs[-1]  # Last output
-                else:
-                    final_output = outputs
-
-                # Get predictions (argmax for multi-class)
-                preds = torch.argmax(final_output, dim=1, keepdim=True)
-
-                # Convert to one-hot format for metrics
-                preds_one_hot = one_hot(preds, num_classes=num_classes)
-                labels_one_hot = one_hot(labels, num_classes=num_classes)
-
-                # Accumulate metrics
-                for metric_fn in metric_fns.values():
-                    metric_fn(preds_one_hot, labels_one_hot)
-
-                return {
-                    "images": images,
-                    "labels": labels,
-                    "predictions": preds,
-                    "outputs": final_output,
-                }
-
-        # Create evaluator
-        evaluator = Engine(validation_iteration)
-
-        # Initialize metrics dict in evaluator state (needed for CheckpointSaver)
-        evaluator.state.metrics = {}
-
-        # Add validation progress handler
-        val_progress_handler = ValidationProgressHandler()
-        val_progress_handler.attach(evaluator)
-
-        # Add validation visualization handler
-        viz_handler = ValidationVisualizationHandler(
-            results_dir, spatial_dims, skip_if_no_validation=False
-        )
-
-        # Save visualization for first batch
-        @evaluator.on(Events.ITERATION_COMPLETED(once=1))
-        def save_viz(engine: Engine) -> None:
-            """Save visualization for first batch."""
-            output = engine.state.output
-            current_epoch = trainer.state.epoch
-            viz_handler.save_visualization(
-                output["images"],  # type: ignore[index, call-overload]
-                output["labels"],  # type: ignore[index, call-overload]
-                output["predictions"],  # type: ignore[index, call-overload]
-                current_epoch,
-            )
-
-        # Compute metrics at end of validation (before checkpoint saver)
-        @evaluator.on(Events.EPOCH_COMPLETED)
-        def compute_metrics(engine: Engine) -> None:
-            """Compute and log metrics after validation."""
-            current_epoch = trainer.state.epoch
-            metrics_dict = {}
-
-            # Compute final metrics from accumulated values
-            for name, metric_fn in metric_fns.items():
-                result = metric_fn.aggregate()
-
-                # Extract mean value and per-class values
-                if hasattr(result, "mean") and hasattr(result, "shape") and len(result.shape) > 0:
-                    # Multi-dimensional result (per-class metrics)
-                    mean_val = result.mean().item()
-                    per_class_vals = result
-                else:
-                    # Scalar result (single metric value)
-                    mean_val = result.item()
-                    per_class_vals = None
-
-                # Store mean metric
-                metrics_dict[f"val_{name}"] = mean_val
-
-                # Store per-class metrics if available
-                if per_class_vals is not None:
-                    for class_idx in range(per_class_vals.shape[0]):
-                        class_val = per_class_vals[class_idx].item()
-                        metrics_dict[f"val_{name}_class{class_idx}"] = class_val
-
-                # Reset metric for next epoch
-                metric_fn.reset()
-
-            # Log metrics to history
-            history_handler.record_validation_metrics(current_epoch, metrics_dict)
-
-            # Log metrics to file
-            training_logger.log_validation_metrics(
-                current_epoch, max_epochs, metrics_dict
-            )
-
-            # Update console with validation metrics
-            progress_handler.update_with_validation_metrics(metrics_dict)
-
-            # Store metrics in evaluator state for checkpoint saver
-            engine.state.metrics = metrics_dict
-
-        # Run validation every epoch
-        @trainer.on(Events.EPOCH_COMPLETED)
-        def run_validation(engine: Engine) -> None:
-            """Run validation every epoch."""
-            evaluator.run(val_loader)
-
-        # Add comprehensive checkpoint saver based on validation metric
-        from src.config.validation import validate_metrics_config
-
-        checkpoint_metric, _ = validate_metrics_config(cfg, metric_fns)
-
-        checkpoint_handler = ComprehensiveCheckpointHandler(
-            save_dir=str(checkpoint_dir),
-            model=model,
-            optimizer=optimizer,
-            lr_scheduler=lr_scheduler,
-            scaler=scaler,
-            cfg=cfg,
-            save_interval=1,
-            checkpoint_metric=f"val_{checkpoint_metric}",
-            evaluator=evaluator,
-        )
-        checkpoint_handler.attach(trainer)
-
-    else:
-        # No validation - save comprehensive checkpoint every epoch
-        checkpoint_handler = ComprehensiveCheckpointHandler(
-            save_dir=str(checkpoint_dir),
-            model=model,
-            optimizer=optimizer,
-            lr_scheduler=lr_scheduler,
-            scaler=scaler,
-            cfg=cfg,
-            save_interval=1,
-            checkpoint_metric=None,
-            evaluator=None,
-        )
-        checkpoint_handler.attach(trainer)
-
-    return trainer, evaluator, optimizer, lr_scheduler, scaler  # type: ignore[return-value]
+    return trainer, optimizer, lr_scheduler, scaler  # type: ignore[return-value]

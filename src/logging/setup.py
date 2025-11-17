@@ -69,6 +69,19 @@ def setup_test_logger(results_dir: str) -> Any:
     return setup_logger(results_dir, "test")
 
 
+def setup_val_logger(results_dir: str) -> Any:
+    """
+    Setup loguru logger for validation that writes to val.log file only.
+
+    Args:
+        results_dir: Directory where val.log will be saved
+
+    Returns:
+        Configured logger instance
+    """
+    return setup_logger(results_dir, "val")
+
+
 def setup_verbose_logger(
     level: str = "DEBUG", format_string: str | None = None
 ) -> None:
