@@ -134,23 +134,20 @@ class TestRunTrainingDataLoading:
                                 with patch(
                                     "src.engines.train.run.validate_required_field"
                                 ):
-                                    with patch(
-                                        "src.engines.train.run.metric_registry.build"
-                                    ):
-                                        mock_log = MagicMock()
-                                        mock_logger.return_value = mock_log
-                                        mock_get_seed.return_value = 42
-                                        mock_setup.return_value = (
-                                            sample_config,
-                                            torch.device("cpu"),
-                                            str(tmp_path / "data"),
-                                            str(tmp_path / "results"),
-                                            "test_config",
-                                        )
-                                        mock_setup.side_effect = Exception("Stop")
+                                    mock_log = MagicMock()
+                                    mock_logger.return_value = mock_log
+                                    mock_get_seed.return_value = 42
+                                    mock_setup.return_value = (
+                                        sample_config,
+                                        torch.device("cpu"),
+                                        str(tmp_path / "data"),
+                                        str(tmp_path / "results"),
+                                        "test_config",
+                                    )
+                                    mock_setup.side_effect = Exception("Stop")
 
-                                        with pytest.raises(Exception):
-                                            run_training(str(config_file))
+                                    with pytest.raises(Exception):
+                                        run_training(str(config_file))
 
     def test_run_training_detects_training_all_data(
         self, sample_config: dict, tmp_path: Path
@@ -209,39 +206,36 @@ class TestRunTrainingCheckpointHandling:
                                     "src.engines.train.run.validate_required_field"
                                 ):
                                     with patch(
-                                        "src.engines.train.run.metric_registry.build"
-                                    ):
-                                        with patch(
-                                            "src.engines.train.run.create_trainer"
-                                        ) as mock_trainer:
-                                            mock_log = MagicMock()
-                                            mock_logger.return_value = mock_log
-                                            mock_get_seed.return_value = 42
-                                            mock_setup.return_value = (
-                                                sample_config,
-                                                torch.device("cpu"),
-                                                str(tmp_path / "data"),
-                                                str(results_dir),
-                                                "test_config",
-                                            )
+                                        "src.engines.train.run.create_trainer"
+                                    ) as mock_trainer:
+                                        mock_log = MagicMock()
+                                        mock_logger.return_value = mock_log
+                                        mock_get_seed.return_value = 42
+                                        mock_setup.return_value = (
+                                            sample_config,
+                                            torch.device("cpu"),
+                                            str(tmp_path / "data"),
+                                            str(results_dir),
+                                            "test_config",
+                                        )
 
-                                            # Create mock trainer/evaluator
-                                            mock_trainer_obj = MagicMock()
-                                            mock_trainer_obj.network = MagicMock()
-                                            mock_trainer.return_value = (
-                                                mock_trainer_obj,
-                                                None,
-                                            )
+                                        # Create mock trainer/evaluator
+                                        mock_trainer_obj = MagicMock()
+                                        mock_trainer_obj.network = MagicMock()
+                                        mock_trainer.return_value = (
+                                            mock_trainer_obj,
+                                            None,
+                                        )
 
-                                            mock_trainer_obj.run.side_effect = (
-                                                Exception("Stop")
-                                            )
+                                        mock_trainer_obj.run.side_effect = Exception(
+                                            "Stop"
+                                        )
 
-                                            with pytest.raises(Exception):
-                                                run_training(str(config_file))
+                                        with pytest.raises(Exception):
+                                            run_training(str(config_file))
 
-                                            # Checkpoint should still exist
-                                            assert checkpoint.exists()
+                                        # Checkpoint should still exist
+                                        assert checkpoint.exists()
 
 
 class TestRunTrainingMixedPrecision:

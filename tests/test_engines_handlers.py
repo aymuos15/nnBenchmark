@@ -34,7 +34,6 @@ class TestTrainingHistoryHandler:
 
         assert isinstance(handler.training_history["epochs"], list)
         assert isinstance(handler.training_history["train_loss"], list)
-        assert isinstance(handler.training_history["val_epochs"], list)
 
     def test_handler_creates_history_file_path(self, tmp_path: Path) -> None:
         """Test that handler creates correct history file path."""

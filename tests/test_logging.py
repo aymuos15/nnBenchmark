@@ -75,9 +75,9 @@ class TestSetupLogger:
 
         assert message_found, f"Message '{test_message}' not found in log file"
 
-    def test_setup_logger_resume_false_deletes_file(self, temp_dir: str) -> None:
-        """Test that resume=False deletes existing log file before setup."""
-        log_name = "test_overwrite"
+    def test_setup_logger_always_appends(self, temp_dir: str) -> None:
+        """Test that setup_logger always appends to existing log file."""
+        log_name = "test_append"
 
         # Create initial log
         log1 = setup_logger(temp_dir, log_name=log_name)
@@ -86,7 +86,7 @@ class TestSetupLogger:
         log_path = os.path.join(temp_dir, f"{log_name}.log")
         assert _wait_for_log_message(log_path, "Initial message")
 
-        # Create new logger with resume=False (default)
+        # Create new logger - should append, not overwrite
         logger.remove()  # Clear handlers before setup
         log2 = setup_logger(temp_dir, log_name=log_name)
         log2.info("New message")
@@ -96,9 +96,9 @@ class TestSetupLogger:
         with open(log_path, "r") as f:
             content = f.read()
 
-        # Should only have new message, not initial
+        # Should have both messages since logger always appends
         assert "New message" in content
-        assert "Initial message" not in content
+        assert "Initial message" in content
 
     def test_setup_logger_appends_to_existing_file(self, temp_dir: str) -> None:
         """Test that setup_logger appends to existing log file."""

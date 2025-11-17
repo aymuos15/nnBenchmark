@@ -130,26 +130,22 @@ class TestCreateTrainerBasics:
                 with patch(
                     "src.engines.ignite_utils.trainer.optimizer_registry.build"
                 ) as mock_opt:
-                    with patch(
-                        "src.engines.ignite_utils.trainer.metric_registry.build"
-                    ) as mock_metrics:
-                        mock_model.return_value = nn.Linear(1, 1)
-                        mock_loss.return_value = nn.MSELoss()
-                        mock_opt.return_value = torch.optim.SGD(
-                            nn.Linear(1, 1).parameters(), lr=0.001
-                        )
-                        mock_metrics.return_value = {}
+                    mock_model.return_value = nn.Linear(1, 1)
+                    mock_loss.return_value = nn.MSELoss()
+                    mock_opt.return_value = torch.optim.SGD(
+                        nn.Linear(1, 1).parameters(), lr=0.001
+                    )
 
-                        create_trainer(
-                            cfg=sample_config,
-                            device=device,
-                            train_loader=loader,
-                            results_dir=str(tmp_path),
-                            logger=logger,
-                        )
+                    create_trainer(
+                        cfg=sample_config,
+                        device=device,
+                        train_loader=loader,
+                        results_dir=str(tmp_path),
+                        logger=logger,
+                    )
 
-                        # Model registry should be called
-                        assert mock_model.called
+                    # Model registry should be called
+                    assert mock_model.called
 
     def test_create_trainer_calls_loss_registry(
         self, sample_config: dict, tmp_path
@@ -178,26 +174,22 @@ class TestCreateTrainerBasics:
                 with patch(
                     "src.engines.ignite_utils.trainer.optimizer_registry.build"
                 ) as mock_opt:
-                    with patch(
-                        "src.engines.ignite_utils.trainer.metric_registry.build"
-                    ) as mock_metrics:
-                        mock_model.return_value = nn.Linear(1, 1)
-                        mock_loss.return_value = nn.MSELoss()
-                        mock_opt.return_value = torch.optim.SGD(
-                            nn.Linear(1, 1).parameters(), lr=0.001
-                        )
-                        mock_metrics.return_value = {}
+                    mock_model.return_value = nn.Linear(1, 1)
+                    mock_loss.return_value = nn.MSELoss()
+                    mock_opt.return_value = torch.optim.SGD(
+                        nn.Linear(1, 1).parameters(), lr=0.001
+                    )
 
-                        create_trainer(
-                            cfg=sample_config,
-                            device=device,
-                            train_loader=loader,
-                            results_dir=str(tmp_path),
-                            logger=logger,
-                        )
+                    create_trainer(
+                        cfg=sample_config,
+                        device=device,
+                        train_loader=loader,
+                        results_dir=str(tmp_path),
+                        logger=logger,
+                    )
 
-                        # Loss registry should be called
-                        assert mock_loss.called
+                    # Loss registry should be called
+                    assert mock_loss.called
 
     def test_create_trainer_builds_optimizer(
         self, sample_config: dict, tmp_path
@@ -226,26 +218,22 @@ class TestCreateTrainerBasics:
                 with patch(
                     "src.engines.ignite_utils.trainer.optimizer_registry.build"
                 ) as mock_opt:
-                    with patch(
-                        "src.engines.ignite_utils.trainer.metric_registry.build"
-                    ) as mock_metrics:
-                        mock_model.return_value = nn.Linear(1, 1)
-                        mock_loss.return_value = nn.MSELoss()
-                        mock_opt.return_value = torch.optim.SGD(
-                            nn.Linear(1, 1).parameters(), lr=0.001
-                        )
-                        mock_metrics.return_value = {}
+                    mock_model.return_value = nn.Linear(1, 1)
+                    mock_loss.return_value = nn.MSELoss()
+                    mock_opt.return_value = torch.optim.SGD(
+                        nn.Linear(1, 1).parameters(), lr=0.001
+                    )
 
-                        create_trainer(
-                            cfg=sample_config,
-                            device=device,
-                            train_loader=loader,
-                            results_dir=str(tmp_path),
-                            logger=logger,
-                        )
+                    create_trainer(
+                        cfg=sample_config,
+                        device=device,
+                        train_loader=loader,
+                        results_dir=str(tmp_path),
+                        logger=logger,
+                    )
 
-                        # Optimizer registry should be called
-                        mock_opt.assert_called_once()
+                    # Optimizer registry should be called
+                    mock_opt.assert_called_once()
 
 
 class TestCreateTrainerDeepSupervision:

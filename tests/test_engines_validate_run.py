@@ -33,9 +33,9 @@ class TestRunValidationSetup:
         with open(config_file, "w") as f:
             yaml.dump(sample_config, f)
 
-        # Mock setup to avoid actual validation
-        with patch("src.engines.validate.run.setup_val_logger") as mock_logger:
-            mock_logger.side_effect = Exception("Stop here for testing")
+        # Mock early to prevent actual file system operations
+        with patch("src.engines.common.setup_experiment") as mock_setup:
+            mock_setup.side_effect = Exception("Stop here for testing")
 
             with pytest.raises(Exception, match="Stop here for testing"):
                 run_validation(str(config_file), dataset="Dataset001_Hippo")
@@ -85,6 +85,7 @@ class TestRunValidationCheckpointHandling:
 
         # Mock the validation engine to avoid actual validation
         with (
+            patch("src.engines.common.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
             patch("src.engines.common.setup_device") as mock_device,
             patch("src.engines.validate.run.ValidationEngine"),
@@ -92,31 +93,30 @@ class TestRunValidationCheckpointHandling:
             patch("src.engines.validate.run.metric_registry") as mock_metrics,
             patch("src.engines.validate.run.model_registry") as mock_model,
         ):
+            # Setup experiment should return results_dir pointing to our test directory
+            mock_setup.return_value = (
+                sample_config,
+                torch.device("cpu"),
+                str(tmp_path / "data"),
+                str(checkpoint_dir),  # Use the actual checkpoint_dir
+                "test_config",
+            )
             mock_device.return_value = (torch.device("cpu"), False)
-            mock_data.return_value = []
-            mock_metrics.build.return_value = []
+            mock_data.return_value = ([], [])  # Return tuple of (train_data, val_data)
+            mock_metrics.build.return_value = {}  # Return empty dict for metrics
             mock_model.build.return_value = torch.nn.Identity()
 
-            # This should discover all 3 checkpoints
-            # We expect it to process each one
-            with patch("src.engines.validate.run.Path") as mock_path_class:
-                mock_path_instance = MagicMock()
-                mock_path_class.return_value = mock_path_instance
-                mock_path_instance.glob.return_value = [
-                    checkpoint_dir / f"checkpoint_epoch_{i:03d}.pt" for i in [1, 2, 3]
-                ]
-
-                # Run should not raise error
-                try:
-                    run_validation(
-                        str(config_file),
-                        dataset="Dataset001_Hippo",
-                        checkpoint_path=None,
-                    )
-                except Exception as e:
-                    # Allow certain expected exceptions (missing data, etc)
-                    if "fold" not in str(e) and "data" not in str(e).lower():
-                        raise
+            # Run should not raise error
+            try:
+                run_validation(
+                    str(config_file),
+                    dataset="Dataset001_Hippo",
+                    checkpoint_path=None,
+                )
+            except Exception as e:
+                # Allow certain expected exceptions (missing data, etc)
+                if "fold" not in str(e) and "data" not in str(e).lower():
+                    raise
 
     def test_run_validation_single_checkpoint_mode(
         self, sample_config: dict, tmp_path: Path
@@ -144,6 +144,7 @@ class TestRunValidationCheckpointHandling:
 
         # Mock validation components
         with (
+            patch("src.engines.common.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
             patch("src.engines.common.setup_device") as mock_device,
             patch("src.engines.validate.run.ValidationEngine"),
@@ -151,9 +152,16 @@ class TestRunValidationCheckpointHandling:
             patch("src.engines.validate.run.metric_registry") as mock_metrics,
             patch("src.engines.validate.run.model_registry") as mock_model,
         ):
+            mock_setup.return_value = (
+                sample_config,
+                torch.device("cpu"),
+                str(tmp_path / "data"),
+                str(tmp_path),
+                "test_config",
+            )
             mock_device.return_value = (torch.device("cpu"), False)
-            mock_data.return_value = []
-            mock_metrics.build.return_value = []
+            mock_data.return_value = ([], [])  # Return tuple of (train_data, val_data)
+            mock_metrics.build.return_value = {}  # Return empty dict for metrics
             mock_model.build.return_value = torch.nn.Identity()
 
             # Should process only the specified checkpoint
@@ -321,6 +329,7 @@ class TestValidationIntegration:
 
         # Mock components
         with (
+            patch("src.engines.common.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
             patch("src.engines.common.setup_device") as mock_device,
             patch("src.engines.validate.run.ValidationEngine") as mock_engine_class,
@@ -328,9 +337,16 @@ class TestValidationIntegration:
             patch("src.engines.validate.run.metric_registry") as mock_metrics,
             patch("src.engines.validate.run.model_registry") as mock_model,
         ):
+            mock_setup.return_value = (
+                sample_config,
+                torch.device("cpu"),
+                str(tmp_path / "data"),
+                str(results_dir),
+                "test_config",
+            )
             mock_device.return_value = (torch.device("cpu"), False)
-            mock_data.return_value = [{"image": "test.nii.gz"}]
-            mock_metrics.build.return_value = []
+            mock_data.return_value = ([], [{"image": "test.nii.gz"}])  # (train, val)
+            mock_metrics.build.return_value = {}  # Return empty dict for metrics
             mock_model.build.return_value = torch.nn.Identity()
 
             # Mock engine instance

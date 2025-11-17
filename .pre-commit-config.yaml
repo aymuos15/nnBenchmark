@@ -32,11 +32,11 @@ repos:
       - id: ruff-format
         types_or: [python, pyi]
 
-  # Type checking with pyright (alternative to ty for pre-commit)
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.390
+  # Type checking with basedpyright (improved fork of pyright)
+  - repo: https://github.com/DetachHead/basedpyright-pre-commit-mirror
+    rev: v1.13.0
     hooks:
-      - id: pyright
+      - id: basedpyright
         additional_dependencies:
           - torch>=2.0.0
           - monai>=1.3.0

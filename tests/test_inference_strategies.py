@@ -30,8 +30,6 @@ class SimpleMockModel(nn.Module):
     Returns output with same spatial dimensions as input but with specified number of channels.
     """
 
-    num_channels: int
-
     def __init__(self, num_channels: int = 2) -> None:
         super().__init__()
         self.num_channels: int = num_channels
@@ -372,8 +370,6 @@ class TestCreateInferer:
 
 class _FixedOutputModel(nn.Module):
     """Mock model that returns fixed output for testing edge cases."""
-
-    value: float
 
     def __init__(self, value: float = 1.0) -> None:
         super().__init__()
