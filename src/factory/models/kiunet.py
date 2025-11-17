@@ -27,7 +27,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from monai.networks.blocks import Convolution
 
-__all__ = ["KiUNet", "KiUNet2D", "KiUNet3D"]
+__all__ = ["KiUNet", "kiunet2d", "kiunet3d", "KiUNet2D", "KiUNet3D"]
 
 
 class KiUNet(nn.Module):
@@ -486,7 +486,7 @@ class KiUNet(nn.Module):
             return output
 
 
-def KiUNet2D(
+def kiunet2d(
     in_channels: int,
     out_channels: int,
     features: Sequence[int] = (16, 32, 64),
@@ -494,7 +494,7 @@ def KiUNet2D(
     act_name: Literal["relu", "leakyrelu", "prelu"] = "leakyrelu",
     deep_supervision: bool = False,
     deep_supr_num: int = 1,
-) -> KiUNet:  # noqa: N802
+) -> KiUNet:
     """Create a 2D KiU-Net model.
 
     Args:
@@ -511,10 +511,10 @@ def KiUNet2D(
         KiUNet model configured for 2D inputs
 
     Example:
-        >>> model = KiUNet2D(in_channels=1, out_channels=2, features=[32, 64, 128])
+        >>> model = kiunet2d(in_channels=1, out_channels=2, features=[32, 64, 128])
         >>> x = torch.randn(2, 1, 256, 256)
         >>> y = model(x)
-        >>> print(y.shape)  # (2, 2, 256, 256)
+        >>> y.shape  # (2, 2, 256, 256)
     """
     return KiUNet(
         spatial_dims=2,
@@ -528,7 +528,7 @@ def KiUNet2D(
     )
 
 
-def KiUNet3D(
+def kiunet3d(
     in_channels: int,
     out_channels: int,
     features: Sequence[int] = (16, 32, 64),
@@ -536,7 +536,7 @@ def KiUNet3D(
     act_name: Literal["relu", "leakyrelu", "prelu"] = "leakyrelu",
     deep_supervision: bool = False,
     deep_supr_num: int = 1,
-) -> KiUNet:  # noqa: N802
+) -> KiUNet:
     """Create a 3D KiU-Net model.
 
     Args:
@@ -553,10 +553,10 @@ def KiUNet3D(
         KiUNet model configured for 3D inputs
 
     Example:
-        >>> model = KiUNet3D(in_channels=1, out_channels=2, features=[32, 64, 128])
+        >>> model = kiunet3d(in_channels=1, out_channels=2, features=[32, 64, 128])
         >>> x = torch.randn(2, 1, 64, 64, 64)
         >>> y = model(x)
-        >>> print(y.shape)  # (2, 2, 64, 64, 64)
+        >>> y.shape  # (2, 2, 64, 64, 64)
     """
     return KiUNet(
         spatial_dims=3,
@@ -568,3 +568,8 @@ def KiUNet3D(
         deep_supervision=deep_supervision,
         deep_supr_num=deep_supr_num,
     )
+
+
+# Backwards compatibility aliases
+KiUNet2D = kiunet2d
+KiUNet3D = kiunet3d

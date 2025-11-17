@@ -4,7 +4,7 @@ This module provides a registry-based factory for creating MONAI transform pipel
 Transforms are composed from a 'common' section plus mode-specific transforms ('train', 'val', 'test').
 """
 
-from typing import Any
+from typing import Any, Callable
 
 from monai import transforms
 
@@ -80,7 +80,7 @@ class TransformRegistry(BaseRegistry):
 
         return transforms.Compose(transform_list)  # type: ignore[attr-defined]
 
-    def _get_transform_class(self, transform_type: str) -> type:
+    def _get_transform_class(self, transform_type: str) -> type | Callable:  # type: ignore[return-value]
         """Get transform class by name.
 
         First checks the registry, then falls back to MONAI transforms module.
@@ -89,7 +89,7 @@ class TransformRegistry(BaseRegistry):
             transform_type: Name of the transform class
 
         Returns:
-            Transform class
+            Transform class or factory function
 
         Raises:
             AttributeError: If transform type not found in registry or MONAI

@@ -144,7 +144,6 @@ class TestCreateTrainerBasics:
                             cfg=sample_config,
                             device=device,
                             train_loader=loader,
-                            val_loader=None,
                             results_dir=str(tmp_path),
                             logger=logger,
                         )
@@ -193,7 +192,6 @@ class TestCreateTrainerBasics:
                             cfg=sample_config,
                             device=device,
                             train_loader=loader,
-                            val_loader=None,
                             results_dir=str(tmp_path),
                             logger=logger,
                         )
@@ -242,7 +240,6 @@ class TestCreateTrainerBasics:
                             cfg=sample_config,
                             device=device,
                             train_loader=loader,
-                            val_loader=None,
                             results_dir=str(tmp_path),
                             logger=logger,
                         )

@@ -68,7 +68,7 @@ class CCMetric:
         >>> pred = torch.randn(2, 3, 64, 64).softmax(dim=1)  # (B, C, H, W)
         >>> target = torch.randint(0, 3, (2, 1, 64, 64))     # (B, 1, H, W)
         >>> score = metric(pred, target)
-        >>> print(f"CC-Dice Score: {score.item():.4f}")
+        >>> f"CC-Dice Score: {score.item():.4f}"  # doctest: +SKIP
 
     **YAML Configuration Examples:**
 

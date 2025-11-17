@@ -100,8 +100,8 @@ class TestSetupLogger:
         assert "New message" in content
         assert "Initial message" not in content
 
-    def test_setup_logger_resume_true_keeps_file(self, temp_dir: str) -> None:
-        """Test that resume=True keeps existing log file."""
+    def test_setup_logger_appends_to_existing_file(self, temp_dir: str) -> None:
+        """Test that setup_logger appends to existing log file."""
         log_name = "test_append"
 
         # Create initial log
@@ -111,9 +111,9 @@ class TestSetupLogger:
         log_path = os.path.join(temp_dir, f"{log_name}.log")
         assert _wait_for_log_message(log_path, "Initial message")
 
-        # Clear and create new logger with resume=True
+        # Clear and create new logger (setup_logger always appends)
         logger.remove()
-        log2 = setup_logger(temp_dir, log_name=log_name, resume=True)
+        log2 = setup_logger(temp_dir, log_name=log_name)
         log2.info("Appended message")
 
         assert _wait_for_log_message(log_path, "Appended message")
@@ -121,7 +121,7 @@ class TestSetupLogger:
         with open(log_path, "r") as f:
             content = f.read()
 
-        # Should have both messages since we didn't delete the file
+        # Should have both messages since logger appends by default
         assert "Initial message" in content
         assert "Appended message" in content
 
@@ -138,8 +138,8 @@ class TestSetupTrainLogger:
         log_path = os.path.join(temp_dir, "train.log")
         assert _wait_for_log_message(log_path, "Training started")
 
-    def test_setup_train_logger_with_resume(self, temp_dir: str) -> None:
-        """Test setup_train_logger with resume parameter."""
+    def test_setup_train_logger_appends_to_existing(self, temp_dir: str) -> None:
+        """Test setup_train_logger appends to existing log file."""
         # First logger
         log1 = setup_train_logger(temp_dir)
         log1.info("First run")
@@ -147,18 +147,19 @@ class TestSetupTrainLogger:
         log_path = os.path.join(temp_dir, "train.log")
         assert _wait_for_log_message(log_path, "First run")
 
-        # Second logger resuming
+        # Second logger (setup_logger always appends by default)
         logger.remove()
-        log2 = setup_train_logger(temp_dir, resume=True)
-        log2.info("Resumed run")
+        log2 = setup_train_logger(temp_dir)
+        log2.info("Second run")
 
-        assert _wait_for_log_message(log_path, "Resumed run")
+        assert _wait_for_log_message(log_path, "Second run")
 
         with open(log_path, "r") as f:
             content = f.read()
 
+        # Both messages should be present (logger appends by default)
         assert "First run" in content
-        assert "Resumed run" in content
+        assert "Second run" in content
 
 
 class TestSetupTestLogger:

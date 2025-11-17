@@ -238,9 +238,7 @@ class TestRunTrainingCheckpointHandling:
                                             )
 
                                             with pytest.raises(Exception):
-                                                run_training(
-                                                    str(config_file), resume=True
-                                                )
+                                                run_training(str(config_file))
 
                                             # Checkpoint should still exist
                                             assert checkpoint.exists()

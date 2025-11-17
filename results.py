@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 try:
-    from rich.console import Console
-    from rich.table import Table
+    from rich.console import Console  # type: ignore[import-untyped]
+    from rich.table import Table  # type: ignore[import-untyped]
 
     console = Console()
 except ImportError:

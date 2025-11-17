@@ -6,7 +6,7 @@ registry behavior across the framework.
 """
 
 from abc import ABC
-from typing import Any
+from typing import Any, Callable
 
 
 class BaseRegistry(ABC):
@@ -26,14 +26,14 @@ class BaseRegistry(ABC):
 
     def __init__(self) -> None:
         """Initialize the base registry with an empty registry dictionary."""
-        self._registry: dict[str, type] = {}
+        self._registry: dict[str, type | Callable] = {}
 
-    def register(self, name: str, component_class: type) -> None:
-        """Register a component class with the given name.
+    def register(self, name: str, component_class: type | Callable) -> None:
+        """Register a component class or factory function with the given name.
 
         Args:
             name: Name to register the component under
-            component_class: The component class to register
+            component_class: The component class or factory function to register
 
         Raises:
             ValueError: If the name is already registered
@@ -97,14 +97,14 @@ class BaseRegistry(ABC):
             exclude_keys = {"type"}
         return {k: v for k, v in config.items() if k not in exclude_keys}
 
-    def _validate_type(self, type_name: str) -> type:
+    def _validate_type(self, type_name: str) -> type | Callable:  # type: ignore[return-value]
         """Validate and return component type from registry.
 
         Args:
             type_name: Name of the component type to validate
 
         Returns:
-            The component class
+            The component class or factory function
 
         Raises:
             KeyError: If type_name is not registered

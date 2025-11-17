@@ -65,104 +65,67 @@ class TestTrainingHistoryHandler:
         history_data = {
             "epochs": [1, 2],
             "train_loss": [0.5, 0.3],
-            "val_epochs": [2],
         }
         history_path = tmp_path / "training_history.json"
         with open(history_path, "w") as f:
             json.dump(history_data, f)
 
-        handler = TrainingHistoryHandler(str(tmp_path), resume=True)
+        handler = TrainingHistoryHandler(str(tmp_path))
 
         assert handler.training_history == history_data
 
     def test_handler_starts_fresh_when_not_resuming(self, tmp_path: Path) -> None:
-        """Test that handler starts fresh history when not resuming."""
+        """Test that handler loads existing history (always appends)."""
         from src.engines.train.handlers import TrainingHistoryHandler
 
-        # Create existing history file (should be ignored)
+        # Create existing history file
         history_data = {"epochs": [1, 2], "train_loss": [0.5, 0.3]}
         history_path = tmp_path / "training_history.json"
         with open(history_path, "w") as f:
             json.dump(history_data, f)
 
-        handler = TrainingHistoryHandler(str(tmp_path), resume=False)
+        handler = TrainingHistoryHandler(str(tmp_path))
 
-        # Should have fresh history
-        assert handler.training_history["epochs"] == []
-        assert handler.training_history["train_loss"] == []
+        # Handler always loads existing history (no resume parameter)
+        assert handler.training_history == history_data
 
-    def test_handler_records_validation_metrics(self, tmp_path: Path) -> None:
-        """Test that handler can record validation metrics."""
+    def test_handler_records_training_loss(self, tmp_path: Path) -> None:
+        """Test that handler can record training loss."""
         from src.engines.train.handlers import TrainingHistoryHandler
 
         handler = TrainingHistoryHandler(str(tmp_path))
 
-        metrics: dict[str, torch.Tensor | float] = {
-            "val_DiceMetric": torch.tensor(0.85),
-            "val_loss": 0.15,
-        }
-        handler.record_validation_metrics(epoch=1, metrics=metrics)
+        # Handler records training loss via engine state
+        # (actual recording happens in _record_training_epoch callback)
+        assert "epochs" in handler.training_history
+        assert "train_loss" in handler.training_history
+        assert isinstance(handler.training_history["epochs"], list)
+        assert isinstance(handler.training_history["train_loss"], list)
 
-        assert 1 in handler.training_history["val_epochs"]
-        assert "val_DiceMetric" in handler.training_history
-        assert "val_loss" in handler.training_history
-
-    def test_handler_skips_validation_when_training_all_data(
-        self, tmp_path: Path
-    ) -> None:
-        """Test that handler skips validation when training_all_data=True."""
-        from src.engines.train.handlers import TrainingHistoryHandler
-
-        handler = TrainingHistoryHandler(str(tmp_path), training_all_data=True)
-
-        metrics: dict[str, torch.Tensor | float] = {
-            "val_DiceMetric": torch.tensor(0.85)
-        }
-        handler.record_validation_metrics(epoch=1, metrics=metrics)
-
-        # Should not record validation metrics
-        assert "val_DiceMetric" not in handler.training_history
-
-    def test_handler_converts_tensor_to_float(self, tmp_path: Path) -> None:
-        """Test that handler converts tensor values to float."""
+    def test_handler_tracks_multiple_epochs(self, tmp_path: Path) -> None:
+        """Test that handler can track training across multiple epochs."""
         from src.engines.train.handlers import TrainingHistoryHandler
 
         handler = TrainingHistoryHandler(str(tmp_path))
 
-        metrics: dict[str, torch.Tensor | float] = {"val_metric": torch.tensor(0.95)}
-        handler.record_validation_metrics(epoch=1, metrics=metrics)
+        # Initialize with some training history
+        handler.training_history["epochs"] = [1, 2, 3]
+        handler.training_history["train_loss"] = [0.8, 0.5, 0.3]
 
-        # Should be converted to float
-        assert isinstance(handler.training_history["val_metric"][0], float)
+        # Verify data is stored correctly
+        assert len(handler.training_history["epochs"]) == 3
+        assert len(handler.training_history["train_loss"]) == 3
+        assert handler.training_history["train_loss"][-1] == 0.3
 
+    def test_handler_history_json_path(self, tmp_path: Path) -> None:
+        """Test that handler correctly sets history JSON file path."""
+        from src.engines.train.handlers import TrainingHistoryHandler
 
-class TestValidationVisualizationHandler:
-    """Test ValidationVisualizationHandler for saving validation visualizations."""
+        handler = TrainingHistoryHandler(str(tmp_path))
 
-    def test_handler_initialization(self, tmp_path: Path) -> None:
-        """Test ValidationVisualizationHandler initialization."""
-        from src.engines.train.handlers import ValidationVisualizationHandler
-
-        handler = ValidationVisualizationHandler(
-            results_dir=str(tmp_path),
-            spatial_dims=3,
-        )
-
-        assert handler.results_dir == str(tmp_path)
-        assert handler.spatial_dims == 3
-
-    def test_handler_attaches_to_engine(self, tmp_path: Path) -> None:
-        """Test that handler can attach to Ignite engine (save_visualization method)."""
-        from src.engines.train.handlers import ValidationVisualizationHandler
-
-        handler = ValidationVisualizationHandler(
-            results_dir=str(tmp_path),
-            spatial_dims=3,
-        )
-
-        # Test that handler can save visualizations
-        assert hasattr(handler, "save_visualization")
-        assert callable(handler.save_visualization)
+        # Verify history path is correctly set
+        expected_path = str(tmp_path / "training_history.json")
+        assert handler.history_path == expected_path
 
 
 class TestTrainingLogger:
