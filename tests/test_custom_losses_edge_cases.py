@@ -5,9 +5,11 @@ Tests gradient flow in edge cases to ensure differentiability.
 
 from __future__ import annotations
 
+import pytest
 import torch
 
 
+@pytest.mark.gpu
 class TestCCLossEdgeCases:
     """Test CCLoss edge cases for gradient flow and error handling."""
 
@@ -168,6 +170,7 @@ class TestCCLossEdgeCases:
         assert grad_norm < 1e6  # Not unreasonably large
 
 
+@pytest.mark.gpu
 class TestBlobLossEdgeCases:
     """Test BlobLoss edge cases for gradient flow."""
 
@@ -310,6 +313,7 @@ class TestDiceLossEdgeCases:
         assert torch.isfinite(pred.grad).all()
 
 
+@pytest.mark.gpu
 class TestLossGradientConsistency:
     """Test that losses produce consistent gradients across different scenarios."""
 

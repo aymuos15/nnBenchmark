@@ -11,7 +11,27 @@ import tempfile
 from typing import Any
 
 import pytest
+import torch
 import yaml
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom markers."""
+    config.addinivalue_line("markers", "gpu: mark test as requiring GPU/CUDA support")
+
+
+@pytest.fixture(scope="session")
+def cuda_available() -> bool:
+    """Check if CUDA is available."""
+    return torch.cuda.is_available()
+
+
+@pytest.fixture(autouse=True)
+def skip_if_no_cuda(request: pytest.FixtureRequest, cuda_available: bool) -> None:
+    """Skip tests marked with @pytest.mark.gpu if CUDA is not available."""
+    if request.node.get_closest_marker("gpu"):
+        if not cuda_available:
+            pytest.skip("Test requires CUDA/GPU support")
 
 
 @pytest.fixture(scope="session", autouse=True)

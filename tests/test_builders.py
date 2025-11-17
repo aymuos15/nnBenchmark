@@ -75,6 +75,7 @@ class TestBuildLoss:
         assert loss_fn.softmax is True
         assert loss_fn.sigmoid is False
 
+    @pytest.mark.gpu
     def test_ccloss_forward_pass(self) -> None:
         """Test that CCLoss works correctly in forward pass."""
         config = {"type": "CCLoss", "sigmoid": True}
