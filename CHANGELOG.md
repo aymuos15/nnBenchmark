@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2025-01-17
+
 ### Major Refactoring
 - **Validation Module Separation**: Validation logic split from training into independent `nnBench.validate` CLI command
   - Enables post-training validation on checkpoints without completing training
@@ -41,19 +43,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - KiUNet: Added smart group normalization support with automatic num_groups selection
   - Test parameters optimized for memory: 3D batch size reduced from 2 to 1, spatial dims from 32x32x32 to 16x16x16
 
+- **Code Quality**:
+  - Renamed KiUNet2D/KiUNet3D to lowercase functions with aliases for backwards compatibility
+  - Updated BaseRegistry to accept Callable types for factory functions
+  - Fixed print statements in docstrings (replaced with non-executable examples)
+  - All 12 pre-commit hooks now passing
+  - Moved inline imports (glob, re, json) to module level in training pipeline
+
 ### Fixed
+- **CCLoss/BlobLoss in Forked Processes**: Added CPU fallback for CUDA operations to fix pytest --forked failures
+  - CuPy operations now gracefully fallback to scipy when running in forked processes
+  - CCLoss and BlobLoss now work correctly in CPU-only environments
+  - Fixed CUDA initialization errors in multiprocessing contexts
+  - Test results improved from 36 failed to 561 passed with --forked mode
 - **Error Handling**: Replaced silent exception fallbacks with explicit error propagation in BlobLoss, CCLoss, and CCMetric
 - **KiUNet Tests**: All 30 KiUNet tests now pass (fixed channel mismatch and normalization issues)
 - **Metric Aggregation**: Fixed IndexError when metrics return scalar tensors instead of per-class tensors
 - **CCLoss**: Maintain gradient connection in edge case handlers
-- **Code Quality**: Moved inline imports (glob, re, json) to module level in training pipeline
+- **Type Checking**: Fixed all 17 pyright type errors across 9 files
+  - Fixed possibly unbound variables in metrics/cc.py
+  - Added proper type annotations for config merging
+  - Fixed dynamic attribute assignment in validation engine
+  - Fixed iterator type annotations in tests
 
 ### Added
-- **Test Coverage**: Added comprehensive tests for validation pipeline and loss edge cases
-  - test_engines_validate_run.py: Tests for validation orchestration and checkpoint handling
-  - test_engines_validate_handlers.py: Tests for validation metrics, progress, results, and visualization handlers
-  - test_custom_losses_edge_cases.py: Tests for gradient flow in CCLoss and BlobLoss edge cases
+- **Test Coverage**: Added comprehensive tests for validation pipeline and loss edge cases (28 new tests)
+  - test_engines_validate_run.py: 10 tests for validation orchestration and checkpoint handling
+  - test_engines_validate_handlers.py: 15 tests for validation metrics, progress, results, and visualization handlers
+  - test_custom_losses_edge_cases.py: 13 tests for gradient flow in CCLoss and BlobLoss edge cases
 - **Documentation Updates**: Updated README, AGENT.md, workflow.md with new validation workflow
+  - Complete 5-step workflow documentation with validation
+  - New checkpoint naming documentation (checkpoint_epoch_XXX.pt)
+  - validation_history_epoch_*.json format documentation
+  - Comprehensive changelog for recent refactoring
 
 ## [0.1.5] - 2025-11-06
 
