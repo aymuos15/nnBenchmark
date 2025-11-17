@@ -12,16 +12,14 @@ from typing import Any
 from loguru import logger
 
 
-def setup_logger(
-    results_dir: str, log_name: str = "train", resume: bool = False
-) -> Any:
+def setup_logger(results_dir: str, log_name: str = "train") -> Any:
     """
     Setup loguru logger that writes to a log file only.
+    Always appends to existing log file if it exists.
 
     Args:
         results_dir: Directory where log file will be saved
         log_name: Name of the log file (without .log extension)
-        resume: If True, append to existing log file; if False, start fresh (default: False)
 
     Returns:
         Configured logger instance
@@ -29,12 +27,8 @@ def setup_logger(
     # Remove default handler (console output)
     logger.remove()
 
-    # Add file handler for logs
+    # Add file handler for logs (always append)
     log_path = str(Path(results_dir) / f"{log_name}.log")
-
-    # Remove old log file if starting fresh (not resuming)
-    if not resume and Path(log_path).exists():
-        Path(log_path).unlink()
 
     _ = logger.add(
         log_path,
@@ -48,18 +42,18 @@ def setup_logger(
     return logger
 
 
-def setup_train_logger(results_dir: str, resume: bool = False) -> Any:
+def setup_train_logger(results_dir: str) -> Any:
     """
     Setup loguru logger for training that writes to train.log file only.
+    Always appends to existing log file.
 
     Args:
         results_dir: Directory where train.log will be saved
-        resume: If True, append to existing log; if False, start fresh (default: False)
 
     Returns:
         Configured logger instance
     """
-    return setup_logger(results_dir, "train", resume=resume)
+    return setup_logger(results_dir, "train")
 
 
 def setup_test_logger(results_dir: str) -> Any:

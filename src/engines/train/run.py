@@ -140,16 +140,15 @@ def is_training_complete(checkpoint: dict, cfg: dict) -> bool:
 def run_training(
     config_path: str,
     dataset: str | None = None,
-    resume: bool = False,
     force_fresh: bool = False,
 ) -> None:
     """
     Run training using MONAI SupervisedTrainer.
+    Logs always append to existing files. Checkpoints are automatically resumed.
 
     Args:
         config_path: Path to YAML config file or relative path (e.g., fold_0.yaml)
         dataset: Dataset name (required if config_path is relative)
-        resume: Whether to resume from last checkpoint (deprecated - now automatic)
         force_fresh: Force fresh start, delete existing checkpoints
     """
     # Resolve config path (handles both absolute and relative paths)
@@ -164,8 +163,8 @@ def run_training(
     set_random_seeds(seed)
     enable_cuda_determinism(deterministic=False)
 
-    # Setup logger for training (append to log if resuming)
-    log = setup_train_logger(results_dir, resume=resume)
+    # Setup logger for training (always appends to existing logs)
+    log = setup_train_logger(results_dir)
     log_header(log, f"Training started for config: {config_name}")
     log.info(f"Random seed: {seed}")
 
@@ -176,20 +175,16 @@ def run_training(
     validate_required_field(cfg, ["dataset", "fold"], "fold", "fold: 0")
     fold: int = cfg["dataset"]["fold"]
 
-    # Check if we're training on all data (fold=-1, no validation)
+    # Check if we're training on all data (fold=-1)
+    # When fold=-1, we use the training set as validation set
     training_all_data: bool = fold == -1
 
     # Check if mixed precision training is enabled (default: False)
     use_amp: bool = cfg.get("training", {}).get("mixed_precision", False)
 
-    # Build metrics for config validation (still needed for loss computation during training)
+    # Build metrics for config validation
     metric_fns = metric_registry.build(cfg)
-
-    if not training_all_data:
-        checkpoint_metric, plot_metrics = validate_metrics_config(cfg, metric_fns)
-    else:
-        checkpoint_metric = None
-        plot_metrics = []
+    checkpoint_metric, plot_metrics = validate_metrics_config(cfg, metric_fns)
 
     # Validate deep supervision configuration
     validate_deep_supervision_config(cfg)
@@ -199,12 +194,11 @@ def run_training(
     log.info(f"Fold: {fold}")
     log.info(f"Epochs: {cfg['training']['epochs']}")
     log.info(f"Batch size: {cfg['training']['batch_size']}")
-    if not training_all_data:
-        log.info(f"Validation interval: {cfg['training']['val_interval']}")
-        log.info(f"Checkpoint metric: {checkpoint_metric}")
-        log.info(f"Plot metrics: {plot_metrics}")
-    else:
-        log.info("Training on all data (no validation split)")
+    if training_all_data:
+        log.info("Training on all data (fold=-1): using training set as validation set")
+    log.info(f"Validation: Every epoch")
+    log.info(f"Checkpoint metric: {checkpoint_metric}")
+    log.info(f"Plot metrics: {plot_metrics}")
     log.info(f"Mixed precision (AMP): {'Enabled' if use_amp else 'Disabled'}")
 
     # Log deep supervision configuration
@@ -228,6 +222,10 @@ def run_training(
 
     # Get data dicts
     train_data, val_data = get_data_dicts(data_dir, fold)
+
+    # If training on all data (fold=-1), use training set as validation set
+    if training_all_data:
+        val_data = train_data
 
     # Build transforms
     train_transforms = transform_registry.build(cfg, mode="train")
@@ -328,7 +326,6 @@ def run_training(
         val_loader=val_loader,
         results_dir=results_dir,
         logger=log,
-        resume=resume,
     )
 
     # Automatic checkpoint detection and loading (unless force_fresh)
@@ -422,14 +419,6 @@ def run_training(
             )
 
         log_and_print(log, "Checkpoint loaded successfully - resuming training")
-    elif resume:
-        # User explicitly requested resume but no checkpoint found
-        log_and_print(
-            log,
-            f"ERROR: Resume requested but no checkpoint found in: {results_dir}",
-            level="ERROR",
-        )
-        sys.exit(1)
     else:
         # No checkpoint found, starting fresh
         log.info("No checkpoint found - starting fresh training")
@@ -449,23 +438,25 @@ def run_training(
     history_path = str(Path(results_dir) / "training_history.json")
     log.info(f"Training history saved to: {history_path}")
 
-    if training_all_data:
-        log.info("Training on all data completed (no validation metrics)")
-        log_and_print(log, "\nTraining completed on all data!")
-    else:
-        # Get best metric value from evaluator if available
-        if evaluator and hasattr(evaluator.state, "metrics"):
-            best_metric_val = evaluator.state.metrics.get(
-                f"val_{checkpoint_metric}", -1.0
+    # Get best metric value from evaluator if available
+    if evaluator and hasattr(evaluator.state, "metrics"):
+        best_metric_val = evaluator.state.metrics.get(
+            f"val_{checkpoint_metric}", -1.0
+        )
+        if isinstance(best_metric_val, torch.Tensor):
+            best_metric_val = best_metric_val.item()
+        log.info(f"Best {checkpoint_metric}: {best_metric_val:.4f}")
+        if training_all_data:
+            log_and_print(
+                log,
+                f"\nTraining completed on all data! Best {checkpoint_metric}: {best_metric_val:.4f} (on training set)",
             )
-            if isinstance(best_metric_val, torch.Tensor):
-                best_metric_val = best_metric_val.item()
-            log.info(f"Best {checkpoint_metric}: {best_metric_val:.4f}")
+        else:
             log_and_print(
                 log,
                 f"\nTraining completed! Best {checkpoint_metric}: {best_metric_val:.4f}",
             )
-        else:
+    else:
             log_and_print(log, "\nTraining completed!")
 
     log_and_print(log, f"Training history saved to: {history_path}")

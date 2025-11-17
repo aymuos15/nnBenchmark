@@ -25,22 +25,19 @@ class TrainingHistoryHandler:
     Maintains exact same format as Lightning implementation for plot.py compatibility.
     """
 
-    def __init__(
-        self, results_dir: str, training_all_data: bool = False, resume: bool = False
-    ):
+    def __init__(self, results_dir: str, training_all_data: bool = False):
         """
         Args:
             results_dir: Directory to save training_history.json
             training_all_data: If True, skip validation metrics (training on all data)
-            resume: If True, load existing history file
         """
         self.results_dir = results_dir
         self.history_path = str(Path(results_dir) / "training_history.json")
         self.training_all_data = training_all_data
         self.best_val_dice = 0.0
 
-        # Load existing history if resuming, otherwise start fresh
-        if resume and Path(self.history_path).exists():
+        # Always try to load existing history if file exists
+        if Path(self.history_path).exists():
             import json
 
             with open(self.history_path) as f:
@@ -67,22 +64,25 @@ class TrainingHistoryHandler:
         """Record training loss after each epoch."""
         current_epoch = engine.state.epoch
 
+        # Avoid duplicates when resuming
+        if current_epoch in self.training_history["epochs"]:
+            return
+
         # Get train_loss from engine state
         train_loss = engine.state.output.get("loss", None)  # type: ignore[union-attr]
 
         if train_loss is not None:
-            # Avoid duplicates when resuming
-            if current_epoch not in self.training_history["epochs"]:
-                self.training_history["epochs"].append(current_epoch)
-                # Convert tensor to float if needed
-                loss_val = (
-                    train_loss.item()
-                    if isinstance(train_loss, torch.Tensor)
-                    else train_loss
-                )
-                self.training_history["train_loss"].append(loss_val)
-                # Save immediately to persist on-the-fly
-                save_json(self.training_history, self.history_path)
+            self.training_history["epochs"].append(current_epoch)
+            # Convert tensor to float if needed
+            loss_val = (
+                train_loss.item()
+                if isinstance(train_loss, torch.Tensor)
+                else train_loss
+            )
+            self.training_history["train_loss"].append(loss_val)
+
+        # Save immediately to persist on-the-fly
+        save_json(self.training_history, self.history_path)
 
     def record_validation_metrics(
         self, epoch: int, metrics: dict[str, torch.Tensor | float]
@@ -197,7 +197,7 @@ class TrainingLogger:
         engine.add_event_handler(Events.EPOCH_COMPLETED, self._log_epoch)
 
     def _log_epoch(self, engine: Engine) -> None:
-        """Log single line per epoch with loss to file only."""
+        """Log epoch with loss and learning rate to file only."""
         current_epoch = engine.state.epoch
         max_epochs = engine.state.max_epochs
 
@@ -221,7 +221,7 @@ class TrainingLogger:
         self, epoch: int, max_epochs: int, metrics: dict[str, float]
     ) -> None:
         """
-        Log validation metrics to file.
+        Log validation metrics to file and console.
 
         Args:
             epoch: Current epoch number
@@ -258,8 +258,8 @@ class TrainingLogger:
             class_strs = [f"c{idx}={val:.4f}" for idx, val in sorted(classes.items())]
             msg += f", {metric_name}_per_class=[" + ",".join(class_strs) + "]"
 
-        # Log to file only
-        log_only(self.logger, msg)
+        # Log to both file and console
+        self.logger.info(msg)
 
 
 class ComprehensiveCheckpointHandler:

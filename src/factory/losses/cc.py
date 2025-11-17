@@ -186,12 +186,7 @@ class CCLoss(nn.Module):
             target_class = target[c]  # (H, W) or (H, W, D)
 
             # Get connected components in ground truth
-            try:
-                region_map, num_regions = get_gt_regions(target_class, pred.device)
-            except Exception:
-                # If region detection fails, use whole class as one region
-                num_regions = 1
-                region_map = torch.ones_like(target_class, dtype=torch.long)
+            region_map, num_regions = get_gt_regions(target_class, pred.device)
 
             if num_regions == 0:
                 # No ground truth for this class, loss = 1.0

@@ -46,10 +46,10 @@ class CCMetric:
         get_not_nans (bool): Whether to return only non-NaN values.
             Default: False
         metric_type (str): Type of metric to compute per region.
-            Options: "dice", "surface_dice", "both"
+            Options: "dice", "surface_dice"
             Default: "dice"
         class_thresholds (list[float]): Distance thresholds for surface dice per class.
-            Required if metric_type is "surface_dice" or "both".
+            Required if metric_type is "surface_dice".
             Example: [2.0] for single class, [2.0, 3.0] for two classes
         distance_metric (str): Distance metric for surface dice computation.
             Options: "euclidean", "chessboard", "taxicab"
@@ -121,14 +121,14 @@ class CCMetric:
             )
 
         # Validate metric_type
-        valid_metric_types = ["dice", "surface_dice", "both"]
+        valid_metric_types = ["dice", "surface_dice"]
         if metric_type not in valid_metric_types:
             raise ValueError(
                 f"metric_type must be one of {valid_metric_types}, got '{metric_type}'"
             )
 
         # Validate surface dice parameters
-        if metric_type in ["surface_dice", "both"]:
+        if metric_type == "surface_dice":
             if class_thresholds is None:
                 raise ValueError(
                     f"class_thresholds is required when metric_type='{metric_type}'"
@@ -248,13 +248,7 @@ class CCMetric:
                 continue
 
             # Get regions from connected components
-            try:
-                region_map, num_regions = get_gt_regions(target_class, pred.device)
-            except Exception:
-                # Fallback: compute global dice if region detection fails
-                dice_score = self._dice_coefficient(pred_class, target_class)
-                class_scores.append(dice_score)
-                continue
+            region_map, num_regions = get_gt_regions(target_class, pred.device)
 
             if num_regions == 0:
                 # No regions found
@@ -267,7 +261,7 @@ class CCMetric:
                 region_mask = region_map == region_id
 
                 # Get threshold for this class if using surface dice
-                if self.metric_type in ["surface_dice", "both"]:
+                if self.metric_type == "surface_dice":
                     # Use class-specific threshold if available, otherwise use first threshold
                     threshold = (
                         self.class_thresholds[c]
@@ -291,22 +285,6 @@ class CCMetric:
                         threshold=threshold,
                         distance_metric=self.distance_metric,
                     )
-
-                elif self.metric_type == "both":
-                    # Compute both metrics and average
-                    dice_score = self._compute_region_dice(
-                        pred_class, target_class, region_mask
-                    )
-                    pred_masked, target_masked = self._create_masked_region(
-                        pred_class, target_class, region_mask
-                    )
-                    surface_score = self._surface_dice_coefficient(
-                        pred_masked,
-                        target_masked,
-                        threshold=threshold,
-                        distance_metric=self.distance_metric,
-                    )
-                    region_score = (dice_score + surface_score) / 2.0
 
                 region_scores.append(region_score)
 

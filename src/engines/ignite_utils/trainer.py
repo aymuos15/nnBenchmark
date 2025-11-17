@@ -142,7 +142,6 @@ def create_trainer(
     val_loader: DataLoader | None,
     results_dir: str,
     logger: Logger,
-    resume: bool = False,
 ) -> tuple[
     SupervisedTrainer,
     SupervisedEvaluator | None,
@@ -152,6 +151,7 @@ def create_trainer(
 ]:  # type: ignore[return]
     """
     Create MONAI SupervisedTrainer and Evaluator.
+    Logs always append to existing files.
 
     Args:
         cfg: Configuration dictionary
@@ -160,7 +160,6 @@ def create_trainer(
         val_loader: Validation data loader (None if training on all data)
         results_dir: Directory to save results
         logger: Loguru logger instance
-        resume: Whether to resume from checkpoint
 
     Returns:
         Tuple of (trainer, evaluator). Evaluator is None if val_loader is None.
@@ -278,9 +277,10 @@ def create_trainer(
 
     trainer.add_event_handler(Events.EPOCH_COMPLETED, clear_gpu_cache)
 
-    # Add training history handler
+    # Add training history handler (always appends to existing history)
+    # Note: training_all_data is now False since we always have validation (uses train set when fold=-1)
     history_handler = TrainingHistoryHandler(
-        results_dir, training_all_data=training_all_data, resume=resume
+        results_dir, training_all_data=False
     )
     history_handler.attach(trainer)
 
@@ -426,15 +426,11 @@ def create_trainer(
             # Store metrics in evaluator state for checkpoint saver
             engine.state.metrics = metrics_dict
 
-        # Run validation at specified intervals
-        val_interval = cfg["training"].get("val_interval", 1)
-
+        # Run validation every epoch
         @trainer.on(Events.EPOCH_COMPLETED)
         def run_validation(engine: Engine) -> None:
-            """Run validation at specified intervals."""
-            current_epoch = engine.state.epoch
-            if current_epoch % val_interval == 0:
-                evaluator.run(val_loader)
+            """Run validation every epoch."""
+            evaluator.run(val_loader)
 
         # Add comprehensive checkpoint saver based on validation metric
         from src.config.validation import validate_metrics_config

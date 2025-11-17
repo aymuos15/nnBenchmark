@@ -252,12 +252,7 @@ class BlobLoss(nn.Module):
                 raise ValueError(f"Unexpected target shape: {target_volume.shape}")
 
             # Generate multi-instance labels using connected components
-            try:
-                multi_label, num_instances = gpu_connected_components(binary_label)
-            except Exception:
-                # Fallback: treat entire foreground as one instance
-                multi_label = binary_label.long()
-                num_instances = 1
+            multi_label, num_instances = gpu_connected_components(binary_label)
 
             if num_instances == 0:
                 # No instances in this sample, skip
@@ -287,13 +282,9 @@ class BlobLoss(nn.Module):
                 masked_pred = (pred_volume * label_mask.unsqueeze(0)).unsqueeze(0)
                 masked_target = instance_target.unsqueeze(0).unsqueeze(0)
 
-                try:
-                    # Compute loss for this blob
-                    blob_loss_value = self.blob_criterion(masked_pred, masked_target)
-                    blob_losses.append(blob_loss_value)
-                except Exception:
-                    # If loss computation fails, skip this blob
-                    continue
+                # Compute loss for this blob
+                blob_loss_value = self.blob_criterion(masked_pred, masked_target)
+                blob_losses.append(blob_loss_value)
 
             # Average over blobs for this element
             if blob_losses:
