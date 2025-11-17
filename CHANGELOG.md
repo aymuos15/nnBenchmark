@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2025-01-17
+
+### Changed
+- **CI/CD Modernization**: Updated GitHub Actions workflow to use official `astral-sh/setup-uv@v4` action for faster, more reliable builds
+- **Dependency Installation**: CI now uses `uv sync --all-extras` to properly install dev dependencies including pytest, pyright, ty, and ruff
+- **Error Handling**: Removed lenient fallback behaviors in favor of explicit error handling
+  - Fingerprinting now raises `FileNotFoundError` when no label files are found (instead of falling back to dataset.json)
+  - Plotting now raises `ValueError` when validation epoch lengths don't match metric values (instead of using fallback epochs)
+
+### Added
+- **Type Checking**: Added `ty` (experimental Astral type checker) to pre-commit hooks for enhanced type safety
+- **GPU Test Markers**: Added `@pytest.mark.gpu` decorator to automatically skip GPU-dependent tests (CCLoss, BlobLoss) when CUDA is unavailable
+
+### Fixed
+- **Type Annotations**: Added class-level type annotations and `# ty: ignore` comments to KiUNet model to resolve PyTorch `__setattr__` type checking issues
+- **CI Test Failures**: GPU-dependent tests now gracefully skip in CI environments without CUDA support, preventing "NoneType has no attribute 'asarray'" errors
+
+### Removed
+- Test case for graceful handling of missing images (no longer supported with stricter error handling)
+
 ## [Unreleased]
 
 ### Major Refactoring
