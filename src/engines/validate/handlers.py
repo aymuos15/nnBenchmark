@@ -69,9 +69,7 @@ class ValidationMetricsHandler:
     def attach(self, engine: Engine) -> None:
         """Attach handler to engine events."""
         # Log per-sample scores after each iteration
-        engine.add_event_handler(
-            Events.ITERATION_COMPLETED, self._log_iteration_scores
-        )
+        engine.add_event_handler(Events.ITERATION_COMPLETED, self._log_iteration_scores)
 
         # Compute final statistics at end of validation
         engine.add_event_handler(Events.COMPLETED, self._compute_final_metrics)
@@ -114,9 +112,7 @@ class ValidationMetricsHandler:
                 case_path = Path(image_path).name
 
             # Build a single log message with all metrics
-            scores_str = ", ".join(
-                [f"{n} = {s:.4f}" for n, s in batch_scores.items()]
-            )
+            scores_str = ", ".join([f"{n} = {s:.4f}" for n, s in batch_scores.items()])
             print(f"{case_path}: {scores_str}")
 
             # Log to file
@@ -349,7 +345,8 @@ class ValidationResultsHandler:
         # Save validation history JSON with epoch number
         if self.epoch is not None:
             validation_history_path = str(
-                Path(self.results_dir) / f"validation_history_epoch_{self.epoch:03d}.json"
+                Path(self.results_dir)
+                / f"validation_history_epoch_{self.epoch:03d}.json"
             )
         else:
             validation_history_path = str(
@@ -401,11 +398,11 @@ class ValidationVisualizationHandler:
             return
 
         # Get outputs from current iteration
-        outputs = engine.state.output
+        outputs = engine.state.output  # type: ignore[attr-defined]
 
-        images = outputs["images"]
-        labels = outputs["labels"]
-        preds = outputs["predictions"]
+        images = outputs["images"]  # type: ignore[index]
+        labels = outputs["labels"]  # type: ignore[index]
+        preds = outputs["predictions"]  # type: ignore[index]
 
         # Create visualizations directory
         viz_dir = self.results_dir / "visualizations"

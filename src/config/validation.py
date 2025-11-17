@@ -178,7 +178,9 @@ def _validate_kiunet_params(params: dict[str, Any], is_nested: bool) -> None:
 
     for param in required:
         if param not in params:
-            raise ValueError(f"Missing required KiUNet parameter '{param}' in {section}")
+            raise ValueError(
+                f"Missing required KiUNet parameter '{param}' in {section}"
+            )
 
     # Validate features is a list/tuple
     if "features" in params:

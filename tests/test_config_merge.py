@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from typing import Any
+from collections.abc import Iterator
 
 import pytest
 import yaml
@@ -418,7 +418,7 @@ class TestLoadConfigWithInheritance:
 
 
 @pytest.fixture
-def temp_dir() -> str:
+def temp_dir() -> Iterator[str]:
     """Create temporary directory for test files."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield tmpdir

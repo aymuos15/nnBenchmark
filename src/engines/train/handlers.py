@@ -166,9 +166,7 @@ class ComprehensiveCheckpointHandler:
         self.trainer_engine = trainer_engine
 
         # Save checkpoint at specified intervals
-        trainer_engine.add_event_handler(
-            Events.EPOCH_COMPLETED, self._save_checkpoint
-        )
+        trainer_engine.add_event_handler(Events.EPOCH_COMPLETED, self._save_checkpoint)
 
     def _save_checkpoint(self, engine: Engine) -> None:
         """Save numbered checkpoint for each epoch and best model based on training loss."""
@@ -202,8 +200,7 @@ class ComprehensiveCheckpointHandler:
 
                     # Save best checkpoint with loss value in filename
                     best_checkpoint_path = (
-                        self.save_dir
-                        / f"best_model_model_loss={current_loss:.4f}.pt"
+                        self.save_dir / f"best_model_model_loss={current_loss:.4f}.pt"
                     )
 
                     self._save(best_checkpoint_path, current_epoch, is_best=True)

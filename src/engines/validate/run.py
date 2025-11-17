@@ -7,13 +7,11 @@ import warnings
 from pathlib import Path
 
 import torch
-import yaml
 from monai.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
-from src.engines.common import setup_device
 from src.engines.validate.engine import ValidationEngine
 from src.engines.validate.handlers import (
     ValidationMetricsHandler,
@@ -23,7 +21,6 @@ from src.engines.validate.handlers import (
 )
 from src.factory import metric_registry, model_registry, transform_registry
 from src.logging import (
-    log_and_print,
     log_header,
     log_separator,
     log_system_info,
@@ -82,7 +79,6 @@ def run_validation(
         batch_size: Batch size for validation (overrides config)
         num_workers: Number of data loader workers (overrides config)
     """
-    from src.config import resolve_config_path
     from src.engines.common import setup_experiment
 
     # Resolve config path (handles both absolute and relative paths)
@@ -105,6 +101,7 @@ def run_validation(
     else:
         # Multi-checkpoint mode: find all epoch checkpoints
         import glob
+
         checkpoint_pattern = str(results_path / "checkpoint_epoch_*.pt")
         checkpoint_files = sorted(glob.glob(checkpoint_pattern))
 
@@ -120,9 +117,11 @@ def run_validation(
     # Validate each checkpoint
     for idx, ckpt_path in enumerate(checkpoints_to_validate, 1):
         if len(checkpoints_to_validate) > 1:
-            print(f"\n{'='*70}")
-            print(f"Validating checkpoint {idx}/{len(checkpoints_to_validate)}: {ckpt_path.name}")
-            print(f"{'='*70}\n")
+            print(f"\n{'=' * 70}")
+            print(
+                f"Validating checkpoint {idx}/{len(checkpoints_to_validate)}: {ckpt_path.name}"
+            )
+            print(f"{'=' * 70}\n")
 
         _validate_single_checkpoint(
             checkpoint_path=ckpt_path,
@@ -203,15 +202,21 @@ def _validate_single_checkpoint(
         log.info("Mixed precision (FP16) validation disabled")
 
     # Get validation data
-    train_data, val_data = get_data_dicts(data_dir, fold)
+    _, val_data = get_data_dicts(data_dir, fold)
     log.info(f"Validation cases: {len(val_data)}")
 
     # Transforms
     val_transforms = transform_registry.build(cfg, mode="val")
 
     # Dataset and loader
-    val_batch_size = batch_size if batch_size is not None else cfg.get("inference", {}).get("batch_size", 1)
-    val_num_workers = num_workers if num_workers is not None else cfg["training"]["num_workers"]
+    val_batch_size = (
+        batch_size
+        if batch_size is not None
+        else cfg.get("inference", {}).get("batch_size", 1)
+    )
+    val_num_workers = (
+        num_workers if num_workers is not None else cfg["training"]["num_workers"]
+    )
 
     val_ds = Dataset(data=val_data, transform=val_transforms)
     val_loader: DataLoader = DataLoader(
@@ -341,7 +346,11 @@ def _validate_single_checkpoint(
     # Log completion
     log_separator(log, print_too=False)
     log.info(f"Results saved to: {results_dir}")
-    val_history_file = f"validation_history_epoch_{epoch:03d}.json" if epoch else "validation_history.json"
+    val_history_file = (
+        f"validation_history_epoch_{epoch:03d}.json"
+        if epoch
+        else "validation_history.json"
+    )
     log.info(f"Validation history: {Path(results_dir) / val_history_file}")
     log.info("Validation completed successfully!")
     log_separator(log, print_too=False)

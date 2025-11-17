@@ -48,9 +48,9 @@ class TestSpacingDetection:
         shape = (64, 64, 64)
         is_anisotropic, _axis = detect_anisotropy(spacing, shape)
 
-        assert not is_anisotropic, (
-            "Mild spacing variation should not be detected as anisotropic"
-        )
+        assert (
+            not is_anisotropic
+        ), "Mild spacing variation should not be detected as anisotropic"
 
     def test_spacing_detection_order_invariance(self) -> None:
         """Test that spacing detection is consistent regardless of axis order."""
@@ -188,9 +188,9 @@ class TestMetadataExtraction:
         unique_labels = np.unique(labels)
 
         assert len(unique_labels) == 3, "Should find 3 unique labels"
-        assert np.array_equal(unique_labels, [0, 1, 2]), (
-            "Should identify all label values"
-        )
+        assert np.array_equal(
+            unique_labels, [0, 1, 2]
+        ), "Should identify all label values"
 
     def test_class_count_from_labels(self) -> None:
         """Test computation of num_classes from labels."""
@@ -230,9 +230,9 @@ class TestFingerprintStatistics:
         spacings_array = np.array(spacings)
         median_spacing = np.median(spacings_array, axis=0)
 
-        assert np.allclose(median_spacing[0:2], 1.0), (
-            "Median for isotropic axes should be 1.0"
-        )
+        assert np.allclose(
+            median_spacing[0:2], 1.0
+        ), "Median for isotropic axes should be 1.0"
         assert np.allclose(median_spacing[2], 2.0), "Median for z-axis should be 2.0"
 
     def test_foreground_voxel_sampling(self) -> None:
@@ -261,9 +261,9 @@ class TestFingerprintStatistics:
         data2 = np.random.rand(1000)
         stats2 = {"mean": np.mean(data2), "std": np.std(data2)}
 
-        assert np.allclose(stats1["mean"], stats2["mean"]), (
-            "Mean should be reproducible"
-        )
+        assert np.allclose(
+            stats1["mean"], stats2["mean"]
+        ), "Mean should be reproducible"
         assert np.allclose(stats1["std"], stats2["std"]), "Std should be reproducible"
 
 

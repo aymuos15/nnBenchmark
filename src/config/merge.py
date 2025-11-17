@@ -1,6 +1,6 @@
 """Configuration merging utilities for handling config inheritance and overrides."""
 
-from typing import Any
+from typing import Any, Callable
 
 
 class ConfigValidationError(Exception):
@@ -74,7 +74,7 @@ def validate_override_keys(
 
 
 def load_config_with_inheritance(
-    config: dict[str, Any], config_loader_func: callable
+    config: dict[str, Any], config_loader_func: Callable[[str], dict[str, Any]]
 ) -> dict[str, Any]:
     """
     Load config with base_config inheritance support.

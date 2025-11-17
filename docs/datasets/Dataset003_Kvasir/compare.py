@@ -138,10 +138,15 @@ class ConfigComparator:
 
         # Median image size
         nnunet_median = plans_2d["median_image_size_in_voxels"]
-        nnbenchmark_median_raw = self.config["dataset"].get("median_shape", "Not stored")
+        nnbenchmark_median_raw = self.config["dataset"].get(
+            "median_shape", "Not stored"
+        )
         # nnBenchmark stores [C, W, H] while nnUNet stores [H, W] for 2D
         # Note: PNG images are stored as (W, H) but we need (H, W) for consistency
-        if isinstance(nnbenchmark_median_raw, list) and len(nnbenchmark_median_raw) == 3:
+        if (
+            isinstance(nnbenchmark_median_raw, list)
+            and len(nnbenchmark_median_raw) == 3
+        ):
             # Skip channel and reverse W, H to H, W
             nnbenchmark_median = [nnbenchmark_median_raw[2], nnbenchmark_median_raw[1]]
         else:
@@ -262,14 +267,16 @@ class ConfigComparator:
                 values_match = abs(nnunet_value - nnbenchmark_value) < tolerance
 
                 # If values don't exactly match but are within tolerance, mark as expected difference
-                exact_match = (nnunet_value == nnbenchmark_value)
+                exact_match = nnunet_value == nnbenchmark_value
 
                 self.add_result(
                     "FG Intensity - Mean (Grayscale)",
                     nnunet_value,
                     nnbenchmark_value,
                     expected_diff=(values_match and not exact_match),
-                    note=f"Both use grayscale preprocessing. Within tolerance ({tolerance}): diff={abs(nnunet_value - nnbenchmark_value):.3f}" if (values_match and not exact_match) else ""
+                    note=f"Both use grayscale preprocessing. Within tolerance ({tolerance}): diff={abs(nnunet_value - nnbenchmark_value):.3f}"
+                    if (values_match and not exact_match)
+                    else "",
                 )
 
     def compare_architecture(self) -> None:
@@ -300,13 +307,15 @@ class ConfigComparator:
 
         # Input channels (both use grayscale after preprocessing)
         # Raw data has 3 channels (R,G,B) but preprocessing converts to 1 channel grayscale
-        nnunet_in_channels = arch_kwargs.get("n_input_channels", 1)  # Default to 1 if not specified
+        nnunet_in_channels = arch_kwargs.get(
+            "n_input_channels", 1
+        )  # Default to 1 if not specified
         nnbenchmark_in_channels = model.get("in_channels", 1)
         self.add_result(
             "Input Channels",
             nnunet_in_channels,
             nnbenchmark_in_channels,
-            note="Both use grayscale (1 channel) after preprocessing RGB→grayscale"
+            note="Both use grayscale (1 channel) after preprocessing RGB→grayscale",
         )
 
         # Feature channels
@@ -336,7 +345,11 @@ class ConfigComparator:
         # Normalization
         nnunet_norm = arch_kwargs["norm_op"].split(".")[-1]
         nnbenchmark_norm_config = dynunet_params.get("norm_name", ["", {}])
-        nnbenchmark_norm = nnbenchmark_norm_config[0] if isinstance(nnbenchmark_norm_config, list) else ""
+        nnbenchmark_norm = (
+            nnbenchmark_norm_config[0]
+            if isinstance(nnbenchmark_norm_config, list)
+            else ""
+        )
         self.add_result(
             "Normalization",
             nnunet_norm,
@@ -347,34 +360,57 @@ class ConfigComparator:
 
         # Normalization affine
         nnunet_affine = arch_kwargs["norm_op_kwargs"]["affine"]
-        nnbenchmark_affine = nnbenchmark_norm_config[1].get("affine", False) if isinstance(nnbenchmark_norm_config, list) and len(nnbenchmark_norm_config) > 1 else False
+        nnbenchmark_affine = (
+            nnbenchmark_norm_config[1].get("affine", False)
+            if isinstance(nnbenchmark_norm_config, list)
+            and len(nnbenchmark_norm_config) > 1
+            else False
+        )
         self.add_result("Norm Affine", nnunet_affine, nnbenchmark_affine)
 
         # Activation
         nnunet_act = arch_kwargs["nonlin"].split(".")[-1]
         nnbenchmark_act_config = dynunet_params.get("act_name", ["", {}])
-        nnbenchmark_act = nnbenchmark_act_config[0] if isinstance(nnbenchmark_act_config, list) else ""
+        nnbenchmark_act = (
+            nnbenchmark_act_config[0]
+            if isinstance(nnbenchmark_act_config, list)
+            else ""
+        )
 
         # Normalize for comparison: LeakyReLU vs leakyrelu
-        normalized_match = nnunet_act.lower().replace("_", "") == nnbenchmark_act.lower().replace("_", "")
-        exact_match = (nnunet_act == nnbenchmark_act)
+        normalized_match = nnunet_act.lower().replace(
+            "_", ""
+        ) == nnbenchmark_act.lower().replace("_", "")
+        exact_match = nnunet_act == nnbenchmark_act
 
         self.add_result(
             "Activation",
             nnunet_act,
             nnbenchmark_act,
             expected_diff=(normalized_match and not exact_match),
-            note="LeakyReLU (nnUNet) == leakyrelu (MONAI) - same operation (case difference)" if (normalized_match and not exact_match) else ""
+            note="LeakyReLU (nnUNet) == leakyrelu (MONAI) - same operation (case difference)"
+            if (normalized_match and not exact_match)
+            else "",
         )
 
         # Activation slope
         nnunet_slope = arch_kwargs["nonlin_kwargs"].get("inplace", True)
-        nnbenchmark_slope = nnbenchmark_act_config[1].get("inplace", True) if isinstance(nnbenchmark_act_config, list) and len(nnbenchmark_act_config) > 1 else True
+        nnbenchmark_slope = (
+            nnbenchmark_act_config[1].get("inplace", True)
+            if isinstance(nnbenchmark_act_config, list)
+            and len(nnbenchmark_act_config) > 1
+            else True
+        )
         self.add_result("Activation Inplace", nnunet_slope, nnbenchmark_slope)
 
         # Negative slope
         nnunet_neg_slope = 0.01  # Default for LeakyReLU
-        nnbenchmark_neg_slope = nnbenchmark_act_config[1].get("negative_slope", 0.01) if isinstance(nnbenchmark_act_config, list) and len(nnbenchmark_act_config) > 1 else 0.01
+        nnbenchmark_neg_slope = (
+            nnbenchmark_act_config[1].get("negative_slope", 0.01)
+            if isinstance(nnbenchmark_act_config, list)
+            and len(nnbenchmark_act_config) > 1
+            else 0.01
+        )
         self.add_result(
             "LeakyReLU Negative Slope", nnunet_neg_slope, nnbenchmark_neg_slope
         )
@@ -407,7 +443,9 @@ class ConfigComparator:
             nnunet_batch,
             nnbenchmark_batch,
             expected_diff=(nnunet_batch != nnbenchmark_batch),
-            note="May differ based on available GPU memory" if nnunet_batch != nnbenchmark_batch else ""
+            note="May differ based on available GPU memory"
+            if nnunet_batch != nnbenchmark_batch
+            else "",
         )
 
         # Epochs (known difference)
@@ -468,7 +506,9 @@ class ConfigComparator:
             nnunet_loss,
             nnbenchmark_loss,
             expected_diff=(nnunet_loss != nnbenchmark_loss),
-            note="DC_and_CE_loss (nnUNet) == DiceCELoss (MONAI) - same loss" if nnunet_loss != nnbenchmark_loss else ""
+            note="DC_and_CE_loss (nnUNet) == DiceCELoss (MONAI) - same loss"
+            if nnunet_loss != nnbenchmark_loss
+            else "",
         )
 
         # Batch dice

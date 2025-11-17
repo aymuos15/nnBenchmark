@@ -148,9 +148,13 @@ class CCLoss(nn.Module):
             # Handle different target shapes
             if target_volume.dim() == pred_volume.dim() - 1:
                 # Target is class indices, convert to one-hot
-                target_onehot = F.one_hot(target_volume.long(), num_classes=pred_volume.shape[0])
+                target_onehot = F.one_hot(
+                    target_volume.long(), num_classes=pred_volume.shape[0]
+                )
                 # Permute from (H, W, C) to (C, H, W)
-                target_onehot = target_onehot.permute(-1, *range(target_onehot.dim() - 1)).float()
+                target_onehot = target_onehot.permute(
+                    -1, *range(target_onehot.dim() - 1)
+                ).float()
             else:
                 target_onehot = target_volume
 
@@ -198,7 +202,7 @@ class CCLoss(nn.Module):
             region_dice_scores = []
 
             for region_id in range(1, num_regions + 1):
-                region_mask = (region_map == region_id)
+                region_mask = region_map == region_id
 
                 # Extract predictions and target for this region
                 pred_region = pred_class[region_mask]
@@ -240,7 +244,9 @@ class CCLoss(nn.Module):
         return sample_loss
 
     @staticmethod
-    def _dice_score(pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-7) -> torch.Tensor:
+    def _dice_score(
+        pred: torch.Tensor, target: torch.Tensor, smooth: float = 1e-7
+    ) -> torch.Tensor:
         """
         Compute differentiable dice score.
 
@@ -253,7 +259,9 @@ class CCLoss(nn.Module):
             Scalar dice score tensor (differentiable)
         """
         intersection = torch.sum(pred * target)
-        dice = (2.0 * intersection + smooth) / (torch.sum(pred) + torch.sum(target) + smooth)
+        dice = (2.0 * intersection + smooth) / (
+            torch.sum(pred) + torch.sum(target) + smooth
+        )
         return dice
 
     @staticmethod
@@ -268,9 +276,11 @@ class CCLoss(nn.Module):
         Returns:
             One-hot encoded tensor of shape (B, C, H, W) or (B, C, H, W, D)
         """
-        return F.one_hot(target.long(), num_classes=num_classes).permute(
-            0, -1, *range(1, target.dim())
-        ).float()
+        return (
+            F.one_hot(target.long(), num_classes=num_classes)
+            .permute(0, -1, *range(1, target.dim()))
+            .float()
+        )
 
 
 # ============================================================================
@@ -278,7 +288,9 @@ class CCLoss(nn.Module):
 # ============================================================================
 
 
-def gpu_connected_components(img: torch.Tensor, connectivity=None) -> Tuple[torch.Tensor, int]:
+def gpu_connected_components(
+    img: torch.Tensor, connectivity=None
+) -> Tuple[torch.Tensor, int]:
     """
     PyTorch wrapper for calculating connected components on a GPU using cupy and cucim.skimage.
 
@@ -294,7 +306,9 @@ def gpu_connected_components(img: torch.Tensor, connectivity=None) -> Tuple[torc
             - num_features: Number of connected components found
     """
     img_cupy = cp.asarray(img)
-    labeled_img, num_features = cucim_measure.label(img_cupy, connectivity=connectivity, return_num=True)
+    labeled_img, num_features = cucim_measure.label(
+        img_cupy, connectivity=connectivity, return_num=True
+    )
     labeled_img_torch = torch.as_tensor(labeled_img, device=img.device)
     return labeled_img_torch, num_features
 
@@ -326,7 +340,7 @@ def get_gt_regions(gt: torch.Tensor, device: torch.device) -> Tuple[torch.Tensor
     # Process each connected component (region) in the ground truth
     for region_label in range(1, num_features + 1):
         # Create binary mask for current region
-        region_mask = (labeled_gt == region_label)
+        region_mask = labeled_gt == region_label
 
         # Convert PyTorch tensor to CuPy array (stays on GPU)
         region_mask_cupy = cp.asarray(region_mask)
@@ -335,7 +349,7 @@ def get_gt_regions(gt: torch.Tensor, device: torch.device) -> Tuple[torch.Tensor
         # Note: We use ~region_mask_cupy to get distances from outside the region
         distance_cupy = distance_transform_edt(
             ~region_mask_cupy,
-            float64_distances=False  # Use float32 for faster computation
+            float64_distances=False,  # Use float32 for faster computation
         )
 
         # Convert CuPy array back to PyTorch tensor (stays on GPU)

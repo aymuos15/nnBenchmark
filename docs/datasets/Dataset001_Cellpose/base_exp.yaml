@@ -21,7 +21,7 @@ overrides:
     epochs: 1000
     num_workers: 5
     batch_size: 1
-    
+
   metrics:
     - type: DiceMetric
       include_background: false

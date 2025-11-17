@@ -161,6 +161,7 @@ class TestCCLossEdgeCases:
         loss.backward()
 
         # Check gradient magnitude is reasonable
+        assert pred.grad is not None
         grad_norm = pred.grad.norm()
         assert grad_norm > 0  # Not zero
         assert torch.isfinite(grad_norm)  # Not inf/nan

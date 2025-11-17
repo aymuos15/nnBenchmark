@@ -109,7 +109,9 @@ class TestRunValidationCheckpointHandling:
                 # Run should not raise error
                 try:
                     run_validation(
-                        str(config_file), dataset="Dataset001_Hippo", checkpoint_path=None
+                        str(config_file),
+                        dataset="Dataset001_Hippo",
+                        checkpoint_path=None,
                     )
                 except Exception as e:
                     # Allow certain expected exceptions (missing data, etc)
@@ -223,7 +225,9 @@ class TestRunValidationConfigValidation:
 
         # Create checkpoint
         checkpoint_path = tmp_path / "checkpoint.pt"
-        torch.save({"model": {}, "epoch": 1, "config_metadata": sample_config}, checkpoint_path)
+        torch.save(
+            {"model": {}, "epoch": 1, "config_metadata": sample_config}, checkpoint_path
+        )
 
         # Mock setup
         with (

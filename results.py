@@ -6,11 +6,12 @@ Script to read test_history.json files from nnUNet results and create a summary 
 import json
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 try:
-    from rich.table import Table
     from rich.console import Console
+    from rich.table import Table
+
     console = Console()
 except ImportError:
     print("Error: rich package not found. Install it with: pip install rich")
@@ -40,21 +41,21 @@ def collect_test_results(dataset_path: Path) -> List[Dict[str, Any]]:
         experiment_name = test_file.parent.name
 
         try:
-            with open(test_file, 'r') as f:
+            with open(test_file, "r") as f:
                 test_data = json.load(f)
 
             # Extract summary statistics
-            result_row = {"Experiment": experiment_name}
+            result_row: dict[str, Any] = {"Experiment": experiment_name}
 
             # Look for summary statistics in the data
             if isinstance(test_data, dict):
                 # Check if there's a 'summary' key with metric statistics
-                if 'summary' in test_data:
-                    summary = test_data['summary']
+                if "summary" in test_data:
+                    summary = test_data["summary"]
                     for metric_name, stats in summary.items():
-                        if isinstance(stats, dict) and 'mean' in stats:
-                            result_row[f"{metric_name}_mean"] = stats['mean']
-                            result_row[f"{metric_name}_std"] = stats.get('std', 0)
+                        if isinstance(stats, dict) and "mean" in stats:
+                            result_row[f"{metric_name}_mean"] = stats["mean"]
+                            result_row[f"{metric_name}_std"] = stats.get("std", 0)
                 else:
                     # If no summary key, extract available top-level metrics
                     for key, value in test_data.items():
@@ -85,7 +86,11 @@ def format_results_table(results: List[Dict[str, Any]]) -> None:
     # Each tuple is (display_name, [possible_mean_keys], [possible_std_keys])
     metrics = [
         ("Dice", ["DiceMetric_mean"], ["DiceMetric_std"]),
-        ("CC-Dice", ["CCMetric_dice_mean", "CCMetric_mean"], ["CCMetric_dice_std", "CCMetric_std"]),
+        (
+            "CC-Dice",
+            ["CCMetric_dice_mean", "CCMetric_mean"],
+            ["CCMetric_dice_std", "CCMetric_std"],
+        ),
         ("NSD", ["SurfaceDiceMetric_mean"], ["SurfaceDiceMetric_std"]),
         ("CC-NSD", ["CCMetric_surface_dice_mean"], ["CCMetric_surface_dice_std"]),
     ]

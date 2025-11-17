@@ -63,7 +63,7 @@ class ValidationEngine:
 
         # Initialize metrics dict and results storage in state
         self.engine.state.metrics = {}
-        self.engine.state.batch_outputs = []  # For visualization
+        setattr(self.engine.state, "batch_outputs", [])  # For visualization
 
     def _prepare_batch(
         self, batch: dict[str, torch.Tensor], non_blocking: bool = False

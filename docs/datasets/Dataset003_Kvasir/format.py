@@ -17,12 +17,11 @@ Dataset Split:
 - Validation: 120 images (12%) → imagesTs/, labelsTs/
 """
 
-import os
 import json
-import shutil
 import zipfile
 from pathlib import Path
-from typing import Set, List, Optional
+from typing import List, Optional
+
 import numpy as np
 from PIL import Image
 
@@ -48,11 +47,11 @@ def unzip_data(dataset_dir: Path, zip_file: str = "archive.zip") -> Optional[Pat
     kvasir_dir = dataset_dir / "Kvasir-SEG" / "Kvasir-SEG"
 
     if kvasir_dir.exists():
-        print(f"Kvasir-SEG directory already exists, skipping unzip")
+        print("Kvasir-SEG directory already exists, skipping unzip")
         return kvasir_dir
 
     print(f"Unzipping {zip_file}...")
-    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
         zip_ref.extractall(dataset_dir)
 
     if kvasir_dir.exists():
@@ -77,7 +76,7 @@ def read_split_file(split_file: Path) -> List[str]:
         print(f"Warning: Split file {split_file} not found")
         return []
 
-    with open(split_file, 'r') as f:
+    with open(split_file, "r") as f:
         # Read lines and strip whitespace
         image_ids = [line.strip() for line in f if line.strip()]
 
@@ -114,7 +113,7 @@ def process_and_copy_files(
     dst_images_dir: Path,
     dst_labels_dir: Path,
     start_case_id: int = 0,
-    file_ending: str = ".png"
+    file_ending: str = ".png",
 ) -> int:
     """
     Process and copy files from source to destination directories.
@@ -155,8 +154,8 @@ def process_and_copy_files(
         image = Image.open(img_src)
 
         # Convert to RGB if not already (in case of RGBA or other formats)
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
+        if image.mode != "RGB":
+            image = image.convert("RGB")
 
         # Convert to numpy array to split channels
         image_array = np.array(image)
@@ -201,11 +200,7 @@ def process_and_copy_files(
     return count
 
 
-def create_dataset_json(
-    output_dir: Path,
-    num_training: int,
-    file_ending: str = ".png"
-):
+def create_dataset_json(output_dir: Path, num_training: int, file_ending: str = ".png"):
     """
     Create dataset.json file for Kvasir-SEG polyp segmentation.
 
@@ -217,23 +212,20 @@ def create_dataset_json(
         "channel_names": {
             "0": "R",  # Red channel
             "1": "G",  # Green channel
-            "2": "B"   # Blue channel
+            "2": "B",  # Blue channel
         },
-        "labels": {
-            "background": 0,
-            "polyp": 1
-        },
+        "labels": {"background": 0, "polyp": 1},
         "numTraining": num_training,
-        "file_ending": file_ending
+        "file_ending": file_ending,
     }
 
     json_path = output_dir / "dataset.json"
-    with open(json_path, 'w') as f:
+    with open(json_path, "w") as f:
         json.dump(dataset_json, f, indent=2)
 
     print(f"\nCreated dataset.json with {num_training} training cases")
-    print(f"Channels: 3x RGB (Red, Green, Blue)")
-    print(f"Semantic classes: background (0), polyp (1)")
+    print("Channels: 3x RGB (Red, Green, Blue)")
+    print("Semantic classes: background (0), polyp (1)")
     return json_path
 
 
@@ -300,7 +292,7 @@ def main():
     images_ts_dir.mkdir(exist_ok=True)
     labels_ts_dir.mkdir(exist_ok=True)
 
-    print(f"Created directories:")
+    print("Created directories:")
     print(f"  - {images_tr_dir.name}/")
     print(f"  - {labels_tr_dir.name}/")
     print(f"  - {images_ts_dir.name}/")
@@ -312,16 +304,12 @@ def main():
     # Process training data
     print("\nProcessing training data:")
     num_training = process_and_copy_files(
-        images_dir,
-        masks_dir,
-        train_ids,
-        images_tr_dir,
-        labels_tr_dir,
-        start_case_id=0
+        images_dir, masks_dir, train_ids, images_tr_dir, labels_tr_dir, start_case_id=0
     )
     print(f"Successfully converted {num_training} training cases")
 
     # Process validation data (goes to test folders in nnUNet)
+    num_val = 0
     if val_ids:
         print("\nProcessing validation data:")
         num_val = process_and_copy_files(
@@ -330,7 +318,7 @@ def main():
             val_ids,
             images_ts_dir,
             labels_ts_dir,
-            start_case_id=0
+            start_case_id=0,
         )
         print(f"Successfully converted {num_val} validation cases")
 
@@ -342,17 +330,27 @@ def main():
     print("=" * 70)
 
     print("\nDirectory structure:")
-    num_train_cases = len(list(images_tr_dir.glob('*_0000.png')))
-    num_val_cases = len(list(images_ts_dir.glob('*_0000.png')))
-    print(f"  imagesTr/   - {num_train_cases * 3} files ({num_train_cases} cases × 3 channels)")
-    print(f"  labelsTr/   - {len(list(labels_tr_dir.glob('*.png')))} training binary masks")
-    print(f"  imagesTs/   - {num_val_cases * 3} files ({num_val_cases} cases × 3 channels)")
-    print(f"  labelsTs/   - {len(list(labels_ts_dir.glob('*.png')))} validation binary masks")
-    print(f"  dataset.json - metadata file")
+    num_train_cases = len(list(images_tr_dir.glob("*_0000.png")))
+    num_val_cases = len(list(images_ts_dir.glob("*_0000.png")))
+    print(
+        f"  imagesTr/   - {num_train_cases * 3} files ({num_train_cases} cases × 3 channels)"
+    )
+    print(
+        f"  labelsTr/   - {len(list(labels_tr_dir.glob('*.png')))} training binary masks"
+    )
+    print(
+        f"  imagesTs/   - {num_val_cases * 3} files ({num_val_cases} cases × 3 channels)"
+    )
+    print(
+        f"  labelsTs/   - {len(list(labels_ts_dir.glob('*.png')))} validation binary masks"
+    )
+    print("  dataset.json - metadata file")
 
     print("\nImage format:")
     print("  - 3 channels: RGB (Red, Green, Blue)")
-    print("  - Each channel saved as separate file: *_0000.png (R), *_0001.png (G), *_0002.png (B)")
+    print(
+        "  - Each channel saved as separate file: *_0000.png (R), *_0001.png (G), *_0002.png (B)"
+    )
     print("  - Reason: Color information aids polyp detection in colonoscopy")
     print("  - Resolution: Variable (from original Kvasir-SEG dataset)")
 

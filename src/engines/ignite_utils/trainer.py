@@ -23,7 +23,6 @@ from src.engines.train.handlers import (
 )
 from src.factory import (
     loss_registry,
-    metric_registry,
     model_registry,
     optimizer_registry,
 )

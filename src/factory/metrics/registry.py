@@ -82,7 +82,9 @@ class MetricRegistry(BaseRegistry):
             metric_params = self._extract_params(metric_cfg)
 
             # Generate unique key for this metric instance
-            metric_key = self._generate_metric_key(metric_type, metric_cfg, metric_type_counts)
+            metric_key = self._generate_metric_key(
+                metric_type, metric_cfg, metric_type_counts
+            )
 
             # Instantiate metric and store with generated key
             metric_dict[metric_key] = metric_class(**metric_params)

@@ -84,7 +84,9 @@ def validate_checkpoint_config(checkpoint: dict, cfg: dict) -> list[str]:
 
     # Check if checkpoint has config metadata
     if "config_metadata" not in checkpoint:
-        warnings_list.append("Checkpoint missing config metadata (old checkpoint format)")
+        warnings_list.append(
+            "Checkpoint missing config metadata (old checkpoint format)"
+        )
         return warnings_list
 
     metadata = checkpoint["config_metadata"]
@@ -382,7 +384,8 @@ def run_training(
             trainer.state.epoch = starting_epoch
             trainer.state.iteration = starting_epoch * len(train_loader)
             log_and_print(
-                log, f"✓ Resuming from epoch {starting_epoch}/{cfg['training']['epochs']}"
+                log,
+                f"✓ Resuming from epoch {starting_epoch}/{cfg['training']['epochs']}",
             )
         else:
             log_and_print(
@@ -421,7 +424,7 @@ def run_training(
     if best_checkpoints:
         best_checkpoint = best_checkpoints[0]
         # Extract loss value from filename
-        match = re.search(r'loss=([\d.]+)\.pt', best_checkpoint)
+        match = re.search(r"loss=([\d.]+)\.pt", best_checkpoint)
         if match:
             best_loss = float(match.group(1))
             log_and_print(log, f"Best training loss: {best_loss:.4f}")

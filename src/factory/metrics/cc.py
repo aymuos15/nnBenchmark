@@ -133,8 +133,6 @@ class CCMetric:
                 raise ValueError(
                     f"class_thresholds is required when metric_type='{metric_type}'"
                 )
-            if not isinstance(class_thresholds, (list, tuple)):
-                raise ValueError("class_thresholds must be a list or tuple")
 
         # State for accumulating results (MONAI pattern)
         self._scores: list[torch.Tensor] = []
@@ -260,15 +258,6 @@ class CCMetric:
             for region_id in range(1, num_regions + 1):
                 region_mask = region_map == region_id
 
-                # Get threshold for this class if using surface dice
-                if self.metric_type == "surface_dice":
-                    # Use class-specific threshold if available, otherwise use first threshold
-                    threshold = (
-                        self.class_thresholds[c]
-                        if c < len(self.class_thresholds)
-                        else self.class_thresholds[0]
-                    )
-
                 # Compute metric for this region based on metric_type
                 if self.metric_type == "dice":
                     region_score = self._compute_region_dice(
@@ -276,6 +265,14 @@ class CCMetric:
                     )
 
                 elif self.metric_type == "surface_dice":
+                    # Use class-specific threshold if available, otherwise use first threshold
+                    # class_thresholds is guaranteed to be non-None by __init__ validation
+                    class_thresholds: list[float] = self.class_thresholds  # type: ignore[assignment]
+                    threshold = (
+                        class_thresholds[c]
+                        if c < len(class_thresholds)
+                        else class_thresholds[0]
+                    )
                     pred_masked, target_masked = self._create_masked_region(
                         pred_class, target_class, region_mask
                     )
@@ -285,6 +282,8 @@ class CCMetric:
                         threshold=threshold,
                         distance_metric=self.distance_metric,
                     )
+                else:
+                    raise ValueError(f"Unknown metric_type: {self.metric_type}")
 
                 region_scores.append(region_score)
 
@@ -563,7 +562,8 @@ def get_gt_regions(
 
         # Calculate Euclidean distance transform using GPU-accelerated cupyx
         distance_cupy = distance_transform_edt(
-            ~region_mask_cupy, float64_distances=False  # Use float32 for speed
+            ~region_mask_cupy,
+            float64_distances=False,  # Use float32 for speed
         )
 
         # Convert CuPy array back to PyTorch tensor (stays on GPU)
