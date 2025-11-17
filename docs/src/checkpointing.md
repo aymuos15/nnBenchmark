@@ -6,8 +6,10 @@ Automatic model checkpointing for training resumption and inference with compreh
 
 Checkpoints are automatically saved during training with full training state:
 
-- `checkpoint_final_checkpoint.pt` - Latest checkpoint (updated every epoch)
-- `best_model_model_key_metric=<value>.pt` - Best model based on validation metric (e.g., key_metric=0.8523)
+- `checkpoint_epoch_XXX.pt` - Epoch checkpoints (saved every epoch, e.g., checkpoint_epoch_001.pt, checkpoint_epoch_100.pt)
+- `checkpoint_final_checkpoint.pt` - Latest checkpoint (most recent epoch)
+
+**Note**: Best model selection happens during post-training validation (nnBench.validate), not during training. See validation documentation for details.
 
 **Location**: `results/<dataset_name>/fold_<N>/`
 
@@ -21,15 +23,36 @@ Checkpoints are automatically saved during training with full training state:
 
 ## Checkpoint Selection
 
-**Validation mode** (fold 0-4):
-- Saves best model based on `training.checkpoint_metric` (e.g., DiceMetric)
-- Keeps top-1 checkpoint based on validation metric
-- Filename includes metric value: `best_model_model_key_metric=0.8523.pt`
-- Also saves latest checkpoint every epoch: `checkpoint_final_checkpoint.pt`
+**Training mode** (fold 0-4):
+- Saves checkpoint after every epoch as checkpoint_epoch_XXX.pt
+- Keeps final checkpoint as checkpoint_final_checkpoint.pt (most recent)
+- Best model selection happens during **post-training validation** (nnBench.validate)
+- Training tracks only training loss (no validation metrics)
 
 **All-data mode** (fold -1):
-- No validation performed, saves latest checkpoint every epoch
-- Saved as `checkpoint_final_checkpoint.pt`
+- No validation performed, saves checkpoint every epoch: checkpoint_epoch_XXX.pt
+- Latest checkpoint saved as checkpoint_final_checkpoint.pt
+
+## Post-Training Validation and Best Model Selection
+
+**Workflow**:
+1. Training phase saves epoch checkpoints: checkpoint_epoch_001.pt, checkpoint_epoch_002.pt, etc.
+2. Validation phase (nnBench.validate) runs on all epoch checkpoints
+3. Best model determined based on validation metrics
+4. Results saved as validation_history_epoch_XXX.json
+
+This separation allows:
+- Validation to run independently without requiring training to complete
+- Parallel evaluation of checkpoints across multiple machines
+- Flexible checkpoint selection based on different validation metrics
+- Validation to be rerun on the same checkpoints without retraining
+
+**Running validation**:
+```bash
+nnBench.validate --config fold_0.yaml --dataset Dataset001_Example
+```
+
+Validation auto-discovers all checkpoint_epoch_*.pt files and validates sequentially, producing validation_history_epoch_XXX.json files for each checkpoint.
 
 ## Resuming Training
 

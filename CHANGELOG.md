@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Major Refactoring
+- **Validation Module Separation**: Validation logic split from training into independent `nnBench.validate` CLI command
+  - Enables post-training validation on checkpoints without completing training
+  - Validation results saved as validation_history_epoch_XXX.json per checkpoint
+  - ValidationProgressHandler and ValidationVisualizationHandler removed from training
+  - New ValidationEngine with event-driven architecture
+  - New validation handlers: ValidationMetricsHandler, ValidationProgressHandler, ValidationResultsHandler, ValidationVisualizationHandler
+
+### Changed
+- **Training Workflow**:
+  - Validation now runs as separate post-training step (no longer integrated with training)
+  - Training pipeline simplified to only track training loss metrics
+  - Checkpoints saved with numbered format: checkpoint_epoch_XXX.pt (per epoch)
+  - Best model selection now based on training loss (lower is better) instead of validation metrics
+  - Automatic checkpoint resumption (no manual --continue flag needed, still supported for backward compatibility)
+
+- **Logging System**:
+  - Training logs now always append to train.log (removed resume parameter from setup_train_logger)
+  - New setup_val_logger() for validation-specific logging to val.log
+  - More consistent logging behavior across training/validation/inference
+
+- **Metrics**:
+  - Removed "both" metric type from CCMetric (redundant and slow)
+  - Added CC-Dice and CCNSD metrics to default validation configs
+  - Fixed scalar metric result handling in validation
+  - Validation metrics now run every epoch when fold=0-4
+  - When fold=-1, training set used as validation set for monitoring
+
+- **Model Architecture**:
+  - KiUNet: Removed normalization from CRFB blocks to prevent instability with small spatial dimensions
+  - KiUNet: Fixed channel mismatch for 4+ level networks (level 3 CRFB only applied when num_levels==3)
+  - KiUNet: Added smart group normalization support with automatic num_groups selection
+  - Test parameters optimized for memory: 3D batch size reduced from 2 to 1, spatial dims from 32x32x32 to 16x16x16
+
+### Fixed
+- **Error Handling**: Replaced silent exception fallbacks with explicit error propagation in BlobLoss, CCLoss, and CCMetric
+- **KiUNet Tests**: All 30 KiUNet tests now pass (fixed channel mismatch and normalization issues)
+- **Metric Aggregation**: Fixed IndexError when metrics return scalar tensors instead of per-class tensors
+- **CCLoss**: Maintain gradient connection in edge case handlers
+- **Code Quality**: Moved inline imports (glob, re, json) to module level in training pipeline
+
+### Added
+- **Test Coverage**: Added comprehensive tests for validation pipeline and loss edge cases
+  - test_engines_validate_run.py: Tests for validation orchestration and checkpoint handling
+  - test_engines_validate_handlers.py: Tests for validation metrics, progress, results, and visualization handlers
+  - test_custom_losses_edge_cases.py: Tests for gradient flow in CCLoss and BlobLoss edge cases
+- **Documentation Updates**: Updated README, AGENT.md, workflow.md with new validation workflow
+
 ## [0.1.5] - 2025-11-06
 
 ### Added

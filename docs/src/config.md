@@ -311,6 +311,20 @@ metrics:
       - 2.0                    # Class 1 tolerance
       - 2.0                    # Class 2 tolerance
     # use_subvoxels: true      # Use subvoxel accuracy
+```
+
+**Note**: Configuration of validation behavior is now separate from training. Validation metrics specified in the config are used by `nnBench.validate` for post-training metric computation, not during training itself.
+
+When fold=0-4 (validation fold):
+- Training runs without computing validation metrics (faster)
+- `nnBench.validate` runs post-training and computes metrics on validation set
+- Results saved as validation_history_epoch_*.json
+
+When fold=-1 (all-data training):
+- Training uses training set as validation set for monitoring (when fold=-1)
+- `nnBench.validate` can still run but will have no validation split available
+
+```yaml
 
   # Hausdorff Distance
   # - type: HausdorffDistanceMetric

@@ -92,7 +92,11 @@ nnBench.plan --dataset Dataset002_HippocampusMedDecathalon --verbose
 
 # Training
 nnBench.train --config fold_0.yaml --dataset Dataset001_Cellpose
-nnBench.train --config fold_0.yaml --dataset Dataset001_Cellpose --continue  # Resume from checkpoint
+nnBench.train --config fold_0.yaml --dataset Dataset001_Cellpose --continue  # Resume from checkpoint (optional, automatic)
+
+# Validation (post-training)
+nnBench.validate --config fold_0.yaml --dataset Dataset001_Cellpose
+nnBench.validate --config fold_0.yaml --dataset Dataset001_Cellpose --checkpoint path/to/checkpoint.pt  # Single checkpoint
 
 # Inference
 nnBench.inference --config fold_0.yaml --dataset Dataset001_Cellpose
@@ -139,10 +143,21 @@ These are accessed via `src/config/paths.py`:
 - Enables multi-model support by changing single config field
 
 **src/engines/train/** - MONAI SupervisedTrainer integration with Ignite
-- `trainer.py` - Trainer and evaluator creation with Ignite engine
-- `handlers.py` - Custom handlers for training history, visualization, logging, GPU memory
+- `run.py` - Training execution with automatic checkpoint resumption
+- `handlers.py` - Custom handlers for training history, logging, GPU memory, checkpointing
 - Deep supervision support via loss wrapper
-- Event-driven training, validation and checkpointing with Ignite events
+- Event-driven training with Ignite events
+- Checkpoints saved as numbered files per epoch: checkpoint_epoch_XXX.pt
+- Validation removed from training (now separate post-training step)
+
+**src/engines/validate/** - Independent post-training validation module
+- `cli.py` - CLI entry point for `nnBench.validate` command
+- `run.py` - Validation orchestration with checkpoint discovery
+- `engine.py` - ValidationEngine for event-driven validation
+- `handlers.py` - Custom handlers for validation metrics, progress, results, visualization
+- Auto-discovers and validates all epoch checkpoints sequentially
+- Results saved as validation_history_epoch_XXX.json per checkpoint
+- Can run independently without requiring training to complete
 
 **src/config/** - Configuration loading and validation
 - `load.py` - YAML loading with environment variable expansion

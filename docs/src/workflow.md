@@ -15,9 +15,22 @@ nnBench.plan --dataset <name> --num-workers <n>    # Set parallel workers for fi
 
 ```bash
 nnBench.train --config <config> --dataset <name>   # Train with config (dataset required for relative paths)
-nnBench.train --config <config> --dataset <name> --continue  # Resume from last checkpoint
-nnBench.train --config <config> --dataset <name> -c          # Resume (short flag)
+nnBench.train --config <config> --dataset <name> --continue  # Resume from checkpoint (optional, automatic)
+nnBench.train --config <config> --dataset <name> -c          # Resume (short flag, optional)
 ```
+
+**Note**: Checkpoint resumption is automatic - if a checkpoint exists, training automatically resumes from the last epoch.
+
+## nnBench.validate
+
+```bash
+nnBench.validate --config <config> --dataset <name>                # Validate all epoch checkpoints
+nnBench.validate --config <config> --dataset <name> --checkpoint <path>  # Validate specific checkpoint
+nnBench.validate --config <config> --dataset <name> --batch-size <n>    # Override batch size
+nnBench.validate --config <config> --dataset <name> --num-workers <n>   # Override data loader workers
+```
+
+**Note**: Validation runs post-training and can be executed independently on checkpoint artifacts without requiring training to complete. This enables parallel evaluation workflows.
 
 ## nnBench.inference
 
@@ -37,6 +50,7 @@ nnBench.plot --config <config> --dataset <name>    # Generate all plots from res
 ```bash
 nnBench.plan --dataset Dataset002_HippocampusMedDecathalon --verbose # Plan
 nnBench.train --config fold_0.yaml --dataset Dataset001_Cellpose # Train
+nnBench.validate --config fold_0.yaml --dataset Dataset001_Cellpose # Validate (post-training)
 nnBench.inference --config fold_0.yaml --dataset Dataset001_Cellpose # Inference
 nnBench.plot --config fold_0.yaml --dataset Dataset001_Cellpose # Plot
 ```

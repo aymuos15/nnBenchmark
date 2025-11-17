@@ -5,6 +5,7 @@ Maintains exact output formats (training_history.json, visualizations, logs).
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -34,8 +35,6 @@ class TrainingHistoryHandler:
 
         # Always try to load existing history if file exists
         if Path(self.history_path).exists():
-            import json
-
             with open(self.history_path) as f:
                 self.training_history = json.load(f)
         else:

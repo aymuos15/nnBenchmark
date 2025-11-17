@@ -10,14 +10,17 @@ Results are saved in `nnBench_results/` (or `nnUNet_results/` for backward compa
 │   ├── fold_0.yaml                    # Training configurations
 │   └── custom_exp.yaml
 └── {config_name}/                     # Results directory (created during training)
-    ├── training_history.json          # Training/validation metrics per epoch
+    ├── training_history.json          # Training metrics per epoch
+    ├── validation_history_epoch_*.json # Post-training validation metrics (multiple files, one per checkpoint)
     ├── test_history.json              # Test/inference results (if nnBench.inference run)
-    ├── best_model_model_key_metric=*.pt   # Best checkpoint (selected by validation metric)
-    ├── best_model_model_final_iteration=*.pt  # Final epoch checkpoint (fallback)
-    ├── train.log                      # Training logs
-    ├── test.log                       # Inference logs
-    ├── visualizations/                # Validation slice visualizations
-    └── plots/                         # Generated plots
+    ├── checkpoint_epoch_001.pt         # Training checkpoint for epoch 1
+    ├── checkpoint_epoch_002.pt         # Training checkpoint for epoch 2
+    ├── checkpoint_final_checkpoint.pt  # Latest training checkpoint
+    ├── train.log                       # Training logs (auto-appends)
+    ├── val.log                         # Validation logs (auto-appends)
+    ├── test.log                        # Inference logs
+    ├── visualizations/                 # Validation slice visualizations
+    └── plots/                          # Generated plots
         ├── training_loss.png
         ├── val_{MetricName}.png
         └── test_cls_wise_{MetricName}_scores.png
@@ -29,14 +32,38 @@ Results are saved in `nnBench_results/` (or `nnUNet_results/` for backward compa
 ```json
 {
   "epochs": [1, 2, 3, ...],
-  "train_loss": [0.45, 0.38, ...],
-  "val_epochs": [5, 10, 15, ...],
-  "val_DiceMetric": [0.65, 0.72, ...],
-  "val_DiceMetric_Class1": [0.60, 0.70, ...]
+  "train_loss": [0.45, 0.38, ...]
 }
 ```
-- Updated after every epoch (training loss) and validation (metrics)
-- Omitted for `fold: -1` (all-data training): only `epochs` and `train_loss` present
+- Updated after every epoch with training loss only
+- Validation metrics now stored separately in validation_history_epoch_*.json files
+
+### validation_history_epoch_XXX.json
+
+Created after running `nnBench.validate` on a checkpoint:
+
+```json
+{
+  "config_name": "fold_0.yaml",
+  "dataset_name": "Dataset001_Example",
+  "checkpoint_epoch": 50,
+  "metrics": ["DiceMetric", "CCMetric_dice", "SurfaceDiceMetric", "CCMetric_surface_dice"],
+  "summary": {
+    "DiceMetric": {
+      "mean": 0.87,
+      "std": 0.05,
+      "per_class": { "Class1": {"mean": 0.85, "std": 0.06}, ... }
+    },
+    ...
+  },
+  "per_sample_scores": { ... },
+  "sample_names": [...]
+}
+```
+
+- One file created per validated checkpoint
+- Enables independent post-training validation without requiring training completion
+- Can be used to select best model across all epoch checkpoints
 
 ### test_history.json
 ```json
@@ -80,15 +107,25 @@ Results are saved in `nnBench_results/` (or `nnUNet_results/` for backward compa
 
   This ensures each metric variant is uniquely identified in results.
 
-### Checkpoints (MONAI Format)
+### Checkpoints
 
-**Best model checkpoints** (saved automatically during training):
-- `best_model_model_key_metric=<metric_name>.pt`: Best model based on validation metric (e.g., `dice_score`)
-- `best_model_model_final_iteration=<epoch_num>.pt`: Final epoch checkpoint (fallback if no validation)
+**Training Checkpoints** (created during nnBench.train):
+- `checkpoint_epoch_XXX.pt`: Numbered checkpoint saved after each epoch (e.g., checkpoint_epoch_001.pt, checkpoint_epoch_100.pt)
+- `checkpoint_final_checkpoint.pt`: Latest checkpoint (most recent epoch)
+- Stored in PyTorch dictionary format with keys: model, optimizer, lr_scheduler, scaler, epoch, config_metadata
+- Used by nnBench.validate to run post-training validation
 
-Files are in PyTorch state dict format (`.pt`), loadable with `torch.load()`.
+**Post-Training Validation** (results from nnBench.validate):
+- `validation_history_epoch_XXX.json`: Validation metrics for specific checkpoint (separate file per checkpoint)
+- Created after running `nnBench.validate` command
+- Contains validation metrics (Dice, Surface Dice, etc.) for the checkpoint
 
-See [Checkpointing Guide](./reproducibility/checkpointing.md) for loading instructions.
+**Best Model Selection**:
+- Best model is determined during post-training validation (not training)
+- Selected based on validation metrics from validation_history_epoch_*.json files
+- Use nnBench.inference to run predictions with selected best model
+
+See [Validation Documentation](./validation.md) and [Checkpointing Guide](./checkpointing.md) for more details.
 
 ## Generate Plots
 

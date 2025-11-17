@@ -13,9 +13,10 @@ This separation keeps the console clean while preserving all debugging informati
 
 ## Setup Functions
 
-### For Training/Inference (File-only Logging)
-- `setup_train_logger(results_dir, resume)` - Logs to `train.log` file only (DEBUG level)
-- `setup_test_logger(results_dir)` - Logs to `test.log` file only (DEBUG level)
+### For Training/Validation/Inference (File-only Logging)
+- `setup_train_logger(results_dir)` - Logs to `train.log` file only (INFO level, always appends)
+- `setup_val_logger(results_dir)` - Logs to `val.log` file only (INFO level, always appends)
+- `setup_test_logger(results_dir)` - Logs to `test.log` file only (INFO level, always appends)
 
 ### For CLI Tools (Dual Logging)
 - `setup_dual_logging(log_file)` - Setup dual logging (console INFO + file DEBUG)
@@ -25,7 +26,7 @@ This separation keeps the console clean while preserving all debugging informati
 
 ### Other Functions
 - `setup_verbose_logger(level, format_string)` - Custom console output with specified level
-- `setup_logger(results_dir, log_name, resume)` - Generic logger setup
+- `setup_logger(results_dir, log_name)` - Generic logger setup
 
 ## Helper Functions
 
@@ -37,17 +38,32 @@ This separation keeps the console clean while preserving all debugging informati
 
 ## Usage Examples
 
-### Training (File-only logging)
+### Training (File-only logging, auto-append)
 ```python
 from loguru import logger
 from src.logging import setup_train_logger
 
 # Setup logger (removes console output, writes to train.log)
-setup_train_logger(results_dir="results/Dataset001/fold_0", resume=False)
+# Logs automatically append to existing file
+setup_train_logger(results_dir="results/Dataset001/fold_0")
 
 # All logs go to file only
 logger.info("Starting training...")
 logger.debug("Model loaded with parameters...")
+```
+
+### Validation (File-only logging, auto-append)
+```python
+from loguru import logger
+from src.logging import setup_val_logger
+
+# Setup logger (removes console output, writes to val.log)
+# Logs automatically append to existing file
+setup_val_logger(results_dir="results/Dataset001/fold_0")
+
+# All logs go to file only
+logger.info("Starting validation...")
+logger.debug("Processing validation batch...")
 ```
 
 ### Planning (Dual logging)
@@ -63,10 +79,18 @@ logger.info("Fingerprinting dataset...")  # Shows on console
 logger.debug("Processing image 001...")   # File only
 ```
 
+### Important: Logging Behavior Changed
+
+As of the recent refactor:
+- **All logs automatically append** to existing log files (no overwriting)
+- The `resume` parameter has been removed from logging setup functions
+- This ensures logs from multiple training sessions are preserved
+
 ## File Locations
 
-- **Training logs**: `{results_dir}/train.log`
-- **Inference logs**: `{results_dir}/test.log`
+- **Training logs**: `{results_dir}/train.log` (appends across sessions)
+- **Validation logs**: `{results_dir}/val.log` (appends across sessions)
+- **Inference logs**: `{results_dir}/test.log` (fresh per inference)
 - **Planning logs**: User-specified path (e.g., `planning.log`)
 
 **Implementation**: `src/logging/` (`setup.py`, `helpers.py`, `system.py`)

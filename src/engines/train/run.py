@@ -4,6 +4,8 @@ Standalone training execution function.
 
 from __future__ import annotations
 
+import glob
+import re
 import sys
 import warnings
 from pathlib import Path
@@ -15,12 +17,11 @@ from monai.data.dataset import CacheDataset, Dataset
 from src.config import resolve_config_path
 from src.config.validation import (
     validate_deep_supervision_config,
-    validate_metrics_config,
     validate_required_field,
 )
 from src.engines.common import setup_experiment
 from src.engines.ignite_utils import create_trainer
-from src.factory import metric_registry, transform_registry
+from src.factory import transform_registry
 from src.logging import log_and_print, log_header, log_system_info, setup_train_logger
 from src.utils.data import get_data_dicts
 from src.utils.seeding import (
@@ -192,7 +193,7 @@ def run_training(
     log.info(f"Batch size: {cfg['training']['batch_size']}")
     if training_all_data:
         log.info("Training on all data (fold=-1): training without validation split")
-    log.info(f"Checkpoint: Best model based on training loss")
+    log.info("Checkpoint: Best model based on training loss")
     log.info(f"Mixed precision (AMP): {'Enabled' if use_amp else 'Disabled'}")
 
     # Log deep supervision configuration
@@ -244,20 +245,17 @@ def run_training(
             log_and_print(
                 log, f"Caching {int(cache_rate * 100)}% of validation data..."
             )
-            val_ds = CacheDataset(
+            _ = CacheDataset(
                 data=val_data,
                 transform=val_transforms,
                 cache_rate=cache_rate,
                 num_workers=num_workers,
-            )
-        else:
-            val_ds = None
+            )  # Cache validation data for consistency (not used in training)
         persistent_workers = False  # CacheDataset requires persistent_workers=False
         log_and_print(log, "Data caching completed!")
     else:
         # Use basic Dataset (no caching)
         train_ds = Dataset(data=train_data, transform=train_transforms)
-        val_ds = Dataset(data=val_data, transform=val_transforms) if val_data else None
         persistent_workers = num_workers > 0
 
     # Create data loaders
@@ -273,9 +271,6 @@ def run_training(
     )
 
     log.info(f"Training samples: {len(train_ds)}")
-
-    # Check for existing checkpoint (automatic detection)
-    checkpoint_exists = find_latest_checkpoint(results_dir) is not None
 
     # Handle force_fresh: delete all checkpoints if requested
     results_path = Path(results_dir)
@@ -293,7 +288,6 @@ def run_training(
             for ckpt_file in checkpoint_files:
                 ckpt_path = results_path / ckpt_file
                 ckpt_path.unlink()
-            checkpoint_exists = False  # Update flag after deletion
 
     # Create MONAI trainer
     log.info("Creating MONAI SupervisedTrainer...")
@@ -423,12 +417,10 @@ def run_training(
 
     # Report best checkpoint if loss-based tracking was used
     best_checkpoint_pattern = str(Path(results_dir) / "best_model_model_loss*.pt")
-    import glob
     best_checkpoints = glob.glob(best_checkpoint_pattern)
     if best_checkpoints:
         best_checkpoint = best_checkpoints[0]
         # Extract loss value from filename
-        import re
         match = re.search(r'loss=([\d.]+)\.pt', best_checkpoint)
         if match:
             best_loss = float(match.group(1))
