@@ -305,12 +305,31 @@ def gpu_connected_components(
             - labeled_img: Labeled image with each connected component having a unique label
             - num_features: Number of connected components found
     """
-    img_cupy = cp.asarray(img)
-    labeled_img, num_features = cucim_measure.label(
-        img_cupy, connectivity=connectivity, return_num=True
-    )
-    labeled_img_torch = torch.as_tensor(labeled_img, device=img.device)
-    return labeled_img_torch, num_features
+    # Check if CuPy is available and if tensor is on CUDA
+    if cp is None or not img.is_cuda:
+        # Fallback to CPU implementation using scipy
+        from scipy.ndimage import label as scipy_label
+
+        img_numpy = img.cpu().numpy()
+        labeled_img_numpy, num_features = scipy_label(img_numpy, structure=connectivity)
+        labeled_img_torch = torch.as_tensor(labeled_img_numpy, device=img.device)
+        return labeled_img_torch, num_features
+
+    try:
+        img_cupy = cp.asarray(img)
+        labeled_img, num_features = cucim_measure.label(
+            img_cupy, connectivity=connectivity, return_num=True
+        )
+        labeled_img_torch = torch.as_tensor(labeled_img, device=img.device)
+        return labeled_img_torch, num_features
+    except Exception:
+        # If CuPy fails (e.g., in forked process), fallback to CPU
+        from scipy.ndimage import label as scipy_label
+
+        img_numpy = img.cpu().numpy()
+        labeled_img_numpy, num_features = scipy_label(img_numpy, structure=connectivity)
+        labeled_img_torch = torch.as_tensor(labeled_img_numpy, device=img.device)
+        return labeled_img_torch, num_features
 
 
 def get_gt_regions(gt: torch.Tensor, device: torch.device) -> Tuple[torch.Tensor, int]:
@@ -342,18 +361,35 @@ def get_gt_regions(gt: torch.Tensor, device: torch.device) -> Tuple[torch.Tensor
         # Create binary mask for current region
         region_mask = labeled_gt == region_label
 
-        # Convert PyTorch tensor to CuPy array (stays on GPU)
-        region_mask_cupy = cp.asarray(region_mask)
+        # Calculate distance transform (GPU or CPU depending on availability)
+        if cp is not None and gt.is_cuda:
+            try:
+                # Convert PyTorch tensor to CuPy array (stays on GPU)
+                region_mask_cupy = cp.asarray(region_mask)
 
-        # Calculate Euclidean distance transform using GPU-accelerated cupyx
-        # Note: We use ~region_mask_cupy to get distances from outside the region
-        distance_cupy = distance_transform_edt(
-            ~region_mask_cupy,
-            float64_distances=False,  # Use float32 for faster computation
-        )
+                # Calculate Euclidean distance transform using GPU-accelerated cupyx
+                # Note: We use ~region_mask_cupy to get distances from outside the region
+                distance_cupy = distance_transform_edt(
+                    ~region_mask_cupy,
+                    float64_distances=False,  # Use float32 for faster computation
+                )
 
-        # Convert CuPy array back to PyTorch tensor (stays on GPU)
-        distance = torch.as_tensor(distance_cupy, device=device)
+                # Convert CuPy array back to PyTorch tensor (stays on GPU)
+                distance = torch.as_tensor(distance_cupy, device=device)
+            except Exception:
+                # Fallback to CPU if CuPy fails (e.g., in forked process)
+                from scipy.ndimage import distance_transform_edt as scipy_edt
+
+                region_mask_numpy = region_mask.cpu().numpy()
+                distance_numpy = scipy_edt(~region_mask_numpy)
+                distance = torch.as_tensor(distance_numpy, device=device, dtype=torch.float32)
+        else:
+            # Use CPU implementation
+            from scipy.ndimage import distance_transform_edt as scipy_edt
+
+            region_mask_numpy = region_mask.cpu().numpy()
+            distance_numpy = scipy_edt(~region_mask_numpy)
+            distance = torch.as_tensor(distance_numpy, device=device, dtype=torch.float32)
 
         # For the first region or if we haven't set distances yet, initialize directly
         if region_label == 1 or distance_map.max() == 0:
