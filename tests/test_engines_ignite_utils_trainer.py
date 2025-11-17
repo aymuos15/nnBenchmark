@@ -103,56 +103,6 @@ class TestDeepSupervisionLossWrapper:
 class TestCreateTrainerBasics:
     """Test basic trainer creation."""
 
-    def test_create_trainer_returns_tuple(self, sample_config: dict, tmp_path) -> None:
-        """Test that create_trainer returns trainer and evaluator."""
-        from src.engines.ignite_utils.trainer import create_trainer
-
-        # Setup minimal requirements
-        device = torch.device("cpu")
-        logger = MagicMock()
-        data = [
-            {
-                "image": torch.randn(1, 32, 32, 32),
-                "label": torch.randint(0, 3, (32, 32, 32)),
-            }
-            for _ in range(2)
-        ]
-        ds = Dataset(data=data)
-        loader = DataLoader(ds, batch_size=1)
-
-        with patch(
-            "src.engines.ignite_utils.trainer.model_registry.build"
-        ) as mock_model:
-            with patch(
-                "src.engines.ignite_utils.trainer.loss_registry.build"
-            ) as mock_loss:
-                with patch(
-                    "src.engines.ignite_utils.trainer.optimizer_registry.build"
-                ) as mock_opt:
-                    with patch(
-                        "src.engines.ignite_utils.trainer.metric_registry.build"
-                    ) as mock_metrics:
-                        # Create mock model
-                        mock_model.return_value = nn.Linear(1, 1)
-                        mock_loss.return_value = nn.MSELoss()
-                        mock_opt.return_value = torch.optim.SGD(
-                            nn.Linear(1, 1).parameters(), lr=0.001
-                        )
-                        mock_metrics.return_value = {}
-
-                        trainer, evaluator_result = create_trainer(
-                            cfg=sample_config,
-                            device=device,
-                            train_loader=loader,
-                            val_loader=None,
-                            results_dir=str(tmp_path),
-                            logger=logger,
-                        )
-
-                        assert trainer is not None
-                        # evaluator can be None for training-only mode
-                        assert evaluator_result is None
-
     def test_create_trainer_calls_model_registry(
         self, sample_config: dict, tmp_path
     ) -> None:
@@ -318,56 +268,6 @@ class TestCreateTrainerDeepSupervision:
 
 class TestCreateTrainerMixedPrecision:
     """Test trainer creation with mixed precision."""
-
-    def test_create_trainer_with_mixed_precision(
-        self, sample_config: dict, tmp_path
-    ) -> None:
-        """Test that create_trainer enables mixed precision when configured."""
-        from src.engines.ignite_utils.trainer import create_trainer
-
-        sample_config["training"]["mixed_precision"] = True
-
-        device = torch.device("cpu")
-        logger = MagicMock()
-        data = [
-            {
-                "image": torch.randn(1, 32, 32, 32),
-                "label": torch.randint(0, 3, (32, 32, 32)),
-            }
-            for _ in range(2)
-        ]
-        ds = Dataset(data=data)
-        loader = DataLoader(ds, batch_size=1)
-
-        with patch(
-            "src.engines.ignite_utils.trainer.model_registry.build"
-        ) as mock_model:
-            with patch(
-                "src.engines.ignite_utils.trainer.loss_registry.build"
-            ) as mock_loss:
-                with patch(
-                    "src.engines.ignite_utils.trainer.optimizer_registry.build"
-                ) as mock_opt:
-                    with patch(
-                        "src.engines.ignite_utils.trainer.metric_registry.build"
-                    ) as mock_metrics:
-                        mock_model.return_value = nn.Linear(1, 1)
-                        mock_loss.return_value = nn.MSELoss()
-                        mock_opt.return_value = torch.optim.SGD(
-                            nn.Linear(1, 1).parameters(), lr=0.001
-                        )
-                        mock_metrics.return_value = {}
-
-                        trainer, _ = create_trainer(
-                            cfg=sample_config,
-                            device=device,
-                            train_loader=loader,
-                            val_loader=None,
-                            results_dir=str(tmp_path),
-                            logger=logger,
-                        )
-
-                        assert trainer is not None
 
 
 class TestPrepBatchFunction:

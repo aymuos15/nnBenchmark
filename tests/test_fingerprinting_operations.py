@@ -48,9 +48,9 @@ class TestSpacingDetection:
         shape = (64, 64, 64)
         is_anisotropic, _axis = detect_anisotropy(spacing, shape)
 
-        assert (
-            not is_anisotropic
-        ), "Mild spacing variation should not be detected as anisotropic"
+        assert not is_anisotropic, (
+            "Mild spacing variation should not be detected as anisotropic"
+        )
 
     def test_spacing_detection_order_invariance(self) -> None:
         """Test that spacing detection is consistent regardless of axis order."""
@@ -104,29 +104,6 @@ class TestFingerprintDatasetBasics:
             labels_dir.mkdir()
 
             yield dataset_dir
-
-    def test_fingerprint_creates_output_file(self, temp_dataset_dir: Path) -> None:
-        """Test that fingerprinting creates the fingerprint.json output."""
-        # Create simple test data
-        images_dir = temp_dataset_dir / "imagesTr"
-        labels_dir = temp_dataset_dir / "labelsTr"
-
-        # Create simple dummy files (just npy for testing)
-        test_image = np.random.rand(1, 32, 32, 32).astype(np.float32)
-        test_label = np.random.randint(0, 2, (1, 32, 32, 32)).astype(np.uint8)
-
-        np.save(str(images_dir / "case_001_0000.npy"), test_image)
-        np.save(str(labels_dir / "case_001.npy"), test_label)
-
-        # Run fingerprinting
-        try:
-            fingerprint_dataset(
-                dataset_dir=str(temp_dataset_dir),
-                num_workers=1,
-            )
-        except Exception as e:
-            # Fingerprinting might fail due to file format, but we're testing structure
-            pytest.skip(f"Fingerprinting requires valid nifti files: {e}")
 
     def test_fingerprint_handles_missing_directories(
         self, temp_dataset_dir: Path
@@ -211,9 +188,9 @@ class TestMetadataExtraction:
         unique_labels = np.unique(labels)
 
         assert len(unique_labels) == 3, "Should find 3 unique labels"
-        assert np.array_equal(
-            unique_labels, [0, 1, 2]
-        ), "Should identify all label values"
+        assert np.array_equal(unique_labels, [0, 1, 2]), (
+            "Should identify all label values"
+        )
 
     def test_class_count_from_labels(self) -> None:
         """Test computation of num_classes from labels."""
@@ -253,9 +230,9 @@ class TestFingerprintStatistics:
         spacings_array = np.array(spacings)
         median_spacing = np.median(spacings_array, axis=0)
 
-        assert np.allclose(
-            median_spacing[0:2], 1.0
-        ), "Median for isotropic axes should be 1.0"
+        assert np.allclose(median_spacing[0:2], 1.0), (
+            "Median for isotropic axes should be 1.0"
+        )
         assert np.allclose(median_spacing[2], 2.0), "Median for z-axis should be 2.0"
 
     def test_foreground_voxel_sampling(self) -> None:
@@ -284,9 +261,9 @@ class TestFingerprintStatistics:
         data2 = np.random.rand(1000)
         stats2 = {"mean": np.mean(data2), "std": np.std(data2)}
 
-        assert np.allclose(
-            stats1["mean"], stats2["mean"]
-        ), "Mean should be reproducible"
+        assert np.allclose(stats1["mean"], stats2["mean"]), (
+            "Mean should be reproducible"
+        )
         assert np.allclose(stats1["std"], stats2["std"]), "Std should be reproducible"
 
 

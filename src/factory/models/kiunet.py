@@ -79,10 +79,24 @@ class KiUNet(nn.Module):
         self.out_channels = out_channels
         self.features = list(features)
         self.num_levels = len(features)
-        self.norm_name = norm_name
-        self.act_name = act_name
         self.deep_supervision = deep_supervision
         self.deep_supr_num = deep_supr_num
+
+        # Handle group normalization: convert to MONAI tuple format
+        # Use num_groups=8 as default (common practice) or adjust to be compatible with channels
+        if norm_name == "group":
+            # Find a suitable num_groups that divides all feature channel counts
+            # including final layer (features[0] // 2)
+            # Start with 8 and reduce until we find a divisor
+            num_groups = 8
+            min_feat = min(features[0] // 2, *features)
+            while min_feat % num_groups != 0 and num_groups > 1:
+                num_groups //= 2
+            self.norm_name = ("group", {"num_groups": num_groups})
+        else:
+            self.norm_name = norm_name
+
+        self.act_name = act_name
 
         # Select pooling type based on spatial dimensions
         self.pool_type = nn.MaxPool2d if spatial_dims == 2 else nn.MaxPool3d
@@ -101,8 +115,8 @@ class KiUNet(nn.Module):
                     in_channels=in_ch,
                     out_channels=feat,
                     kernel_size=3,
-                    norm=norm_name,
-                    act=act_name,
+                    norm=self.norm_name,
+                    act=self.act_name,
                 )
             )
 
@@ -119,8 +133,8 @@ class KiUNet(nn.Module):
                     in_channels=in_ch,
                     out_channels=feat,
                     kernel_size=3,
-                    norm=norm_name,
-                    act=act_name,
+                    norm=self.norm_name,
+                    act=self.act_name,
                 )
             )
 
@@ -129,22 +143,42 @@ class KiUNet(nn.Module):
         # ============================================================
         # intere_i_1: Ki-Net → U-Net
         # intere_i_2: U-Net → Ki-Net
+        # Note: No normalization to avoid issues with small spatial dimensions in 3D
 
-        self.intere1_1 = Convolution(spatial_dims, features[0], features[0], 3, norm=norm_name, act=None)
-        self.intere1_2 = Convolution(spatial_dims, features[0], features[0], 3, norm=norm_name, act=None)
+        self.intere1_1 = Convolution(
+            spatial_dims, features[0], features[0], 3, norm="", act=None
+        )
+        self.intere1_2 = Convolution(
+            spatial_dims, features[0], features[0], 3, norm="", act=None
+        )
 
-        self.intere2_1 = Convolution(spatial_dims, features[1], features[1], 3, norm=norm_name, act=None)
-        self.intere2_2 = Convolution(spatial_dims, features[1], features[1], 3, norm=norm_name, act=None)
+        self.intere2_1 = Convolution(
+            spatial_dims, features[1], features[1], 3, norm="", act=None
+        )
+        self.intere2_2 = Convolution(
+            spatial_dims, features[1], features[1], 3, norm="", act=None
+        )
 
-        # Level 3: Channel adaptation (Ki-Net and U-Net have different channels)
-        # If features = [16, 32, 64], then level 3 has U-Net=64, Ki-Net=32
-        # But in 3-level case, they're the same. In 4-level+ case, they differ.
-        # Following original paper: intere3_1 does channel expansion, intere3_2 does reduction
-        if self.num_levels >= 3:
-            kinet_ch_level3 = features[-2] if self.num_levels > 3 else features[-1]
-            unet_ch_level3 = features[-1]
-            self.intere3_1 = Convolution(spatial_dims, kinet_ch_level3, unet_ch_level3, 3, norm=norm_name, act=None)
-            self.intere3_2 = Convolution(spatial_dims, unet_ch_level3, kinet_ch_level3, 3, norm=norm_name, act=None)
+        # Level 3: CRFB for 3-level networks only
+        # For 4+ level networks, we don't use CRFB at the deeper levels
+        # to avoid channel mismatch issues
+        if self.num_levels == 3:
+            self.intere3_1 = Convolution(
+                spatial_dims,
+                features[2],
+                features[2],
+                3,
+                norm="",
+                act=None,
+            )
+            self.intere3_2 = Convolution(
+                spatial_dims,
+                features[2],
+                features[2],
+                3,
+                norm="",
+                act=None,
+            )
 
         # ============================================================
         # Decoders (both branches) - decode independently
@@ -166,8 +200,8 @@ class KiUNet(nn.Module):
                     in_channels=in_feat + out_feat,
                     out_channels=out_feat,
                     kernel_size=3,
-                    norm=norm_name,
-                    act=act_name,
+                    norm=self.norm_name,
+                    act=self.act_name,
                 )
             )
 
@@ -178,8 +212,8 @@ class KiUNet(nn.Module):
                     in_channels=in_feat + out_feat,
                     out_channels=out_feat,
                     kernel_size=3,
-                    norm=norm_name,
-                    act=act_name,
+                    norm=self.norm_name,
+                    act=self.act_name,
                 )
             )
 
@@ -187,18 +221,35 @@ class KiUNet(nn.Module):
         # CRFB Convolutions for Decoder (only first 2 levels have CRFB)
         # ============================================================
         # Following original paper: decoder levels 1 and 2 have CRFB, level 3 doesn't
+        # Note: No normalization to avoid issues with small spatial dimensions in 3D
 
         if self.num_levels >= 2:
             # Decoder level 1 CRFB (after first decoder stage)
-            dec_ch_1 = decoder_features[1] if len(decoder_features) > 1 else decoder_features[0]
-            self.interd1_1 = Convolution(spatial_dims, dec_ch_1, dec_ch_1, 3, norm=norm_name, act=None)
-            self.interd1_2 = Convolution(spatial_dims, dec_ch_1, dec_ch_1, 3, norm=norm_name, act=None)
+            dec_ch_1 = (
+                decoder_features[1]
+                if len(decoder_features) > 1
+                else decoder_features[0]
+            )
+            self.interd1_1 = Convolution(
+                spatial_dims, dec_ch_1, dec_ch_1, 3, norm="", act=None
+            )
+            self.interd1_2 = Convolution(
+                spatial_dims, dec_ch_1, dec_ch_1, 3, norm="", act=None
+            )
 
         if self.num_levels >= 3:
             # Decoder level 2 CRFB (after second decoder stage)
-            dec_ch_2 = decoder_features[2] if len(decoder_features) > 2 else decoder_features[1]
-            self.interd2_1 = Convolution(spatial_dims, dec_ch_2, dec_ch_2, 3, norm=norm_name, act=None)
-            self.interd2_2 = Convolution(spatial_dims, dec_ch_2, dec_ch_2, 3, norm=norm_name, act=None)
+            dec_ch_2 = (
+                decoder_features[2]
+                if len(decoder_features) > 2
+                else decoder_features[1]
+            )
+            self.interd2_1 = Convolution(
+                spatial_dims, dec_ch_2, dec_ch_2, 3, norm="", act=None
+            )
+            self.interd2_2 = Convolution(
+                spatial_dims, dec_ch_2, dec_ch_2, 3, norm="", act=None
+            )
 
         # ============================================================
         # Final layers to match output resolution
@@ -211,8 +262,8 @@ class KiUNet(nn.Module):
             in_channels=final_feat,
             out_channels=final_feat // 2,
             kernel_size=3,
-            norm=norm_name,
-            act=act_name,
+            norm=self.norm_name,
+            act=self.act_name,
         )
 
         self.kinet_final = Convolution(
@@ -220,8 +271,8 @@ class KiUNet(nn.Module):
             in_channels=final_feat,
             out_channels=final_feat // 2,
             kernel_size=3,
-            norm=norm_name,
-            act=act_name,
+            norm=self.norm_name,
+            act=self.act_name,
         )
 
         # Segmentation head (1x1 conv)
@@ -264,17 +315,11 @@ class KiUNet(nn.Module):
         input_size = x.shape[2:]
         mode = "bilinear" if self.spatial_dims == 2 else "trilinear"
 
-        # Scale factors for CRFB (from original paper)
-        # Encoder: Ki-Net grows 2x at each level, U-Net shrinks 2x
-        # Level 1: U-Net at H/2, Ki-Net at H*2 → ratio 1:4
-        # Level 2: U-Net at H/4, Ki-Net at H*4 → ratio 1:16
-        # Level 3: U-Net at H/8, Ki-Net at H*8 → ratio 1:64
-        encoder_scale_down = [0.25, 0.0625, 0.015625]
-        encoder_scale_up = [4, 16, 64]
-
-        # Decoder: Reverse scaling
-        decoder_scale_down = [0.0625, 0.25]  # Only 2 levels have CRFB
-        decoder_scale_up = [16, 4]
+        # Scale factors for CRFB (from original paper) - unused, for reference only
+        # encoder_scale_down = [0.25, 0.0625, 0.015625]
+        # encoder_scale_up = [4, 16, 64]
+        # decoder_scale_down = [0.0625, 0.25]
+        # decoder_scale_up = [16, 4]
 
         # ============================================================
         # Encoder: U-Net branch (pooling) + Ki-Net branch (upsampling)
@@ -293,22 +338,25 @@ class KiUNet(nn.Module):
 
             # Apply pooling/upsampling (NO extra activation - Convolution already did it)
             unet_x = self.pool_type(kernel_size=2, stride=2)(unet_x)
-            kinet_x = F.interpolate(kinet_x, scale_factor=2, mode=mode, align_corners=True)
+            kinet_x = F.interpolate(
+                kinet_x, scale_factor=2, mode=mode, align_corners=True
+            )
 
             # CRFB fusion (inline) - use F.relu on intere convs (they have act=None)
+            # Only apply CRFB at the first 3 encoder levels (i=0,1,2)
             if i == 0:
                 tmp = unet_x
                 unet_x = unet_x + F.interpolate(
                     F.relu(self.intere1_1(kinet_x)),
                     size=unet_x.shape[2:],
                     mode=mode,
-                    align_corners=True
+                    align_corners=True,
                 )
                 kinet_x = kinet_x + F.interpolate(
                     F.relu(self.intere1_2(tmp)),
                     size=kinet_x.shape[2:],
                     mode=mode,
-                    align_corners=True
+                    align_corners=True,
                 )
             elif i == 1:
                 tmp = unet_x
@@ -316,27 +364,28 @@ class KiUNet(nn.Module):
                     F.relu(self.intere2_1(kinet_x)),
                     size=unet_x.shape[2:],
                     mode=mode,
-                    align_corners=True
+                    align_corners=True,
                 )
                 kinet_x = kinet_x + F.interpolate(
                     F.relu(self.intere2_2(tmp)),
                     size=kinet_x.shape[2:],
                     mode=mode,
-                    align_corners=True
+                    align_corners=True,
                 )
-            elif i == 2 and self.num_levels >= 3:
+            elif i == 2 and self.num_levels == 3:
+                # Level 3 CRFB: only for 3-level networks (same channels)
                 tmp = unet_x
                 unet_x = unet_x + F.interpolate(
                     F.relu(self.intere3_1(kinet_x)),
                     size=unet_x.shape[2:],
                     mode=mode,
-                    align_corners=True
+                    align_corners=True,
                 )
                 kinet_x = kinet_x + F.interpolate(
                     F.relu(self.intere3_2(tmp)),
                     size=kinet_x.shape[2:],
                     mode=mode,
-                    align_corners=True
+                    align_corners=True,
                 )
 
             # Save features for skip connections
@@ -422,12 +471,8 @@ class KiUNet(nn.Module):
         kinet_x = self.kinet_final(kinet_x)
 
         # Ensure both branches are at input resolution before fusion
-        unet_x = F.interpolate(
-            unet_x, size=input_size, mode=mode, align_corners=True
-        )
-        kinet_x = F.interpolate(
-            kinet_x, size=input_size, mode=mode, align_corners=True
-        )
+        unet_x = F.interpolate(unet_x, size=input_size, mode=mode, align_corners=True)
+        kinet_x = F.interpolate(kinet_x, size=input_size, mode=mode, align_corners=True)
 
         # Fuse branches via addition (like original paper)
         fused = unet_x + kinet_x
@@ -449,7 +494,7 @@ def KiUNet2D(
     act_name: Literal["relu", "leakyrelu", "prelu"] = "leakyrelu",
     deep_supervision: bool = False,
     deep_supr_num: int = 1,
-) -> KiUNet:
+) -> KiUNet:  # noqa: N802
     """Create a 2D KiU-Net model.
 
     Args:
@@ -491,7 +536,7 @@ def KiUNet3D(
     act_name: Literal["relu", "leakyrelu", "prelu"] = "leakyrelu",
     deep_supervision: bool = False,
     deep_supr_num: int = 1,
-) -> KiUNet:
+) -> KiUNet:  # noqa: N802
     """Create a 3D KiU-Net model.
 
     Args:

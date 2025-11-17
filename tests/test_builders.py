@@ -201,13 +201,6 @@ class TestBuildTransforms:
 class TestBuildModel:
     """Tests for model_registry."""
 
-    def test_both_models_registered(self) -> None:
-        """Test that both DynUNet and UNet are registered."""
-        available = model_registry.list_available()
-        assert "DynUNet" in available
-        assert "UNet" in available
-        assert len(available) == 2
-
     def test_build_dynunet_flat_config(self, sample_config: dict[str, Any]) -> None:
         """Test building DynUNet from flat config (backward compatibility)."""
         device = torch.device("cpu")

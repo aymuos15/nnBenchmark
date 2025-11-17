@@ -26,8 +26,8 @@ class TestKiUNetArchitecture:
     @pytest.mark.parametrize(
         "spatial_dims,input_shape",
         [
-            (2, (2, 1, 64, 64)),  # 2D: batch=2, channels=1, H=64, W=64
-            (3, (2, 1, 32, 32, 32)),  # 3D: batch=2, channels=1, H=32, W=32, D=32
+            (2, (2, 1, 64, 64)),  # 2D
+            (3, (1, 1, 16, 16, 16)),  # 3D smaller
         ],
     )
     def test_forward_pass_basic(
@@ -53,7 +53,7 @@ class TestKiUNetArchitecture:
         "spatial_dims,input_shape",
         [
             (2, (2, 1, 64, 64)),
-            (3, (2, 1, 32, 32, 32)),
+            (3, (1, 1, 16, 16, 16)),
         ],
     )
     def test_forward_pass_with_deep_supervision(
@@ -224,9 +224,10 @@ class TestKiUNet3D:
             features=[16, 32, 64],
         )
 
-        x = torch.randn(2, 1, 32, 32, 32)
+        # Use smaller batch size and volume to avoid memory issues
+        x = torch.randn(1, 1, 16, 16, 16)
         output = model(x)
-        assert output.shape == (2, 2, 32, 32, 32)
+        assert output.shape == (1, 2, 16, 16, 16)
 
 
 class TestModelRegistry:
