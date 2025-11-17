@@ -55,6 +55,15 @@ repos:
 # Local hooks for project-specific checks
   - repo: local
     hooks:
+      # Type checking with ty (experimental type checker from Astral)
+      - id: ty
+        name: ty type check
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
       # Check for print statements in source code (not tests, CLI tools, utilities, or logging)
       - id: no-print-statements
         name: Check for print statements

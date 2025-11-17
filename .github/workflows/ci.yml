@@ -13,20 +13,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          enable-cache: true
 
-      - name: Install uv
-        run: pip install uv
+      - name: Set up Python
+        run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync
 
       - name: Run ruff
-        run: ruff check .
+        run: uv run ruff check .
 
   type-check:
     name: Type Check (ty)
@@ -34,27 +33,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          enable-cache: true
 
-      - name: Install uv
-        run: pip install uv
-
-      - name: Create virtual environment
-        run: python -m venv .venv
+      - name: Set up Python
+        run: uv python install 3.11
 
       - name: Install dependencies
-        run: |
-          source .venv/bin/activate
-          uv pip install -e ".[dev]"
+        run: uv sync
 
       - name: Run ty check
-        run: |
-          source .venv/bin/activate
-          python -m ty check
+        run: uv run ty check
 
   pyright-check:
     name: Type Check (pyright)
@@ -62,20 +53,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          enable-cache: true
 
-      - name: Install uv
-        run: pip install uv
+      - name: Set up Python
+        run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync
 
       - name: Run pyright
-        run: pyright
+        run: uv run pyright
 
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -88,20 +78,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
+          enable-cache: true
 
-      - name: Install uv
-        run: pip install uv
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv sync
 
       - name: Run tests with coverage
-        run: pytest --cov=src --cov-report=xml --cov-report=term-missing
+        run: uv run pytest --cov=src --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'

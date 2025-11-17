@@ -61,6 +61,18 @@ class KiUNet(nn.Module):
         >>> outputs = model(x)  # Returns (main, [aux1, aux2, ...])
     """
 
+    # Type annotations for instance attributes
+    spatial_dims: int
+    in_channels: int
+    out_channels: int
+    features: list[int]
+    num_levels: int
+    deep_supervision: bool
+    deep_supr_num: int
+    norm_name: tuple[Literal["group"], dict[str, int]] | str
+    act_name: str
+    pool_type: type[nn.MaxPool2d] | type[nn.MaxPool3d]
+
     def __init__(
         self,
         spatial_dims: int,
@@ -74,13 +86,14 @@ class KiUNet(nn.Module):
     ) -> None:
         super().__init__()
 
-        self.spatial_dims = spatial_dims
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.features = list(features)
-        self.num_levels = len(features)
-        self.deep_supervision = deep_supervision
-        self.deep_supr_num = deep_supr_num
+        # ty doesn't understand PyTorch's custom __setattr__, so we ignore these assignments
+        self.spatial_dims = spatial_dims  # ty: ignore
+        self.in_channels = in_channels  # ty: ignore
+        self.out_channels = out_channels  # ty: ignore
+        self.features = list(features)  # ty: ignore
+        self.num_levels = len(features)  # ty: ignore
+        self.deep_supervision = deep_supervision  # ty: ignore
+        self.deep_supr_num = deep_supr_num  # ty: ignore
 
         # Handle group normalization: convert to MONAI tuple format
         # Use num_groups=8 as default (common practice) or adjust to be compatible with channels
@@ -92,14 +105,19 @@ class KiUNet(nn.Module):
             min_feat = min(features[0] // 2, *features)
             while min_feat % num_groups != 0 and num_groups > 1:
                 num_groups //= 2
-            self.norm_name = ("group", {"num_groups": num_groups})
+            self.norm_name = (  # ty: ignore
+                "group",
+                {"num_groups": num_groups},
+            )
         else:
-            self.norm_name = norm_name
+            self.norm_name = norm_name  # ty: ignore
 
-        self.act_name = act_name
+        self.act_name = act_name  # ty: ignore
 
         # Select pooling type based on spatial dimensions
-        self.pool_type = nn.MaxPool2d if spatial_dims == 2 else nn.MaxPool3d
+        self.pool_type = (  # ty: ignore
+            nn.MaxPool2d if spatial_dims == 2 else nn.MaxPool3d
+        )
         conv_type = nn.Conv2d if spatial_dims == 2 else nn.Conv3d
 
         # ============================================================

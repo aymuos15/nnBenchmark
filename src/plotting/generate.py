@@ -77,14 +77,13 @@ def generate_plots(results_dir: str) -> None:
 
         for metric_name, metric_values in main_val_metrics.items():
             if len(metric_values) > 0:
-                # Use val_epochs if available, otherwise create a fallback
-                if len(val_epochs) == len(metric_values):
-                    epochs_for_plot = val_epochs
-                else:
-                    print(
-                        f"  Warning: val_epochs length mismatch for {metric_name}, using fallback"
+                # Validate val_epochs length matches metric_values
+                if len(val_epochs) != len(metric_values):
+                    raise ValueError(
+                        f"val_epochs length ({len(val_epochs)}) does not match "
+                        f"{metric_name} values length ({len(metric_values)})"
                     )
-                    epochs_for_plot = epochs[: len(metric_values)]
+                epochs_for_plot = val_epochs
 
                 # Get per-class values for this metric if available
                 per_class_vals = per_class_metrics.get(metric_name, None)

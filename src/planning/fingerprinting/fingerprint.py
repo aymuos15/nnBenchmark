@@ -174,14 +174,12 @@ def fingerprint_dataset(
 
     # Determine num_classes by scanning actual label files
     label_paths_for_scanning = [lp for _, lp in image_label_pairs if lp is not None]
-    if label_paths_for_scanning:
-        num_classes = scan_unique_label_values(label_paths_for_scanning)
-    else:
-        # Fallback to dataset.json if no labels found
-        num_classes = len(dataset_info.get("labels", {}))
-        logger.warning(
-            f"No label files found, using num_classes from dataset.json: {num_classes}"
+    if not label_paths_for_scanning:
+        raise FileNotFoundError(
+            f"No label files found in {labels_dir}. "
+            f"Labels are required for fingerprinting to determine num_classes."
         )
+    num_classes = scan_unique_label_values(label_paths_for_scanning)
 
     # Extract properties from all images
     properties_list: list[ImageProperties] = []
