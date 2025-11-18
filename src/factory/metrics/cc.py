@@ -10,7 +10,7 @@ from typing import Optional, Tuple
 
 import torch
 
-from src.factory.cc_utils import get_gt_regions, gpu_connected_components
+from src.factory.cc_utils import get_gt_regions
 
 
 class CCMetric:

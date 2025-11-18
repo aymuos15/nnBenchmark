@@ -217,7 +217,7 @@ def fingerprint_dataset(
                     )
                 elif len(properties_list) < len(results) * 0.5:
                     logger.warning(
-                        f"More than 50% of images failed to load. This may affect fingerprinting accuracy."
+                        "More than 50% of images failed to load. This may affect fingerprinting accuracy."
                     )
     else:
         # Sequential processing (num_workers == 1)

@@ -6,18 +6,23 @@ shared between CCLoss and CCMetric to avoid code duplication.
 Based on GPU-Connected-Components: https://github.com/aymuos15/GPU-Connected-Components
 """
 
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 import torch
 
-try:
+if TYPE_CHECKING:
     import cupy as cp  # type: ignore[import]
     from cucim.skimage import measure as cucim_measure  # type: ignore[import]
     from cupyx.scipy.ndimage import distance_transform_edt  # type: ignore[import]
-except ImportError:
-    cp = None  # type: ignore
-    cucim_measure = None  # type: ignore
-    distance_transform_edt = None  # type: ignore
+else:
+    try:
+        import cupy as cp  # type: ignore[import]
+        from cucim.skimage import measure as cucim_measure  # type: ignore[import]
+        from cupyx.scipy.ndimage import distance_transform_edt  # type: ignore[import]
+    except ImportError:
+        cp = None  # type: ignore
+        cucim_measure = None  # type: ignore
+        distance_transform_edt = None  # type: ignore
 
 
 def gpu_connected_components(

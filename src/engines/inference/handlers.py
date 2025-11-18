@@ -118,7 +118,7 @@ class InferenceMetricsHandler:
                 len(batch_scores_per_class) > 0 and self.class_labels is not None
             )
 
-            if has_per_class:
+            if has_per_class and self.class_labels is not None:
                 # Print per-class scores for each metric separately
                 for name, score in batch_scores.items():
                     if name in batch_scores_per_class:

@@ -26,7 +26,7 @@ else:
         cp = None  # type: ignore
         cucim_measure = None  # type: ignore
 
-from src.factory.losses.cc import gpu_connected_components
+from src.factory.cc_utils import gpu_connected_components
 
 
 class BlobLoss(nn.Module):

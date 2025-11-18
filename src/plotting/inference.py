@@ -388,7 +388,7 @@ def plot_classwise_bar(
 
     # Create bar plot with error bars
     x_pos = np.arange(len(class_names))
-    bars = ax.bar(
+    ax.bar(
         x_pos,
         means,
         yerr=stds,

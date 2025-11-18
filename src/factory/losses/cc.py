@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.factory.cc_utils import get_gt_regions, gpu_connected_components
+from src.factory.cc_utils import get_gt_regions
 
 
 class CCLoss(nn.Module):
@@ -267,4 +267,6 @@ class CCLoss(nn.Module):
             .permute(0, -1, *range(1, target.dim()))
             .float()
         )
+
+
 __all__ = ["CCLoss"]
