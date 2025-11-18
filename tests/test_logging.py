@@ -57,8 +57,8 @@ class TestSetupLogger:
         # Give async logger time to flush
         time.sleep(0.2)
 
-        # Verify log file exists
-        log_path = os.path.join(temp_dir, f"{log_name}.log")
+        # Verify log file exists in logs/ subdirectory
+        log_path = os.path.join(temp_dir, "logs", f"{log_name}.log")
         assert os.path.exists(log_path)
 
     def test_setup_logger_writes_message(self, temp_dir: str) -> None:
@@ -70,7 +70,7 @@ class TestSetupLogger:
         log.info(test_message)
 
         # Poll for message in log file (more reliable than fixed sleep)
-        log_path = os.path.join(temp_dir, f"{log_name}.log")
+        log_path = os.path.join(temp_dir, "logs", f"{log_name}.log")
         message_found = _wait_for_log_message(log_path, test_message)
 
         assert message_found, f"Message '{test_message}' not found in log file"
@@ -83,7 +83,7 @@ class TestSetupLogger:
         log1 = setup_logger(temp_dir, log_name=log_name)
         log1.info("Initial message")
 
-        log_path = os.path.join(temp_dir, f"{log_name}.log")
+        log_path = os.path.join(temp_dir, "logs", f"{log_name}.log")
         assert _wait_for_log_message(log_path, "Initial message")
 
         # Create new logger - should append, not overwrite
@@ -108,7 +108,7 @@ class TestSetupLogger:
         log1 = setup_logger(temp_dir, log_name=log_name)
         log1.info("Initial message")
 
-        log_path = os.path.join(temp_dir, f"{log_name}.log")
+        log_path = os.path.join(temp_dir, "logs", f"{log_name}.log")
         assert _wait_for_log_message(log_path, "Initial message")
 
         # Clear and create new logger (setup_logger always appends)
@@ -135,7 +135,7 @@ class TestSetupTrainLogger:
 
         log.info("Training started")
 
-        log_path = os.path.join(temp_dir, "train.log")
+        log_path = os.path.join(temp_dir, "logs", "train.log")
         assert _wait_for_log_message(log_path, "Training started")
 
     def test_setup_train_logger_appends_to_existing(self, temp_dir: str) -> None:
@@ -144,7 +144,7 @@ class TestSetupTrainLogger:
         log1 = setup_train_logger(temp_dir)
         log1.info("First run")
 
-        log_path = os.path.join(temp_dir, "train.log")
+        log_path = os.path.join(temp_dir, "logs", "train.log")
         assert _wait_for_log_message(log_path, "First run")
 
         # Second logger (setup_logger always appends by default)
@@ -171,7 +171,7 @@ class TestSetupTestLogger:
 
         log.info("Testing started")
 
-        log_path = os.path.join(temp_dir, "test.log")
+        log_path = os.path.join(temp_dir, "logs", "test.log")
         assert _wait_for_log_message(log_path, "Testing started")
 
 
@@ -368,7 +368,7 @@ class TestLogSystemInfo:
 
         time.sleep(0.1)
 
-        log_path = os.path.join(temp_dir, "sysinfo.log")
+        log_path = os.path.join(temp_dir, "logs", "sysinfo.log")
         assert _wait_for_log_message(log_path, "SYSTEM INFO")
 
         with open(log_path, "r") as f:

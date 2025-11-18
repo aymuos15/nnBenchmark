@@ -106,7 +106,7 @@ def save_validation_visualizations(
         epoch: Current epoch number
         spatial_dims: 2 for 2D data, 3 for 3D data
     """
-    # Use save_dir directly (caller already creates visualizations/ subdirectory)
+    # Create visualizations directory if it doesn't exist
     vis_dir = ensure_directory(save_dir)
 
     # Get batch size (save entire first batch)
@@ -175,3 +175,4 @@ def save_validation_visualizations(
     save_path = str(Path(vis_dir) / f"validation_epoch_{epoch:03d}.png")
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
+    print(f"Saved visualization: {save_path}")

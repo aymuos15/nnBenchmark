@@ -301,8 +301,8 @@ class TestValidationResultsHandler:
         # Save results
         handler._save_results(engine)
 
-        # Check file was created
-        result_file = tmp_path / "validation_history_epoch_001.json"
+        # Check file was created in history/ subdirectory
+        result_file = tmp_path / "history" / "validation_epoch_001.json"
         assert result_file.exists()
 
         # Check JSON is valid and arrays converted to lists
@@ -346,8 +346,8 @@ class TestValidationResultsHandler:
         # Save results
         handler._save_results(engine)
 
-        # Check correct filename
-        result_file = tmp_path / "validation_history_epoch_042.json"
+        # Check correct filename in history/ subdirectory
+        result_file = tmp_path / "history" / "validation_epoch_042.json"
         assert result_file.exists()
 
 

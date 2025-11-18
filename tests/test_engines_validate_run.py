@@ -67,12 +67,12 @@ class TestRunValidationCheckpointHandling:
         # Create results directory with multiple checkpoints
         results_dir = tmp_path / "results"
         results_dir.mkdir()
-        checkpoint_dir = results_dir
-        checkpoint_dir.mkdir(exist_ok=True)
+        checkpoint_dir = results_dir / "checkpoints"
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create mock checkpoints
+        # Create mock checkpoints with epoch_ prefix (matching the code pattern)
         for epoch in [1, 2, 3]:
-            checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch:03d}.pt"
+            checkpoint_path = checkpoint_dir / f"epoch_{epoch:03d}.pt"
             torch.save(
                 {
                     "model": {},
@@ -98,7 +98,7 @@ class TestRunValidationCheckpointHandling:
                 sample_config,
                 torch.device("cpu"),
                 str(tmp_path / "data"),
-                str(checkpoint_dir),  # Use the actual checkpoint_dir
+                str(results_dir),  # Use the results_dir containing checkpoints/
                 "test_config",
             )
             mock_device.return_value = (torch.device("cpu"), False)

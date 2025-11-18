@@ -134,13 +134,13 @@ class TestSaveValidationVisualizations:
         labels = torch.randint(0, 2, (batch_size, 1, height, width)).float()
         predictions = torch.randint(0, 2, (batch_size, 1, height, width)).float()
 
-        save_validation_visualizations(
-            images, labels, predictions, temp_dir, epoch=1, spatial_dims=2
-        )
-
-        # Check that visualization directory was created
+        # Create visualizations subdirectory (function saves directly to it)
         vis_dir = os.path.join(temp_dir, "visualizations")
-        assert os.path.exists(vis_dir)
+        os.makedirs(vis_dir, exist_ok=True)
+
+        save_validation_visualizations(
+            images, labels, predictions, vis_dir, epoch=1, spatial_dims=2
+        )
 
         # Check that image file was created
         viz_file = os.path.join(vis_dir, "validation_epoch_001.png")
@@ -160,13 +160,13 @@ class TestSaveValidationVisualizations:
         labels = torch.randint(0, 2, (batch_size, 1, depth, height, width)).float()
         predictions = torch.randint(0, 2, (batch_size, 1, depth, height, width)).float()
 
-        save_validation_visualizations(
-            images, labels, predictions, temp_dir, epoch=5, spatial_dims=3
-        )
-
-        # Check that visualization was created
+        # Create visualizations subdirectory (function saves directly to it)
         vis_dir = os.path.join(temp_dir, "visualizations")
-        assert os.path.exists(vis_dir)
+        os.makedirs(vis_dir, exist_ok=True)
+
+        save_validation_visualizations(
+            images, labels, predictions, vis_dir, epoch=5, spatial_dims=3
+        )
 
         viz_file = os.path.join(vis_dir, "validation_epoch_005.png")
         assert os.path.exists(viz_file)
@@ -179,11 +179,14 @@ class TestSaveValidationVisualizations:
         labels = torch.randint(0, 2, (batch_size, 1, 64, 64)).float()
         predictions = torch.randint(0, 2, (batch_size, 1, 64, 64)).float()
 
+        # Create visualizations subdirectory (function saves directly to it)
+        vis_dir = os.path.join(temp_dir, "visualizations")
+        os.makedirs(vis_dir, exist_ok=True)
+
         save_validation_visualizations(
-            images, labels, predictions, temp_dir, epoch=1, spatial_dims=2
+            images, labels, predictions, vis_dir, epoch=1, spatial_dims=2
         )
 
-        vis_dir = os.path.join(temp_dir, "visualizations")
         viz_file = os.path.join(vis_dir, "validation_epoch_001.png")
         assert os.path.exists(viz_file)
 
@@ -198,12 +201,15 @@ class TestSaveValidationVisualizations:
             0, 2, (batch_size, 1, 32, 32), device=device
         ).float()
 
+        # Create visualizations subdirectory (function saves directly to it)
+        vis_dir = os.path.join(temp_dir, "visualizations")
+        os.makedirs(vis_dir, exist_ok=True)
+
         # Should handle GPU tensors correctly
         save_validation_visualizations(
-            images, labels, predictions, temp_dir, epoch=1, spatial_dims=2
+            images, labels, predictions, vis_dir, epoch=1, spatial_dims=2
         )
 
-        vis_dir = os.path.join(temp_dir, "visualizations")
         viz_file = os.path.join(vis_dir, "validation_epoch_001.png")
         assert os.path.exists(viz_file)
 
@@ -216,11 +222,14 @@ class TestSaveValidationVisualizations:
         labels = torch.randint(0, num_classes, (batch_size, 1, 32, 32)).float()
         predictions = torch.randint(0, num_classes, (batch_size, 1, 32, 32)).float()
 
+        # Create visualizations subdirectory (function saves directly to it)
+        vis_dir = os.path.join(temp_dir, "visualizations")
+        os.makedirs(vis_dir, exist_ok=True)
+
         save_validation_visualizations(
-            images, labels, predictions, temp_dir, epoch=1, spatial_dims=2
+            images, labels, predictions, vis_dir, epoch=1, spatial_dims=2
         )
 
-        vis_dir = os.path.join(temp_dir, "visualizations")
         viz_file = os.path.join(vis_dir, "validation_epoch_001.png")
         assert os.path.exists(viz_file)
 
@@ -235,12 +244,16 @@ class TestSaveValidationVisualizations:
         labels = torch.randint(0, 2, (batch_size, 1, depth, height, width)).float()
         predictions = torch.randint(0, 2, (batch_size, 1, depth, height, width)).float()
 
+        # Create visualizations subdirectory (function saves directly to it)
+        vis_dir = os.path.join(temp_dir, "visualizations")
+        os.makedirs(vis_dir, exist_ok=True)
+
         # Should not raise error when processing 3D data
         save_validation_visualizations(
-            images, labels, predictions, temp_dir, epoch=1, spatial_dims=3
+            images, labels, predictions, vis_dir, epoch=1, spatial_dims=3
         )
 
-        vis_file = os.path.join(temp_dir, "visualizations", "validation_epoch_001.png")
+        vis_file = os.path.join(vis_dir, "validation_epoch_001.png")
         assert os.path.exists(vis_file)
 
 

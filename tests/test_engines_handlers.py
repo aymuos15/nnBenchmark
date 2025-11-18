@@ -41,7 +41,7 @@ class TestTrainingHistoryHandler:
 
         handler = TrainingHistoryHandler(str(tmp_path))
 
-        expected_path = str(Path(tmp_path) / "training_history.json")
+        expected_path = str(Path(tmp_path) / "history" / "training.json")
         assert handler.history_path == expected_path
 
     def test_handler_attaches_to_engine(self, tmp_path: Path) -> None:
@@ -65,7 +65,9 @@ class TestTrainingHistoryHandler:
             "epochs": [1, 2],
             "train_loss": [0.5, 0.3],
         }
-        history_path = tmp_path / "training_history.json"
+        history_dir = tmp_path / "history"
+        history_dir.mkdir(exist_ok=True)
+        history_path = history_dir / "training.json"
         with open(history_path, "w") as f:
             json.dump(history_data, f)
 
@@ -79,7 +81,9 @@ class TestTrainingHistoryHandler:
 
         # Create existing history file
         history_data = {"epochs": [1, 2], "train_loss": [0.5, 0.3]}
-        history_path = tmp_path / "training_history.json"
+        history_dir = tmp_path / "history"
+        history_dir.mkdir(exist_ok=True)
+        history_path = history_dir / "training.json"
         with open(history_path, "w") as f:
             json.dump(history_data, f)
 
@@ -123,7 +127,7 @@ class TestTrainingHistoryHandler:
         handler = TrainingHistoryHandler(str(tmp_path))
 
         # Verify history path is correctly set
-        expected_path = str(tmp_path / "training_history.json")
+        expected_path = str(tmp_path / "history" / "training.json")
         assert handler.history_path == expected_path
 
 

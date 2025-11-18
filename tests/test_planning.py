@@ -639,7 +639,8 @@ class TestPlanningWorkflowIntegration:
         assert "transforms" in config
         assert "optimizer" in config
         assert "loss" in config
-        assert "metrics" in config
+        # Generator creates separate validation_metrics and inference_metrics sections
+        assert "validation_metrics" in config or "inference_metrics" in config
 
         # Verify critical dataset values
         assert config["dataset"]["num_classes"] == plan.num_classes
