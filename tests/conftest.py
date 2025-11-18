@@ -18,6 +18,7 @@ import yaml
 def pytest_configure(config: pytest.Config) -> None:
     """Register custom markers."""
     config.addinivalue_line("markers", "gpu: mark test as requiring GPU/CUDA support")
+    config.addinivalue_line("markers", "gpu_deps: mark test as requiring GPU-accelerated dependencies (cupy/cupyx)")
 
 
 @pytest.fixture(scope="session")
@@ -26,12 +27,27 @@ def cuda_available() -> bool:
     return torch.cuda.is_available()
 
 
+@pytest.fixture(scope="session")
+def gpu_deps_available() -> bool:
+    """Check if GPU-accelerated dependencies (cupy/cupyx) are available."""
+    try:
+        import cupy  # noqa: F401
+        from cupyx.scipy.ndimage import distance_transform_edt  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 @pytest.fixture(autouse=True)
-def skip_if_no_cuda(request: pytest.FixtureRequest, cuda_available: bool) -> None:
+def skip_if_no_cuda(request: pytest.FixtureRequest, cuda_available: bool, gpu_deps_available: bool) -> None:
     """Skip tests marked with @pytest.mark.gpu if CUDA is not available."""
     if request.node.get_closest_marker("gpu"):
         if not cuda_available:
             pytest.skip("Test requires CUDA/GPU support")
+
+    if request.node.get_closest_marker("gpu_deps"):
+        if not gpu_deps_available:
+            pytest.skip("Test requires GPU-accelerated dependencies (cupy/cupyx). Install with: pip install cupy-cuda11x")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -292,10 +308,11 @@ def mock_results_dir(temp_dir: str, mock_training_history: dict[str, Any]) -> st
         Path to the mock results directory
     """
     results_dir = os.path.join(temp_dir, "results")
-    os.makedirs(results_dir, exist_ok=True)
+    history_dir = os.path.join(results_dir, "history")
+    os.makedirs(history_dir, exist_ok=True)
 
-    # Write training_history.json
-    with open(os.path.join(results_dir, "training_history.json"), "w") as f:
+    # Write training.json in history subdirectory
+    with open(os.path.join(history_dir, "training.json"), "w") as f:
         json.dump(mock_training_history, f, indent=2)
 
     return results_dir

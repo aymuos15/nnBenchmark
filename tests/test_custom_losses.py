@@ -12,7 +12,7 @@ from src.factory.losses.blob import BlobLoss
 from src.factory.losses.cc import CCLoss
 
 
-@pytest.mark.gpu
+@pytest.mark.gpu_deps
 class TestCCLoss:
     """Test suite for Connected Components Loss."""
 
@@ -310,7 +310,7 @@ class TestCCLoss:
         assert torch.allclose(loss1, loss2)
 
 
-@pytest.mark.gpu
+@pytest.mark.gpu_deps
 class TestBlobLoss:
     """Test suite for Blob Loss."""
 

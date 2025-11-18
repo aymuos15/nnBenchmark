@@ -69,7 +69,7 @@ class TestLoadTrainingHistory:
             load_training_history(empty_results_dir)
 
         assert "Training history not found" in str(excinfo.value)
-        assert "training_history.json" in str(excinfo.value)
+        assert "training.json" in str(excinfo.value)
 
 
 class TestLoadSplits:

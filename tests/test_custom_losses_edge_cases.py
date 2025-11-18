@@ -9,7 +9,7 @@ import pytest
 import torch
 
 
-@pytest.mark.gpu
+@pytest.mark.gpu_deps
 class TestCCLossEdgeCases:
     """Test CCLoss edge cases for gradient flow and error handling."""
 
@@ -170,7 +170,7 @@ class TestCCLossEdgeCases:
         assert grad_norm < 1e6  # Not unreasonably large
 
 
-@pytest.mark.gpu
+@pytest.mark.gpu_deps
 class TestBlobLossEdgeCases:
     """Test BlobLoss edge cases for gradient flow."""
 
@@ -313,7 +313,7 @@ class TestDiceLossEdgeCases:
         assert torch.isfinite(pred.grad).all()
 
 
-@pytest.mark.gpu
+@pytest.mark.gpu_deps
 class TestLossGradientConsistency:
     """Test that losses produce consistent gradients across different scenarios."""
 

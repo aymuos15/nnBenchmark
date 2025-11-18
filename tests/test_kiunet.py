@@ -282,10 +282,10 @@ class TestModelRegistry:
         assert isinstance(model, nn.Module)
         assert model.spatial_dims == 3
 
-        # Test forward pass
-        x = torch.randn(1, 1, 32, 32, 32)
+        # Test forward pass with smaller tensor to avoid memory issues
+        x = torch.randn(1, 1, 16, 16, 16)
         output = model(x)
-        assert output.shape == (1, 2, 32, 32, 32)
+        assert output.shape == (1, 2, 16, 16, 16)
 
     def test_build_kiunet_with_nested_config(self) -> None:
         """Test building KiU-Net with nested config format."""
