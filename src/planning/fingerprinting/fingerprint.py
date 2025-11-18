@@ -198,8 +198,27 @@ def fingerprint_dataset(
             ):
                 results.append(result)
 
-            # Filter out None values (failed loads)
+            # Filter out None values (failed loads) and track failures
             properties_list = [r for r in results if r is not None]
+            failed_count = len(results) - len(properties_list)
+
+            if failed_count > 0:
+                failure_rate = (failed_count / len(results)) * 100
+                logger.warning(
+                    f"Failed to load {failed_count}/{len(results)} images ({failure_rate:.1f}%). "
+                    f"Check logs above for details on individual failures."
+                )
+
+                if failed_count == len(results):
+                    raise ValueError(
+                        f"Failed to load ALL {len(results)} images from parallel processing. "
+                        "Cannot continue with fingerprinting. "
+                        "Please check that all image files are readable and in supported format."
+                    )
+                elif len(properties_list) < len(results) * 0.5:
+                    logger.warning(
+                        f"More than 50% of images failed to load. This may affect fingerprinting accuracy."
+                    )
     else:
         # Sequential processing (num_workers == 1)
         logger.debug("Processing images sequentially...")

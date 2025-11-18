@@ -384,6 +384,72 @@ Evaluates segmentation at the region/connected component level, ideal for multi-
 
 **Backward Compatibility:** Previous configurations using CCMetric without `metric_type` parameter continue to work. The default behavior (metric_type="dice") is preserved.
 
+## Separate Validation and Inference Metrics (v0.2.0+)
+
+As of v0.2.0, nnBenchmark supports separate metric configurations for validation and inference stages.
+
+### Configuration Structure
+
+```yaml
+# Validation metrics (used by nnBench.validate for post-training validation)
+validation_metrics:
+  - type: DiceMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 3
+  # Typically excludes expensive metrics like SurfaceDiceMetric for efficiency
+  - type: CCMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 3
+    metric_type: dice
+
+# Inference metrics (used by nnBench.inference for test/prediction evaluation)
+inference_metrics:
+  - type: DiceMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 3
+  - type: SurfaceDiceMetric
+    include_background: false
+    reduction: mean_batch
+    class_thresholds: [2.0]
+  - type: CCMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 3
+    metric_type: dice
+  - type: CCMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 3
+    metric_type: surface_dice
+    class_thresholds: [2.0]
+    distance_metric: euclidean
+```
+
+### Backward Compatibility
+
+If neither `validation_metrics` nor `inference_metrics` are specified, the system falls back to the top-level `metrics` section for both stages. This ensures existing configurations continue to work without modification.
+
+```yaml
+# This configuration still works (backward compatible)
+metrics:
+  - type: DiceMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 3
+  # Used by both validation and inference if separate sections not specified
+```
+
+### Usage Pattern
+
+The typical workflow uses:
+- **validation_metrics**: Lightweight metrics for efficient post-training validation (Dice, CCMetric with dice)
+- **inference_metrics**: Comprehensive metrics for final evaluation (includes SurfaceDiceMetric, CCMetric with surface_dice)
+
+This separation allows efficient validation after training while maintaining comprehensive evaluation for final results.
+
 ## Transforms Configuration
 
 Transforms are split into `common` (applied to all modes) and mode-specific (`train`, `val`, `test`).

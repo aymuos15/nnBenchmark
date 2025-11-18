@@ -96,24 +96,14 @@ No further training needed. Exiting.
 
 ### Force Fresh Start
 
-To delete checkpoints and start from scratch:
+To delete existing checkpoints and start training from scratch:
 
 ```bash
-# Using --fresh flag
+# Using --fresh flag (deletes existing checkpoints)
 nnBench.train --config fold_0.yaml --fresh
-
-# Or --no-resume
-nnBench.train --config fold_0.yaml --no-resume
 ```
 
-### Legacy --continue Flag
-
-The `--continue` flag is now **deprecated** (resumption is automatic):
-
-```bash
-# Still works but unnecessary (deprecated)
-nnBench.train --config fold_0.yaml --continue
-```
+This removes all existing checkpoints in the `checkpoints/` directory and initiates fresh training from epoch 1.
 
 ## Loading for Inference
 

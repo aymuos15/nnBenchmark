@@ -90,8 +90,10 @@ As of the recent refactor:
 
 - **Training logs**: `{results_dir}/train.log` (appends across sessions)
 - **Validation logs**: `{results_dir}/val.log` (appends across sessions)
-- **Inference logs**: `{results_dir}/test.log` (fresh per inference)
+- **Inference/Test logs**: `{results_dir}/logs/test.log` (fresh per inference, overwrites previous)
 - **Planning logs**: User-specified path (e.g., `planning.log`)
+
+**Note**: Training and validation logs append to preserve history across multiple runs, while inference logs are created fresh for each inference run to capture current session details.
 
 **Implementation**: `src/logging/` (`setup.py`, `helpers.py`, `system.py`)
 

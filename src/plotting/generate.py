@@ -9,7 +9,6 @@ from pathlib import Path
 from src.config.load import load_training_history, load_validation_histories
 from src.plotting.inference import (
     plot_classwise_bar,
-    plot_classwise_scores,
     plot_sample_mean_distribution,
 )
 from src.plotting.training import plot_training_loss
@@ -127,7 +126,9 @@ def generate_plots(results_dir: str) -> None:
                         show_points=True,
                     )
                 except Exception as e:
-                    print(f"  Warning: Could not create sample mean plot for {metric_name}: {e}")
+                    print(
+                        f"  Warning: Could not create sample mean plot for {metric_name}: {e}"
+                    )
 
                 # 2. Bar plot: Classwise mean scores
                 try:
@@ -141,8 +142,12 @@ def generate_plots(results_dir: str) -> None:
                         figsize=(6, 4),
                     )
                 except Exception as e:
-                    print(f"  Warning: Could not create classwise bar plot for {metric_name}: {e}")
+                    print(
+                        f"  Warning: Could not create classwise bar plot for {metric_name}: {e}"
+                    )
         else:
-            print("  Note: Test history not in multi-metric format, skipping test plots")
+            print(
+                "  Note: Test history not in multi-metric format, skipping test plots"
+            )
 
     print(f"\nAll plots saved to: {plots_dir}")

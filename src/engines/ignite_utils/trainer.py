@@ -173,6 +173,11 @@ def create_trainer(
     deep_supervision = model_cfg.get("deep_supervision", False)
     if deep_supervision:
         ds_weights = model_cfg.get("ds_weights", [])
+        if not ds_weights:
+            raise ValueError(
+                "Deep supervision is enabled but 'ds_weights' is not configured or is empty. "
+                "Please provide 'ds_weights' list in the model configuration (e.g., ds_weights: [1.0, 0.5, 0.25, 0.125])"
+            )
         spatial_dims = model_cfg.get("spatial_dims", 3)
         loss_fn = DeepSupervisionLossWrapper(loss_fn_base, ds_weights, spatial_dims)
     else:

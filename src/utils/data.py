@@ -6,6 +6,8 @@ Provides helpers for creating MONAI data dictionaries from dataset.json and spli
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from src.config.load import load_splits
 from src.utils.files import extract_base_name_for_label, extract_case_id, load_json
 
@@ -55,6 +57,7 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
 
     # Create a mapping from case_id (filename) to file paths
     case_to_paths: dict[str, dict[str, str]] = {}
+    skipped_cases: list[str] = []
 
     # Scan all training images
     image_files = sorted(images_dir.glob("*_0000.*"))
@@ -78,6 +81,15 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
                 "image": str(img_file),
                 "label": str(label_file),
             }
+        else:
+            # Log cases that are skipped due to missing labels
+            skipped_cases.append(base_name)
+
+    if skipped_cases:
+        logger.warning(
+            f"Skipped {len(skipped_cases)} cases due to missing label files: {skipped_cases[:10]}"
+            f"{'...' if len(skipped_cases) > 10 else ''}"
+        )
 
     return case_to_paths
 

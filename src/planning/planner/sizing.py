@@ -90,9 +90,22 @@ def calculate_batch_size(
     # Estimate VRAM complexity (simplified - nnU-Net instantiates model)
     # This is a rough approximation of model complexity
     patch_voxels = np.prod(patch_size)
+    if patch_voxels == 0:
+        raise ValueError(
+            f"Invalid patch size {patch_size}: all dimensions must be > 0. "
+            f"This may indicate improper calculation during planning."
+        )
+
     num_pool_total = sum(num_pool_per_axis)
     # Rough estimate based on patch size and pooling depth
     estimate = patch_voxels * (2**num_pool_total) * num_input_channels * num_classes
+
+    if estimate <= 0:
+        raise ValueError(
+            f"Invalid complexity estimate: {estimate}. "
+            f"Check that patch_size={patch_size}, num_pool_per_axis={num_pool_per_axis}, "
+            f"num_input_channels={num_input_channels}, num_classes={num_classes} are all positive."
+        )
 
     # Calculate batch size from reference
     batch_size = round((reference / estimate) * ref_bs)

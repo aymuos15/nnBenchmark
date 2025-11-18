@@ -43,9 +43,15 @@ def scan_unique_label_values(label_paths: list[str], num_samples: int = 50) -> i
 
     Returns:
         Number of classes (max_label_value + 1)
+
+    Raises:
+        RuntimeError: If no valid label values can be determined from the provided files
     """
     if not label_paths:
-        return 0
+        raise RuntimeError(
+            "No label files provided to scan. Cannot determine number of classes. "
+            "Please ensure dataset.json contains valid label file paths."
+        )
 
     # Sample up to num_samples files
     sample_paths = random.sample(label_paths, min(num_samples, len(label_paths)))
@@ -66,8 +72,11 @@ def scan_unique_label_values(label_paths: list[str], num_samples: int = 50) -> i
             continue
 
     if not unique_values:
-        logger.warning("No unique label values found in sampled files")
-        return 0
+        raise RuntimeError(
+            f"Failed to determine number of classes. Could not extract label values from any of the {len(sample_paths)} sampled label files. "
+            "Please verify that label files are valid and readable. "
+            "Check logs above for file-specific errors."
+        )
 
     # Number of classes = max label value + 1 (assuming 0-indexed)
     max_label = int(max(unique_values))

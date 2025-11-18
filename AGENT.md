@@ -90,9 +90,10 @@ tox -e pyright     # Type checking with pyright
 # Automatic config generation from dataset
 nnBench.plan --dataset Dataset002_HippocampusMedDecathalon --verbose
 
-# Training
+# Training (automatic checkpoint resumption)
 nnBench.train --config fold_0.yaml --dataset Dataset001_Cellpose
-nnBench.train --config fold_0.yaml --dataset Dataset001_Cellpose --continue  # Resume from checkpoint (optional, automatic)
+# Automatically resumes from checkpoint if it exists, no flags needed
+# Use --fresh to force fresh start (deletes existing checkpoints)
 
 # Validation (post-training)
 nnBench.validate --config fold_0.yaml --dataset Dataset001_Cellpose
