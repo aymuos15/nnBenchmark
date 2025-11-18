@@ -99,16 +99,17 @@ def run_validation(
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
         checkpoints_to_validate = [checkpoint_path]
     else:
-        # Multi-checkpoint mode: find all epoch checkpoints
+        # Multi-checkpoint mode: find all epoch checkpoints in checkpoints/ subdirectory
         import glob
 
-        checkpoint_pattern = str(results_path / "checkpoint_epoch_*.pt")
+        checkpoints_dir = results_path / "checkpoints"
+        checkpoint_pattern = str(checkpoints_dir / "epoch_*.pt")
         checkpoint_files = sorted(glob.glob(checkpoint_pattern))
 
         if not checkpoint_files:
             raise FileNotFoundError(
-                f"No epoch checkpoints found in {results_path}. "
-                f"Looking for pattern: checkpoint_epoch_*.pt"
+                f"No epoch checkpoints found in {checkpoints_dir}. "
+                f"Looking for pattern: epoch_*.pt"
             )
 
         checkpoints_to_validate = [Path(f) for f in checkpoint_files]
@@ -258,14 +259,22 @@ def _validate_single_checkpoint(
         raise
 
     # Metrics
-    metric_fns = metric_registry.build(cfg)
+    # Use validation_metrics if specified, otherwise fall back to metrics
+    metrics_cfg = cfg.copy()
+    if "validation_metrics" in cfg:
+        metrics_cfg["metrics"] = cfg["validation_metrics"]
+        log.info("Using validation-specific metrics")
+    else:
+        log.info("Using default metrics (validation_metrics not specified)")
+
+    metric_fns = metric_registry.build(metrics_cfg)
     metric_names = list(metric_fns.keys())
     log.info(f"Metrics: {', '.join(metric_names)}")
 
     # Get include_background from first metric config
     include_background = False
-    if "metrics" in cfg and len(cfg["metrics"]) > 0:
-        include_background = cfg["metrics"][0].get("include_background", False)
+    if "metrics" in metrics_cfg and len(metrics_cfg["metrics"]) > 0:
+        include_background = metrics_cfg["metrics"][0].get("include_background", False)
 
     # Create ValidationEngine
     log_header(log, "Running validation...")

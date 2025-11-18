@@ -93,25 +93,21 @@ def run_inference(
     log_system_info(log, device)
 
     if model_path is None:
-        # Try to find the best model checkpoint (MONAI format)
+        # Try to find the best model checkpoint in checkpoints/ subdirectory
         import glob
 
-        # Look for best model checkpoint (MONAI naming: best_model_model_key_metric=*.pt)
-        best_model_pattern = str(Path(results_dir) / "best_model*key_metric*.pt")
+        checkpoints_dir = Path(results_dir) / "checkpoints"
+
+        # Look for best model checkpoint
+        best_model_pattern = str(checkpoints_dir / "best_loss*.pt")
         checkpoints = glob.glob(best_model_pattern)
 
         if checkpoints:
             # Sort by modification time, use most recent
             model_path = max(checkpoints, key=lambda p: Path(p).stat().st_mtime)
         else:
-            # Fall back to final checkpoint (MONAI naming: best_model_model_final_iteration=*.pt)
-            final_pattern = str(Path(results_dir) / "best_model*final*.pt")
-            checkpoints = glob.glob(final_pattern)
-            if checkpoints:
-                model_path = max(checkpoints, key=lambda p: Path(p).stat().st_mtime)
-            else:
-                # Last resort: look for any checkpoint file
-                model_path = str(Path(results_dir) / "checkpoint_final_checkpoint.pt")
+            # Fall back to final checkpoint
+            model_path = str(checkpoints_dir / "final.pt")
 
     # Get fold number (required unless using dedicated test set)
     fold: int | None
@@ -203,14 +199,22 @@ def run_inference(
         raise
 
     # Metrics from config
-    metric_fns = metric_registry.build(cfg)
+    # Use inference_metrics if specified, otherwise fall back to metrics
+    metrics_cfg = cfg.copy()
+    if "inference_metrics" in cfg:
+        metrics_cfg["metrics"] = cfg["inference_metrics"]
+        log.info("Using inference-specific metrics")
+    else:
+        log.info("Using default metrics (inference_metrics not specified)")
+
+    metric_fns = metric_registry.build(metrics_cfg)
     metric_names = list(metric_fns.keys())
     log.info(f"Metrics: {', '.join(metric_names)}")
 
     # Get include_background from first metric config
     include_background = False
-    if "metrics" in cfg and len(cfg["metrics"]) > 0:
-        include_background = cfg["metrics"][0].get("include_background", False)
+    if "metrics" in metrics_cfg and len(metrics_cfg["metrics"]) > 0:
+        include_background = metrics_cfg["metrics"][0].get("include_background", False)
 
     # Create InferenceEngine
     log_header(log, "Running inference on test set...")

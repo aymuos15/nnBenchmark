@@ -147,7 +147,7 @@ These are accessed via `src/config/paths.py`:
 - `handlers.py` - Custom handlers for training history, logging, GPU memory, checkpointing
 - Deep supervision support via loss wrapper
 - Event-driven training with Ignite events
-- Checkpoints saved as numbered files per epoch: checkpoint_epoch_XXX.pt
+- Checkpoints saved in `checkpoints/` subdirectory: `epoch_XXX.pt`, `final.pt`, `best_loss=X.XXX.pt`
 - Validation removed from training (now separate post-training step)
 
 **src/engines/validate/** - Independent post-training validation module
@@ -155,8 +155,8 @@ These are accessed via `src/config/paths.py`:
 - `run.py` - Validation orchestration with checkpoint discovery
 - `engine.py` - ValidationEngine for event-driven validation
 - `handlers.py` - Custom handlers for validation metrics, progress, results, visualization
-- Auto-discovers and validates all epoch checkpoints sequentially
-- Results saved as validation_history_epoch_XXX.json per checkpoint
+- Auto-discovers and validates all epoch checkpoints from `checkpoints/` subdirectory
+- Results saved as `history/validation_epoch_XXX.json` per checkpoint
 - Can run independently without requiring training to complete
 
 **src/config/** - Configuration loading and validation

@@ -22,17 +22,22 @@ overrides:
     num_workers: 5
     batch_size: 1
 
-  metrics:
-    - type: DiceMetric
-      include_background: false
-      reduction: mean_batch
-      num_classes: 2
-    - type: SurfaceDiceMetric
-      include_background: false
-      reduction: mean_batch
-      class_thresholds:
-        - 2.0
-    - type: CCMetric
-      include_background: false
-      reduction: mean_batch
-      num_classes: 2
+  validation_metrics:
+  - &id001
+    type: DiceMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 2
+  - &id002
+    type: CCMetric
+    include_background: false
+    reduction: mean_batch
+    num_classes: 2
+  inference_metrics:
+  - *id001
+  - type: SurfaceDiceMetric
+    include_background: false
+    reduction: mean_batch
+    class_thresholds:
+    - 2.0
+  - *id002

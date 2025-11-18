@@ -112,8 +112,8 @@ training:
 
   # Metrics to plot
   plot_metrics:
-    - DiceMetric
-    - HausdorffDistanceMetric
+  - DiceMetric
+  - HausdorffDistanceMetric
 
   # Training augmentations (3D-specific)
   augmentations:
@@ -178,18 +178,23 @@ inference:
 # Metrics Configuration
 # ============================================================================
 
-metrics:
-  - type: DiceMetric
-    name: dice_score
-    DiceMetric:
-      include_background: false
-      reduction: mean_batch
-      get_not_nans: true
+validation_metrics:
+- &id001
+  type: DiceMetric
+  name: dice_score
+  DiceMetric:
+    include_background: false
+    reduction: mean_batch
+    get_not_nans: true
 
-  - type: HausdorffDistanceMetric
-    name: hausdorff_95
-    HausdorffDistanceMetric:
-      include_background: false
-      percentile: 95
-      reduction: mean_batch
-      get_not_nans: true
+- &id002
+  type: HausdorffDistanceMetric
+  name: hausdorff_95
+  HausdorffDistanceMetric:
+    include_background: false
+    percentile: 95
+    reduction: mean_batch
+    get_not_nans: true
+inference_metrics:
+- *id001
+- *id002

@@ -6,31 +6,36 @@ Uses SciencePlots for publication-ready figures.
 import json
 from pathlib import Path
 
-from src.config.load import load_training_history
-from src.plotting.inference import plot_classwise_scores
+from src.config.load import load_training_history, load_validation_histories
+from src.plotting.inference import (
+    plot_classwise_bar,
+    plot_classwise_scores,
+    plot_sample_mean_distribution,
+)
 from src.plotting.training import plot_training_loss
 from src.plotting.validation import plot_validation_metric
 
 
 def generate_plots(results_dir: str) -> None:
     """
-    Generate all plots from training and test results.
+    Generate all plots from training, validation, and test results.
 
     Creates:
     1. Training loss plot (training_loss.png)
-    2. Validation metric plots (val_{metric}.png for each metric)
-    3. Classwise test scores plot (classwise_scores.png, if test_history.json exists)
+    2. Validation metric plots (val_{metric}.png for each metric, if validation data exists)
+    3. Classwise test scores plot (test_cls_wise_{metric}_scores.png, if test_history.json exists)
 
     Args:
-        results_dir: Directory containing training_history.json and optionally test_history.json
+        results_dir: Directory containing training_history.json, validation_history_epoch_*.json,
+                     and optionally test_history.json
     """
-    print(f"Loading training history from: {results_dir}")
+    print(f"Loading results from: {results_dir}")
 
     # Create plots subdirectory
     plots_dir = str(Path(results_dir) / "plots")
     Path(plots_dir).mkdir(parents=True, exist_ok=True)
 
-    # Load history
+    # Load training history
     history = load_training_history(results_dir)
 
     # Validate required keys
@@ -44,30 +49,29 @@ def generate_plots(results_dir: str) -> None:
         print("Warning: No training data found in history")
         return
 
+    # Load validation histories (if available)
+    val_data = load_validation_histories(results_dir)
+    if val_data:
+        print(f"  Found validation data for {len(val_data['val_epochs'])} epochs")
+        # Merge validation data into history for plotting
+        history.update(val_data)
+    else:
+        print("  No validation history files found")
+
     # 1. Plot training loss
     loss_plot_path = str(Path(plots_dir) / "training_loss.png")
     plot_training_loss(epochs, train_loss, loss_plot_path)
 
     # 2. Plot validation metrics (each metric gets its own plot)
-    # Separate main metrics from per-class metrics
+    # Collect all validation metrics (treat all as main metrics unless we implement per-class detection)
     main_val_metrics = {}
-    per_class_metrics = {}
 
     for k, v in history.items():
         if k.startswith("val_") and k != "val_epochs":
-            # Check if this is a per-class metric (contains underscore after metric name)
-            # e.g., "val_Dice_Anterior" vs "val_Dice"
-            parts = k.replace("val_", "").split("_", 1)
-            if len(parts) == 1:
-                # Main metric (e.g., "val_Dice")
-                metric_name = parts[0]
-                main_val_metrics[metric_name] = v
-            else:
-                # Per-class metric (e.g., "val_Dice_Anterior")
-                metric_name, class_name = parts
-                if metric_name not in per_class_metrics:
-                    per_class_metrics[metric_name] = {}
-                per_class_metrics[metric_name][class_name] = v
+            # Extract metric name (everything after "val_")
+            # This handles metric names with underscores like "CCMetric_dice"
+            metric_name = k.replace("val_", "")
+            main_val_metrics[metric_name] = v
 
     if not main_val_metrics:
         print("  No validation metrics found in history")
@@ -85,47 +89,60 @@ def generate_plots(results_dir: str) -> None:
                     )
                 epochs_for_plot = val_epochs
 
-                # Get per-class values for this metric if available
-                per_class_vals = per_class_metrics.get(metric_name, None)
-
                 metric_plot_path = str(Path(plots_dir) / f"val_{metric_name}.png")
                 plot_validation_metric(
                     epochs_for_plot,
                     metric_values,
                     metric_name,
                     metric_plot_path,
-                    per_class_values=per_class_vals,
+                    per_class_values=None,  # Not supported yet for scalar metrics
                 )
 
-    # 3. Plot test results if available (classwise violin plot for each metric)
-    test_history_path = str(Path(results_dir) / "test_history.json")
+    # 3. Plot test results if available
+    test_history_path = str(Path(results_dir) / "history" / "test.json")
     if Path(test_history_path).exists():
-        try:
-            # Load test history to check for multiple metrics
-            with open(test_history_path) as f:
-                test_history = json.load(f)
+        # Load test history to check for metrics
+        with open(test_history_path) as f:
+            test_history = json.load(f)
 
-            # Check if this is the new multi-metric format
-            if "metrics" in test_history and isinstance(test_history["metrics"], list):
-                # Plot each metric separately
-                for metric_name in test_history["metrics"]:
-                    if (
-                        metric_name in test_history["summary"]
-                        and "per_class" in test_history["summary"][metric_name]
-                    ):
-                        save_path = str(
-                            Path(plots_dir) / f"test_cls_wise_{metric_name}_scores.png"
-                        )
-                        classwise_plot_path = plot_classwise_scores(
-                            test_history_path=test_history_path,
-                            save_path=save_path,
-                            figsize=(6, 4),
-                            show_points=True,
-                            metric_name=metric_name,
-                        )
-                        print(f"Saved: {classwise_plot_path}")
-        except ValueError as e:
-            # Per-class data not available, skip this plot
-            print(f"  Note: Skipping per-class plots (data not available: {e})")
+        # Check if this is the multi-metric format
+        if "metrics" in test_history and isinstance(test_history["metrics"], list):
+            print(f"  Found test data with {len(test_history['metrics'])} metrics")
+
+            # Plot each metric: create 2 plots per metric
+            for metric_name in test_history["metrics"]:
+                if metric_name not in test_history["summary"]:
+                    continue
+
+                # 1. Violin plot: Distribution of sample mean scores
+                try:
+                    sample_mean_path = str(
+                        Path(plots_dir) / f"test_sample_mean_{metric_name}.png"
+                    )
+                    plot_sample_mean_distribution(
+                        test_history_path=test_history_path,
+                        metric_name=metric_name,
+                        save_path=sample_mean_path,
+                        figsize=(6, 4),
+                        show_points=True,
+                    )
+                except Exception as e:
+                    print(f"  Warning: Could not create sample mean plot for {metric_name}: {e}")
+
+                # 2. Bar plot: Classwise mean scores
+                try:
+                    bar_path = str(
+                        Path(plots_dir) / f"test_classwise_bar_{metric_name}.png"
+                    )
+                    plot_classwise_bar(
+                        test_history_path=test_history_path,
+                        metric_name=metric_name,
+                        save_path=bar_path,
+                        figsize=(6, 4),
+                    )
+                except Exception as e:
+                    print(f"  Warning: Could not create classwise bar plot for {metric_name}: {e}")
+        else:
+            print("  Note: Test history not in multi-metric format, skipping test plots")
 
     print(f"\nAll plots saved to: {plots_dir}")

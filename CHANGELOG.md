@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.2.0] - 2025-11-18
+
+### BREAKING CHANGES
+- **Results Directory Structure**: Complete reorganization with clean, concise filenames
+  - **Checkpoints** → `checkpoints/`: `epoch_001.pt`, `final.pt`, `best_loss=1.23.pt`
+  - **History** → `history/`: `training.json`, `validation_epoch_001.json`, `test.json`
+  - **Logs** → `logs/`: `train.log`, `val.log`, `test.log`
+  - **Plots** → `plots/`: All visualization PNGs (unchanged)
+  - **Visualizations** → `visualizations/`: Validation epoch PNGs
+  - **Removed redundancy**: No more `checkpoint_` prefix or `_history` suffix in filenames
+  - **Impact**: Old experiment results are NOT compatible with this version. Complete in-progress experiments before upgrading.
+  - **Migration**: No automatic migration provided. This is a clean break for better organization.
+
+### Added
+- **Test Plotting**: Added comprehensive test result visualization
+  - `plot_sample_mean_distribution()`: Violin plot showing distribution of per-sample mean scores
+  - `plot_classwise_bar()`: Bar plot showing mean score per class with error bars
+  - Both plots work with scalar metrics (1 class) or multi-class metrics
+  - Plotting CLI now generates 2 plots per test metric (8 total for 4 metrics)
+- **Metrics Configuration Separation**: Added support for separate `validation_metrics` and `inference_metrics` in config files
+  - Config system now checks for dedicated validation/inference metric configs
+  - Falls back to `metrics` for backward compatibility
+  - YAML generator creates both `validation_metrics` and `inference_metrics` sections
+  - All example configs updated to new structure
+- **Validation History Aggregation**: Added `load_validation_histories()` utility to aggregate multiple `validation_epoch_*.json` files
+  - Properly collects validation data from all epoch files
+  - Enables correct plotting of validation metrics across epochs
+
+### Fixed
+- **Plotting System**: Fixed validation and test metric plotting
+  - Fixed metric name parsing bug that skipped metrics with underscores (e.g., `CCMetric_dice`)
+  - Plotting CLI now correctly loads and plots all validation metrics from post-training validation runs
+  - Test plots now generated unconditionally for all metrics (previously skipped scalar metrics)
+  - All plots (training, validation, test) now properly organized in `plots/` directory
+  - Validation plotting now works correctly with post-training validation runs
+
+### Changed
+- **Configuration System**: Separate validation and inference metrics support
+  - Validation and inference engines now check for dedicated metric configs first
+  - Backward compatible with configs using single `metrics` section
+  - Documentation updated to reflect new configuration structure
+- **Logging System**:
+  - Training logs now always append to `train.log` (removed resume parameter from `setup_train_logger`)
+  - More consistent logging behavior across training/validation/inference
+- **Example Configurations**: All example YAML configs updated to use new `validation_metrics` and `inference_metrics` structure
+  - Improved YAML formatting with consistent indentation
+  - Added YAML anchors for DRY principle
+  - Removed redundant "both" metric_type from CCMetric examples
+
 ## [0.1.8] - 2025-01-17
 
 ### Changed
@@ -25,61 +76,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - Test case for graceful handling of missing images (no longer supported with stricter error handling)
 
-## [Unreleased]
-
-### Major Refactoring
-- **Validation Module Separation**: Validation logic split from training into independent `nnBench.validate` CLI command
-  - Enables post-training validation on checkpoints without completing training
-  - Validation results saved as validation_history_epoch_XXX.json per checkpoint
-  - ValidationProgressHandler and ValidationVisualizationHandler removed from training
-  - New ValidationEngine with event-driven architecture
-  - New validation handlers: ValidationMetricsHandler, ValidationProgressHandler, ValidationResultsHandler, ValidationVisualizationHandler
-
-### Changed
-- **Training Workflow**:
-  - Validation now runs as separate post-training step (no longer integrated with training)
-  - Training pipeline simplified to only track training loss metrics
-  - Checkpoints saved with numbered format: checkpoint_epoch_XXX.pt (per epoch)
-  - Best model selection now based on training loss (lower is better) instead of validation metrics
-  - Automatic checkpoint resumption (no manual --continue flag needed, still supported for backward compatibility)
-
-- **Logging System**:
-  - Training logs now always append to train.log (removed resume parameter from setup_train_logger)
-  - New setup_val_logger() for validation-specific logging to val.log
-  - More consistent logging behavior across training/validation/inference
-
-- **Metrics**:
-  - Removed "both" metric type from CCMetric (redundant and slow)
-  - Added CC-Dice and CCNSD metrics to default validation configs
-  - Fixed scalar metric result handling in validation
-  - Validation metrics now run every epoch when fold=0-4
-  - When fold=-1, training set used as validation set for monitoring
-
-- **Model Architecture**:
-  - KiUNet: Removed normalization from CRFB blocks to prevent instability with small spatial dimensions
-  - KiUNet: Fixed channel mismatch for 4+ level networks (level 3 CRFB only applied when num_levels==3)
-  - KiUNet: Added smart group normalization support with automatic num_groups selection
-  - Test parameters optimized for memory: 3D batch size reduced from 2 to 1, spatial dims from 32x32x32 to 16x16x16
-
-### Fixed
-- **Error Handling**: Replaced silent exception fallbacks with explicit error propagation in BlobLoss, CCLoss, and CCMetric
-- **KiUNet Tests**: All 30 KiUNet tests now pass (fixed channel mismatch and normalization issues)
-- **Metric Aggregation**: Fixed IndexError when metrics return scalar tensors instead of per-class tensors
-- **CCLoss**: Maintain gradient connection in edge case handlers
-- **Code Quality**: Moved inline imports (glob, re, json) to module level in training pipeline
-
-### Added
-- **Test Coverage**: Added comprehensive tests for validation pipeline and loss edge cases
-  - test_engines_validate_run.py: Tests for validation orchestration and checkpoint handling
-  - test_engines_validate_handlers.py: Tests for validation metrics, progress, results, and visualization handlers
-  - test_custom_losses_edge_cases.py: Tests for gradient flow in CCLoss and BlobLoss edge cases
-- **Documentation Updates**: Updated README, AGENT.md, workflow.md with new validation workflow
-
 ## [0.1.5] - 2025-11-06
 
 ### Added
 - **Surface Dice Support in CCMetric**: Extended CCMetric to support Normalized Surface Dice (NSD) metrics on connected components
-  - New parameter `metric_type`: Choose between "dice", "surface_dice", or "both" per region
+  - New parameter `metric_type`: Choose between "dice" or "surface_dice" per region
   - New parameter `class_thresholds`: Distance tolerance (pixels/mm) for boundary matching
   - New parameter `distance_metric`: Euclidean, chessboard, or taxicab distance metrics
   - Boundary-focused metric evaluation for improved multi-instance segmentation assessment
@@ -88,7 +89,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables multiple metric variants in single configuration
 - **Enhanced Results Table Formatting**: format_results_table now displays fixed set of 4 metrics (Dice, CC-Dice, NSD, CC-NSD)
   - Improved readability with mean ± std formatting
-  - Support for both standard and connected component metric variants
+  - Support for standard and connected component metric variants
 
 ### Changed
 - **Metrics**: CCMetric now defaults to metric_type="dice" (backward compatible)

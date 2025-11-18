@@ -106,8 +106,8 @@ def save_validation_visualizations(
         epoch: Current epoch number
         spatial_dims: 2 for 2D data, 3 for 3D data
     """
-    # Create visualizations subdirectory
-    vis_dir = ensure_directory(str(Path(save_dir) / "visualizations"))
+    # Use save_dir directly (caller already creates visualizations/ subdirectory)
+    vis_dir = ensure_directory(save_dir)
 
     # Get batch size (save entire first batch)
     batch_size = images.shape[0]

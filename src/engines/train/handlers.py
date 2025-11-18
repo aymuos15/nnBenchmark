@@ -31,7 +31,11 @@ class TrainingHistoryHandler:
             results_dir: Directory to save training_history.json
         """
         self.results_dir = results_dir
-        self.history_path = str(Path(results_dir) / "training_history.json")
+
+        # Create history subdirectory
+        history_dir = Path(results_dir) / "history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+        self.history_path = str(history_dir / "training.json")
 
         # Always try to load existing history if file exists
         if Path(self.history_path).exists():
@@ -141,7 +145,10 @@ class ComprehensiveCheckpointHandler:
             checkpoint_metric: 'loss' to track best based on training loss (ignored otherwise)
             evaluator: Ignored (kept for signature compatibility)
         """
-        self.save_dir = Path(save_dir)
+        # Create checkpoints subdirectory
+        self.save_dir = Path(save_dir) / "checkpoints"
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+
         self.model = model
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
@@ -177,11 +184,11 @@ class ComprehensiveCheckpointHandler:
             return
 
         # Save numbered checkpoint for this epoch
-        checkpoint_path = self.save_dir / f"checkpoint_epoch_{current_epoch:03d}.pt"
+        checkpoint_path = self.save_dir / f"epoch_{current_epoch:03d}.pt"
         self._save(checkpoint_path, current_epoch, is_best=False)
 
         # Also save as final checkpoint (for easy access to latest)
-        final_checkpoint_path = self.save_dir / "checkpoint_final_checkpoint.pt"
+        final_checkpoint_path = self.save_dir / "final.pt"
         self._save(final_checkpoint_path, current_epoch, is_best=False)
 
         # Check if we should save best model based on training loss
@@ -200,7 +207,7 @@ class ComprehensiveCheckpointHandler:
 
                     # Save best checkpoint with loss value in filename
                     best_checkpoint_path = (
-                        self.save_dir / f"best_model_model_loss={current_loss:.4f}.pt"
+                        self.save_dir / f"best_loss={current_loss:.4f}.pt"
                     )
 
                     self._save(best_checkpoint_path, current_epoch, is_best=True)
@@ -237,12 +244,7 @@ class ComprehensiveCheckpointHandler:
     def _cleanup_old_best_checkpoints(self, current_best_path: Path) -> None:
         """Remove old best checkpoint files (keep only current best)."""
         # Clean up old loss-based checkpoints
-        pattern = "best_model_model_loss*.pt"
+        pattern = "best_loss*.pt"
         for old_checkpoint in self.save_dir.glob(pattern):
             if old_checkpoint != current_best_path:
                 old_checkpoint.unlink()
-
-        # Also clean up old validation-based checkpoints (migration)
-        pattern = "best_model_model_key_metric*.pt"
-        for old_checkpoint in self.save_dir.glob(pattern):
-            old_checkpoint.unlink()

@@ -44,22 +44,22 @@ def find_latest_checkpoint(results_dir: str) -> str | None:
     Returns:
         Path to latest checkpoint file, or None if no checkpoint found
     """
-    results_path = Path(results_dir)
-    if not results_path.exists():
+    # Look in checkpoints subdirectory
+    checkpoints_path = Path(results_dir) / "checkpoints"
+    if not checkpoints_path.exists():
         return None
 
     # Look for checkpoint files (in priority order)
     checkpoint_patterns = [
-        "checkpoint_final_checkpoint.pt",
-        "best_model_model_key_metric*.pt",
-        "best_model_model_final_iteration*.pt",
+        "final.pt",
+        "best_loss*.pt",
     ]
 
     for pattern in checkpoint_patterns:
         if "*" in pattern:
-            checkpoints = list(results_path.glob(pattern))
+            checkpoints = list(checkpoints_path.glob(pattern))
         else:
-            checkpoint_file = results_path / pattern
+            checkpoint_file = checkpoints_path / pattern
             checkpoints = [checkpoint_file] if checkpoint_file.exists() else []
 
         if checkpoints:
@@ -419,7 +419,7 @@ def run_training(
     log_and_print(log, f"Training history saved to: {history_path}")
 
     # Report best checkpoint if loss-based tracking was used
-    best_checkpoint_pattern = str(Path(results_dir) / "best_model_model_loss*.pt")
+    best_checkpoint_pattern = str(Path(results_dir) / "checkpoints" / "best_loss*.pt")
     best_checkpoints = glob.glob(best_checkpoint_pattern)
     if best_checkpoints:
         best_checkpoint = best_checkpoints[0]

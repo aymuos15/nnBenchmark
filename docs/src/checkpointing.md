@@ -6,12 +6,13 @@ Automatic model checkpointing for training resumption and inference with compreh
 
 Checkpoints are automatically saved during training with full training state:
 
-- `checkpoint_epoch_XXX.pt` - Epoch checkpoints (saved every epoch, e.g., checkpoint_epoch_001.pt, checkpoint_epoch_100.pt)
-- `checkpoint_final_checkpoint.pt` - Latest checkpoint (most recent epoch)
+- `checkpoints/epoch_XXX.pt` - Epoch checkpoints (saved every epoch, e.g., `epoch_001.pt`, `epoch_100.pt`)
+- `checkpoints/final.pt` - Latest checkpoint (most recent epoch)
+- `checkpoints/best_loss=X.XXX.pt` - Best checkpoint based on training loss
 
 **Note**: Best model selection happens during post-training validation (nnBench.validate), not during training. See validation documentation for details.
 
-**Location**: `results/<dataset_name>/fold_<N>/`
+**Location**: `results/<dataset_name>/fold_<N>/checkpoints/`
 
 **Format**: PyTorch checkpoint dictionary (`.pt` files) containing:
 - `model` - Model weights (state_dict)
@@ -24,22 +25,24 @@ Checkpoints are automatically saved during training with full training state:
 ## Checkpoint Selection
 
 **Training mode** (fold 0-4):
-- Saves checkpoint after every epoch as checkpoint_epoch_XXX.pt
-- Keeps final checkpoint as checkpoint_final_checkpoint.pt (most recent)
+- Saves checkpoint after every epoch as `checkpoints/epoch_XXX.pt`
+- Keeps final checkpoint as `checkpoints/final.pt` (most recent)
+- Saves best checkpoint as `checkpoints/best_loss=X.XXX.pt` (lowest training loss)
 - Best model selection happens during **post-training validation** (nnBench.validate)
 - Training tracks only training loss (no validation metrics)
 
 **All-data mode** (fold -1):
-- No validation performed, saves checkpoint every epoch: checkpoint_epoch_XXX.pt
-- Latest checkpoint saved as checkpoint_final_checkpoint.pt
+- No validation performed, saves checkpoint every epoch: `checkpoints/epoch_XXX.pt`
+- Latest checkpoint saved as `checkpoints/final.pt`
+- Best checkpoint saved as `checkpoints/best_loss=X.XXX.pt`
 
 ## Post-Training Validation and Best Model Selection
 
 **Workflow**:
-1. Training phase saves epoch checkpoints: checkpoint_epoch_001.pt, checkpoint_epoch_002.pt, etc.
+1. Training phase saves epoch checkpoints: `checkpoints/epoch_001.pt`, `checkpoints/epoch_002.pt`, etc.
 2. Validation phase (nnBench.validate) runs on all epoch checkpoints
 3. Best model determined based on validation metrics
-4. Results saved as validation_history_epoch_XXX.json
+4. Results saved as `history/validation_epoch_XXX.json`
 
 This separation allows:
 - Validation to run independently without requiring training to complete
@@ -52,7 +55,7 @@ This separation allows:
 nnBench.validate --config fold_0.yaml --dataset Dataset001_Example
 ```
 
-Validation auto-discovers all checkpoint_epoch_*.pt files and validates sequentially, producing validation_history_epoch_XXX.json files for each checkpoint.
+Validation auto-discovers all `checkpoints/epoch_*.pt` files and validates sequentially, producing `history/validation_epoch_XXX.json` files for each checkpoint.
 
 ## Resuming Training
 
@@ -66,7 +69,7 @@ nnBench.train --config fold_0.yaml
 ```
 
 **What happens:**
-1. ✅ Automatically detects latest checkpoint (`checkpoint_final_checkpoint.pt` or best model)
+1. ✅ Automatically detects latest checkpoint (`checkpoints/final.pt` or best model)
 2. ✅ Validates checkpoint matches current config (dataset, fold, model type)
 3. ✅ Checks if training is already complete → exits gracefully if done
 4. ✅ Loads full training state and continues from last epoch
@@ -86,7 +89,7 @@ If training is already complete, the system exits gracefully:
 ```bash
 $ nnBench.train --config fold_0.yaml
 
-Checkpoint detected: results/Dataset001/fold_0/checkpoint_final_checkpoint.pt
+Checkpoint detected: results/Dataset001/fold_0/checkpoints/final.pt
 Training already complete! Checkpoint at epoch 100/100
 No further training needed. Exiting.
 ```
@@ -126,7 +129,7 @@ cfg = load_config("fold_0.yaml")
 model = model_registry.build(cfg)
 
 # Load checkpoint (new format with comprehensive state)
-checkpoint_path = "results/Dataset001/fold_0/best_model_model_key_metric=0.8523.pt"
+checkpoint_path = "results/Dataset001/fold_0/checkpoints/best_loss=0.1234.pt"
 checkpoint = torch.load(checkpoint_path, map_location='cuda:0')
 
 # Extract model weights from checkpoint dictionary
@@ -157,7 +160,7 @@ When resuming, the system validates checkpoint compatibility:
 ```bash
 $ nnBench.train --config fold_1.yaml
 
-Checkpoint detected: results/Dataset001/fold_0/checkpoint_final_checkpoint.pt
+Checkpoint detected: results/Dataset001/fold_0/checkpoints/final.pt
 ⚠️  WARNING: Checkpoint config validation issues detected:
   - Fold mismatch: checkpoint=0, current=1
 Continuing with checkpoint load (proceed with caution)...
@@ -179,8 +182,8 @@ Warnings are shown but training continues (useful for debugging or intentional c
 - Training completion detection
 
 **Checkpoint Detection**: Priority order in `find_latest_checkpoint()`:
-1. `checkpoint_final_checkpoint.pt` (most recent)
-2. `best_model_model_key_metric=*.pt` (best validation)
-3. `best_model_model_final_iteration=*.pt` (legacy format)
+1. `checkpoints/final.pt` (most recent)
+2. `checkpoints/best_loss=*.pt` (best training loss)
+3. `checkpoints/epoch_*.pt` (numbered epoch checkpoints)
 
 **Entry Point**: `src/engines/train/run.py` with automatic resumption logic

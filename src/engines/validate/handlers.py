@@ -342,16 +342,16 @@ class ValidationResultsHandler:
             ),
         }
 
-        # Save validation history JSON with epoch number
+        # Create history subdirectory and save validation history JSON
+        history_dir = Path(self.results_dir) / "history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+
         if self.epoch is not None:
             validation_history_path = str(
-                Path(self.results_dir)
-                / f"validation_history_epoch_{self.epoch:03d}.json"
+                history_dir / f"validation_epoch_{self.epoch:03d}.json"
             )
         else:
-            validation_history_path = str(
-                Path(self.results_dir) / "validation_history.json"
-            )
+            validation_history_path = str(history_dir / "validation.json")
 
         save_json(validation_history, validation_history_path)
 

@@ -350,7 +350,7 @@ def _write_loss_config(f: TextIO, plan: ExperimentPlan) -> None:
 
 
 def _write_metrics_config(f: TextIO, plan: ExperimentPlan) -> None:
-    """Write metrics configuration."""
+    """Write metrics configuration with separate validation and inference sections."""
     f.write(
         "# ============================================================================\n"
     )
@@ -358,14 +358,33 @@ def _write_metrics_config(f: TextIO, plan: ExperimentPlan) -> None:
     f.write(
         "# ============================================================================\n"
     )
-    f.write("# Metrics computed during validation to assess segmentation quality.\n\n")
-    f.write("metrics:\n")
+    f.write("# Validation metrics: Fast metrics for post-training validation\n")
+    f.write(
+        "# Inference metrics: Complete metrics including expensive boundary metrics\n\n"
+    )
+
+    # Write validation_metrics section (excludes NSD and CC-NSD)
+    f.write("validation_metrics:\n")
     f.write("  # Dice Similarity Coefficient (overlap-based)\n")
     f.write("  - type: DiceMetric\n")
     f.write("    include_background: false  # Exclude background class\n")
     f.write("    reduction: mean_batch      # Average across batch\n")
     f.write(f"    num_classes: {plan.num_classes}\n\n")
-    f.write("  # Surface Dice (boundary accuracy metric)\n")
+    f.write("  # CC-Dice (per-component Dice metric)\n")
+    f.write("  - type: CCMetric\n")
+    f.write("    include_background: false  # Exclude background class\n")
+    f.write("    reduction: mean_batch      # Average across batch\n")
+    f.write(f"    num_classes: {plan.num_classes}\n")
+    f.write("    metric_type: dice          # Compute Dice per connected component\n\n")
+
+    # Write inference_metrics section (includes all metrics)
+    f.write("inference_metrics:\n")
+    f.write("  # Dice Similarity Coefficient (overlap-based)\n")
+    f.write("  - type: DiceMetric\n")
+    f.write("    include_background: false  # Exclude background class\n")
+    f.write("    reduction: mean_batch      # Average across batch\n")
+    f.write(f"    num_classes: {plan.num_classes}\n\n")
+    f.write("  # Surface Dice (boundary accuracy metric) - INFERENCE ONLY\n")
     f.write("  - type: SurfaceDiceMetric\n")
     f.write("    include_background: false  # Exclude background class\n")
     f.write("    reduction: mean_batch      # Average across batch\n")
@@ -380,7 +399,7 @@ def _write_metrics_config(f: TextIO, plan: ExperimentPlan) -> None:
     f.write("    reduction: mean_batch      # Average across batch\n")
     f.write(f"    num_classes: {plan.num_classes}\n")
     f.write("    metric_type: dice          # Compute Dice per connected component\n\n")
-    f.write("  # CCNSD (per-component Normalized Surface Dice)\n")
+    f.write("  # CC-NSD (per-component Normalized Surface Dice) - INFERENCE ONLY\n")
     f.write("  - type: CCMetric\n")
     f.write("    include_background: false  # Exclude background class\n")
     f.write("    reduction: mean_batch      # Average across batch\n")

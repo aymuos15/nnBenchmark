@@ -27,8 +27,10 @@ def setup_logger(results_dir: str, log_name: str = "train") -> Any:
     # Remove default handler (console output)
     logger.remove()
 
-    # Add file handler for logs (always append)
-    log_path = str(Path(results_dir) / f"{log_name}.log")
+    # Create logs subdirectory and add file handler (always append)
+    logs_dir = Path(results_dir) / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    log_path = str(logs_dir / f"{log_name}.log")
 
     _ = logger.add(
         log_path,

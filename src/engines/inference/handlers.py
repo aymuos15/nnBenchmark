@@ -113,36 +113,44 @@ class InferenceMetricsHandler:
                 image_path = self.data_dicts[batch_idx].get("image", "unknown")
                 case_path = Path(image_path).name
 
-            # Print scores for all metrics
-            for name, score in batch_scores.items():
-                if name in batch_scores_per_class and self.class_labels is not None:
-                    # Per-class scores available
-                    per_class = batch_scores_per_class[name]
-                    class_scores_str = ", ".join(
-                        [
-                            f"{self.class_labels[idx]}: {per_class[i]:.4f}"
-                            for i, idx in enumerate(sorted(self.class_labels.keys()))
-                        ]
-                    )
-                    print(
-                        f"{case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
-                    )
+            # Check if we have per-class scores for any metric
+            has_per_class = (
+                len(batch_scores_per_class) > 0 and self.class_labels is not None
+            )
 
-                    # Log to file
-                    if self.logger is not None:
-                        log_msg = f"Sample {batch_idx + 1}: {case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
-                        self.logger.info(log_msg)
-                else:
-                    # Scalar score
-                    scores_str = ", ".join(
-                        [f"{n} = {s:.4f}" for n, s in batch_scores.items()]
-                    )
-                    print(f"{case_path}: {scores_str}")
+            if has_per_class:
+                # Print per-class scores for each metric separately
+                for name, score in batch_scores.items():
+                    if name in batch_scores_per_class:
+                        # Per-class scores available
+                        per_class = batch_scores_per_class[name]
+                        class_scores_str = ", ".join(
+                            [
+                                f"{self.class_labels[idx]}: {per_class[i]:.4f}"
+                                for i, idx in enumerate(
+                                    sorted(self.class_labels.keys())
+                                )
+                            ]
+                        )
+                        print(
+                            f"{case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
+                        )
 
-                    # Log to file
-                    if self.logger is not None:
-                        log_msg = f"Sample {batch_idx + 1}: {case_path}: {scores_str}"
-                        self.logger.info(log_msg)
+                        # Log to file
+                        if self.logger is not None:
+                            log_msg = f"Sample {batch_idx + 1}: {case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
+                            self.logger.info(log_msg)
+            else:
+                # Scalar scores - print all metrics in one line
+                scores_str = ", ".join(
+                    [f"{n} = {s:.4f}" for n, s in batch_scores.items()]
+                )
+                print(f"{case_path}: {scores_str}")
+
+                # Log to file
+                if self.logger is not None:
+                    log_msg = f"Sample {batch_idx + 1}: {case_path}: {scores_str}"
+                    self.logger.info(log_msg)
 
     def _compute_final_metrics(self, engine: Engine) -> None:
         """Compute final statistics from all scores."""
@@ -370,8 +378,10 @@ class InferenceResultsHandler:
             ),
         }
 
-        # Save test history JSON
-        test_history_path = str(Path(self.results_dir) / "test_history.json")
+        # Create history subdirectory and save test history JSON
+        history_dir = Path(self.results_dir) / "history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+        test_history_path = str(history_dir / "test.json")
         save_json(test_history, test_history_path)
 
         print(f"\nResults saved to: {self.results_dir}")

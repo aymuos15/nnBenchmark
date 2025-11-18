@@ -67,19 +67,20 @@ nnBench.plan --dataset Dataset001_YourDataset --verbose
 # 2. Train - Train the model
 nnBench.train --config fold_0.yaml --dataset Dataset001_YourDataset
 # Automatically resumes from checkpoint if it exists
-# Output: nnBench_results/Dataset001_YourDataset/fold_0/checkpoint_epoch_*.pt
-#         nnBench_results/Dataset001_YourDataset/fold_0/training_history.json
+# Output: nnBench_results/Dataset001_YourDataset/fold_0/checkpoints/epoch_*.pt
+#         nnBench_results/Dataset001_YourDataset/fold_0/checkpoints/final.pt
+#         nnBench_results/Dataset001_YourDataset/fold_0/history/training.json
 
 # 3. Validate - Run validation on trained checkpoints (post-training)
 nnBench.validate --config fold_0.yaml --dataset Dataset001_YourDataset
 # Validates all epoch checkpoints from training
-# Output: nnBench_results/Dataset001_YourDataset/fold_0/validation_history_epoch_*.json
+# Output: nnBench_results/Dataset001_YourDataset/fold_0/history/validation_epoch_*.json
 
 # 4. Inference - Run predictions
 nnBench.inference --config fold_0.yaml --dataset Dataset001_YourDataset
 # To use validation set: add --use-val-split flag
 # Output: nnBench_results/Dataset001_YourDataset/fold_0/predictions/
-#         nnBench_results/Dataset001_YourDataset/fold_0/metrics.json
+#         nnBench_results/Dataset001_YourDataset/fold_0/history/test.json
 
 # 5. Plot - Visualize results
 nnBench.plot --config fold_0.yaml --dataset Dataset001_YourDataset

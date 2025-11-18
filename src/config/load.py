@@ -60,7 +60,7 @@ def load_training_history(results_dir: str) -> dict[str, list[float]]:
     Load training history from JSON file.
 
     Args:
-        results_dir: Directory containing training_history.json
+        results_dir: Directory containing history/training_history.json
 
     Returns:
         Dictionary with training history (epochs, losses, metrics)
@@ -68,7 +68,7 @@ def load_training_history(results_dir: str) -> dict[str, list[float]]:
     Raises:
         FileNotFoundError: If training_history.json doesn't exist
     """
-    history_path = str(Path(results_dir) / "training_history.json")
+    history_path = str(Path(results_dir) / "history" / "training.json")
 
     if not Path(history_path).exists():
         raise FileNotFoundError(
@@ -80,6 +80,70 @@ def load_training_history(results_dir: str) -> dict[str, list[float]]:
         history: dict[str, list[float]] = json.load(f)
 
     return history
+
+
+def load_validation_histories(results_dir: str) -> dict[str, list[float]]:
+    """
+    Load and aggregate validation histories from multiple validation_history_epoch_*.json files.
+
+    Finds all validation history files in results_dir/history/, sorts by epoch, and aggregates
+    metrics into time-series format suitable for plotting.
+
+    Args:
+        results_dir: Directory containing history/validation_history_epoch_*.json files
+
+    Returns:
+        Dictionary with aggregated validation data:
+        {
+            "val_epochs": [1, 5, 10, ...],
+            "val_DiceMetric": [0.7, 0.75, 0.8, ...],
+            "val_DiceMetric_Anterior": [0.65, 0.7, 0.75, ...],  # per-class
+            ...
+        }
+        Returns empty dict if no validation files found.
+    """
+    import glob
+
+    results_path = Path(results_dir) / "history"
+    val_pattern = str(results_path / "validation_epoch_*.json")
+    val_files = sorted(glob.glob(val_pattern))
+
+    if not val_files:
+        return {}
+
+    # Collect data from all validation files
+    val_data: dict[str, list] = {"val_epochs": []}
+
+    for val_file in val_files:
+        with open(val_file) as f:
+            val_history = json.load(f)
+
+        epoch = val_history.get("epoch")
+        if epoch is None:
+            continue
+
+        val_data["val_epochs"].append(epoch)
+
+        # Extract summary metrics (mean values across all samples)
+        summary = val_history.get("summary", {})
+
+        for metric_name, metric_stats in summary.items():
+            # Add main metric (mean across all classes and samples)
+            metric_key = f"val_{metric_name}"
+            if metric_key not in val_data:
+                val_data[metric_key] = []
+            val_data[metric_key].append(metric_stats["mean"])
+
+            # Add per-class metrics if available
+            per_class = metric_stats.get("per_class", {})
+            for class_name, class_stats in per_class.items():
+                class_key = f"val_{metric_name}_{class_name}"
+                if class_key not in val_data:
+                    val_data[class_key] = []
+                class_key_data = class_stats["mean"]
+                val_data[class_key].append(class_key_data)
+
+    return val_data
 
 
 def load_splits(data_dir: str, fold: int) -> tuple[list[str], list[str]]:
