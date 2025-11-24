@@ -146,6 +146,20 @@ class CCMetric:
             ">10cc": [],
         }
 
+        # State for tracking FP/TP/FN instance counts by size
+        self._tp_instances: list[int] = []  # List of TP GT instance sizes
+        self._fn_instances: list[int] = []  # List of FN GT instance sizes
+        self._fp_instances: list[int] = []  # List of FP predicted instance sizes
+
+        # State for tracking per-sample FP/TP/FN counts
+        self._per_sample_fp_tp_fn: list[dict[str, dict[str, int]]] = []
+        self._current_sample_fp_tp_fn: dict[str, dict[str, int]] = {
+            "all": {"TP": 0, "FN": 0, "FP": 0},
+            "0-2cc": {"TP": 0, "FN": 0, "FP": 0},
+            "2-10cc": {"TP": 0, "FN": 0, "FP": 0},
+            ">10cc": {"TP": 0, "FN": 0, "FP": 0},
+        }
+
     def __call__(
         self,
         y_pred: torch.Tensor,
@@ -182,6 +196,14 @@ class CCMetric:
                 ">10cc": [],
             }
 
+            # Reset per-sample FP/TP/FN tracking for this sample
+            self._current_sample_fp_tp_fn = {
+                "all": {"TP": 0, "FN": 0, "FP": 0},
+                "0-2cc": {"TP": 0, "FN": 0, "FP": 0},
+                "2-10cc": {"TP": 0, "FN": 0, "FP": 0},
+                ">10cc": {"TP": 0, "FN": 0, "FP": 0},
+            }
+
             pred_volume = y_pred[b]  # (C, H, W) or (C, H, W, D)
             target_volume = y_onehot[b]  # (C, H, W) or (C, H, W, D)
 
@@ -198,6 +220,9 @@ class CCMetric:
 
             # Save per-sample instance data for later
             self._per_sample_instances.append(self._current_sample_instances.copy())
+
+            # Save per-sample FP/TP/FN data for later
+            self._per_sample_fp_tp_fn.append(self._current_sample_fp_tp_fn.copy())
 
     def _prepare_inputs(
         self,
@@ -338,6 +363,10 @@ class CCMetric:
 
             class_scores.append(mean_score)
 
+            # Classify instances as TP/FN/FP (only for non-background classes)
+            if should_track_instances and num_regions > 0:
+                self._classify_instances(pred_class, target_class, labeled_gt, num_regions)
+
         return torch.stack(class_scores)
 
     @staticmethod
@@ -410,6 +439,86 @@ class CCMetric:
             return torch.tensor(0.0, device=device), True  # Missed entire class
 
         return torch.tensor(0.0, device=device), False  # Not handled
+
+    def _classify_instances(
+        self,
+        pred_class: torch.Tensor,
+        target_class: torch.Tensor,
+        labeled_gt: torch.Tensor,
+        num_gt_regions: int,
+    ) -> None:
+        """
+        Classify instances as TP/FN/FP based on overlap detection.
+
+        Args:
+            pred_class: Prediction probabilities for a class (soft, 0-1)
+            target_class: Ground truth for a class (binary, 0 or 1)
+            labeled_gt: Labeled ground truth components (each component has unique ID)
+            num_gt_regions: Number of ground truth regions
+
+        Classification logic:
+            - TP: GT instance has ANY overlap with predictions (intersection > 0)
+            - FN: GT instance has NO overlap with predictions (intersection == 0)
+            - FP: Predicted instance has NO overlap with any GT (intersection == 0)
+        """
+        from src.factory.cc_utils import gpu_connected_components
+
+        # Binarize predictions at threshold 0.5
+        pred_binary = (pred_class > 0.5).float()
+
+        # Run connected components on binarized predictions
+        labeled_pred, num_pred = gpu_connected_components(pred_binary)
+
+        # Classify GT instances as TP or FN
+        for gt_id in range(1, num_gt_regions + 1):
+            gt_mask = labeled_gt == gt_id
+            gt_size = int(torch.sum(gt_mask).item())
+
+            # Check if this GT instance has ANY intersection with predictions
+            intersection = torch.sum(gt_mask & (pred_binary > 0)).item()
+
+            if intersection > 0:
+                # True Positive: GT instance overlaps with predictions
+                self._tp_instances.append(gt_size)
+                # Update per-sample counts
+                self._current_sample_fp_tp_fn["all"]["TP"] += 1
+                if gt_size < 2:
+                    self._current_sample_fp_tp_fn["0-2cc"]["TP"] += 1
+                elif gt_size < 10:
+                    self._current_sample_fp_tp_fn["2-10cc"]["TP"] += 1
+                else:
+                    self._current_sample_fp_tp_fn[">10cc"]["TP"] += 1
+            else:
+                # False Negative: GT instance has no overlap with predictions
+                self._fn_instances.append(gt_size)
+                # Update per-sample counts
+                self._current_sample_fp_tp_fn["all"]["FN"] += 1
+                if gt_size < 2:
+                    self._current_sample_fp_tp_fn["0-2cc"]["FN"] += 1
+                elif gt_size < 10:
+                    self._current_sample_fp_tp_fn["2-10cc"]["FN"] += 1
+                else:
+                    self._current_sample_fp_tp_fn[">10cc"]["FN"] += 1
+
+        # Classify predicted instances as FP (those with no GT overlap)
+        for pred_id in range(1, num_pred + 1):
+            pred_mask = labeled_pred == pred_id
+            pred_size = int(torch.sum(pred_mask).item())
+
+            # Check if this predicted instance has ANY intersection with GT
+            intersection = torch.sum(pred_mask & (target_class > 0)).item()
+
+            if intersection == 0:
+                # False Positive: Predicted instance has no overlap with any GT
+                self._fp_instances.append(pred_size)
+                # Update per-sample counts
+                self._current_sample_fp_tp_fn["all"]["FP"] += 1
+                if pred_size < 2:
+                    self._current_sample_fp_tp_fn["0-2cc"]["FP"] += 1
+                elif pred_size < 10:
+                    self._current_sample_fp_tp_fn["2-10cc"]["FP"] += 1
+                else:
+                    self._current_sample_fp_tp_fn[">10cc"]["FP"] += 1
 
     @staticmethod
     def _dice_coefficient(
@@ -562,6 +671,90 @@ class CCMetric:
 
         return binned_stats
 
+    def get_fp_tp_fn_statistics(self) -> dict[str, dict[str, int]]:
+        """Get FP/TP/FN instance counts binned by instance size.
+
+        Bins instances based on their size (pixel/voxel count) and returns
+        TP/FN/FP counts for each size bin.
+
+        Returns:
+            Dictionary with bin names as keys and count dicts as values.
+            Each count dict contains: TP, FN, FP counts for that size bin.
+
+            Example:
+            {
+                "0-2cc": {"TP": 120, "FN": 30, "FP": 25},
+                "2-10cc": {"TP": 180, "FN": 20, "FP": 15},
+                ">10cc": {"TP": 45, "FN": 5, "FP": 3},
+                "all": {"TP": 345, "FN": 55, "FP": 43}
+            }
+
+            Where:
+            - TP: True Positive GT instances (have overlap with predictions)
+            - FN: False Negative GT instances (no overlap with predictions)
+            - FP: False Positive predicted instances (no overlap with GT)
+            - Sizes are binned as: 0-2cc, 2-10cc, >10cc pixels/voxels
+        """
+        # Initialize bins
+        bins = {
+            "0-2cc": {"TP": 0, "FN": 0, "FP": 0},
+            "2-10cc": {"TP": 0, "FN": 0, "FP": 0},
+            ">10cc": {"TP": 0, "FN": 0, "FP": 0},
+            "all": {"TP": 0, "FN": 0, "FP": 0},
+        }
+
+        # Bin TP instances by GT size
+        for size in self._tp_instances:
+            bins["all"]["TP"] += 1
+            if size < 2:
+                bins["0-2cc"]["TP"] += 1
+            elif size < 10:
+                bins["2-10cc"]["TP"] += 1
+            else:
+                bins[">10cc"]["TP"] += 1
+
+        # Bin FN instances by GT size
+        for size in self._fn_instances:
+            bins["all"]["FN"] += 1
+            if size < 2:
+                bins["0-2cc"]["FN"] += 1
+            elif size < 10:
+                bins["2-10cc"]["FN"] += 1
+            else:
+                bins[">10cc"]["FN"] += 1
+
+        # Bin FP instances by predicted size
+        for size in self._fp_instances:
+            bins["all"]["FP"] += 1
+            if size < 2:
+                bins["0-2cc"]["FP"] += 1
+            elif size < 10:
+                bins["2-10cc"]["FP"] += 1
+            else:
+                bins[">10cc"]["FP"] += 1
+
+        return bins
+
+    def get_per_sample_fp_tp_fn_statistics(self) -> list[dict[str, dict[str, int]]]:
+        """Get per-sample FP/TP/FN instance counts binned by instance size.
+
+        Returns:
+            List of dicts, one per sample, each containing FP/TP/FN counts per size bin.
+            Each sample dict has structure:
+            {
+                "all": {"TP": 10, "FN": 2, "FP": 5},
+                "0-2cc": {"TP": 0, "FN": 1, "FP": 3},
+                "2-10cc": {"TP": 2, "FN": 1, "FP": 2},
+                ">10cc": {"TP": 8, "FN": 0, "FP": 0}
+            }
+
+            Example:
+            >>> stats = metric.get_per_sample_fp_tp_fn_statistics()
+            >>> sample_0 = stats[0]
+            >>> print(f"Sample 0: {sample_0['all']['TP']} TPs, {sample_0['all']['FP']} FPs")
+        """
+        return self._per_sample_fp_tp_fn
+
     def reset(self) -> None:
         """Reset accumulated scores. Required for MONAI compatibility.
 
@@ -592,6 +785,17 @@ class CCMetric:
             "0-2cc": [],
             "2-10cc": [],
             ">10cc": [],
+        }
+        # Also reset FP/TP/FN tracking
+        self._tp_instances = []
+        self._fn_instances = []
+        self._fp_instances = []
+        self._per_sample_fp_tp_fn = []
+        self._current_sample_fp_tp_fn = {
+            "all": {"TP": 0, "FN": 0, "FP": 0},
+            "0-2cc": {"TP": 0, "FN": 0, "FP": 0},
+            "2-10cc": {"TP": 0, "FN": 0, "FP": 0},
+            ">10cc": {"TP": 0, "FN": 0, "FP": 0},
         }
 
     def get_per_sample_binned_statistics(self) -> list[dict[str, dict[str, float]]]:

@@ -234,6 +234,24 @@ class InferenceMetricsHandler:
                         # If per-sample binning fails, continue without it
                         pass
 
+                # Get FP/TP/FN statistics if metric supports it
+                if hasattr(metric, "get_fp_tp_fn_statistics"):
+                    try:
+                        fp_tp_fn_stats = metric.get_fp_tp_fn_statistics()
+                        results[name]["fp_tp_fn"] = fp_tp_fn_stats
+                    except Exception:
+                        # If FP/TP/FN fails, continue without it
+                        pass
+
+                # Get per-sample FP/TP/FN statistics if metric supports it
+                if hasattr(metric, "get_per_sample_fp_tp_fn_statistics"):
+                    try:
+                        per_sample_fp_tp_fn = metric.get_per_sample_fp_tp_fn_statistics()
+                        results[name]["per_sample_fp_tp_fn"] = per_sample_fp_tp_fn
+                    except Exception:
+                        # If per-sample FP/TP/FN fails, continue without it
+                        pass
+
         # Store results in engine state for other handlers
         engine.state.metrics = results
 
@@ -384,6 +402,14 @@ class InferenceResultsHandler:
             # Add per-sample binned statistics if available (for CCMetric)
             if "per_sample_bins" in results:
                 metric_summary["per_sample_bins"] = results["per_sample_bins"]
+
+            # Add FP/TP/FN statistics if available (for CCMetric)
+            if "fp_tp_fn" in results:
+                metric_summary["fp_tp_fn"] = results["fp_tp_fn"]
+
+            # Add per-sample FP/TP/FN statistics if available (for CCMetric)
+            if "per_sample_fp_tp_fn" in results:
+                metric_summary["per_sample_fp_tp_fn"] = results["per_sample_fp_tp_fn"]
 
             summary[metric_name] = metric_summary
 

@@ -7,6 +7,11 @@ import json
 from pathlib import Path
 
 from src.config.load import load_training_history, load_validation_histories
+from src.plotting.binned import (
+    plot_binned_bar_chart,
+    plot_fp_tp_fn_bar_chart,
+    plot_per_sample_fp_tp_fn,
+)
 from src.plotting.inference import (
     plot_classwise_bar,
     plot_sample_mean_distribution,
@@ -97,6 +102,70 @@ def generate_plots(results_dir: str) -> None:
                     per_class_values=None,  # Not supported yet for scalar metrics
                 )
 
+        # Plot binned statistics for the final validation epoch (if available)
+        if val_epochs:
+            final_epoch = val_epochs[-1]
+            final_val_path = str(
+                Path(results_dir) / "history" / f"validation_epoch_{final_epoch:03d}.json"
+            )
+
+            if Path(final_val_path).exists():
+                print(f"  Generating binned plots for validation epoch {final_epoch}")
+                # Load final validation history
+                with open(final_val_path) as f:
+                    final_val_history = json.load(f)
+
+                # Check if summary exists and has metrics
+                if "summary" in final_val_history:
+                    for metric_name in final_val_history.get("metrics", []):
+                        if metric_name not in final_val_history["summary"]:
+                            continue
+
+                        # Try to plot binned statistics
+                        try:
+                            binned_path = str(
+                                Path(plots_dir) / f"val_binned_{metric_name}.png"
+                            )
+                            plot_binned_bar_chart(
+                                history_path=final_val_path,
+                                metric_name=metric_name,
+                                output_path=binned_path,
+                            )
+                        except Exception as e:
+                            print(
+                                f"  Warning: Could not create binned bar chart for validation {metric_name}: {e}"
+                            )
+
+                        # Try to plot FP/TP/FN statistics
+                        try:
+                            fp_tp_fn_path = str(
+                                Path(plots_dir) / f"val_fp_tp_fn_{metric_name}.png"
+                            )
+                            plot_fp_tp_fn_bar_chart(
+                                history_path=final_val_path,
+                                metric_name=metric_name,
+                                output_path=fp_tp_fn_path,
+                            )
+                        except Exception as e:
+                            print(
+                                f"  Warning: Could not create FP/TP/FN chart for validation {metric_name}: {e}"
+                            )
+
+                        # Try to plot per-sample FP/TP/FN statistics
+                        try:
+                            per_sample_fp_tp_fn_path = str(
+                                Path(plots_dir) / f"val_per_sample_fp_tp_fn_{metric_name}.png"
+                            )
+                            plot_per_sample_fp_tp_fn(
+                                history_path=final_val_path,
+                                metric_name=metric_name,
+                                output_path=per_sample_fp_tp_fn_path,
+                            )
+                        except Exception as e:
+                            print(
+                                f"  Warning: Could not create per-sample FP/TP/FN plot for validation {metric_name}: {e}"
+                            )
+
     # 3. Plot test results if available
     test_history_path = str(Path(results_dir) / "history" / "test.json")
     if Path(test_history_path).exists():
@@ -144,6 +213,51 @@ def generate_plots(results_dir: str) -> None:
                 except Exception as e:
                     print(
                         f"  Warning: Could not create classwise bar plot for {metric_name}: {e}"
+                    )
+
+                # 3. Binned bar chart: Performance by instance size
+                try:
+                    binned_path = str(
+                        Path(plots_dir) / f"test_binned_{metric_name}.png"
+                    )
+                    plot_binned_bar_chart(
+                        history_path=test_history_path,
+                        metric_name=metric_name,
+                        output_path=binned_path,
+                    )
+                except Exception as e:
+                    print(
+                        f"  Warning: Could not create binned bar chart for {metric_name}: {e}"
+                    )
+
+                # 4. FP/TP/FN bar chart: Instance classification counts
+                try:
+                    fp_tp_fn_path = str(
+                        Path(plots_dir) / f"test_fp_tp_fn_{metric_name}.png"
+                    )
+                    plot_fp_tp_fn_bar_chart(
+                        history_path=test_history_path,
+                        metric_name=metric_name,
+                        output_path=fp_tp_fn_path,
+                    )
+                except Exception as e:
+                    print(
+                        f"  Warning: Could not create FP/TP/FN chart for {metric_name}: {e}"
+                    )
+
+                # 5. Per-sample FP/TP/FN line plot: Counts across samples
+                try:
+                    per_sample_fp_tp_fn_path = str(
+                        Path(plots_dir) / f"test_per_sample_fp_tp_fn_{metric_name}.png"
+                    )
+                    plot_per_sample_fp_tp_fn(
+                        history_path=test_history_path,
+                        metric_name=metric_name,
+                        output_path=per_sample_fp_tp_fn_path,
+                    )
+                except Exception as e:
+                    print(
+                        f"  Warning: Could not create per-sample FP/TP/FN plot for {metric_name}: {e}"
                     )
         else:
             print(
