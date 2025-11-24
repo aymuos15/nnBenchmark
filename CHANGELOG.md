@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-01-24
+
+### Added
+- **FP/TP/FN Instance Classification**: CCMetric now classifies and tracks individual instances as True Positive, False Negative, or False Positive
+  - TP: Ground truth instances with ANY overlap with predictions (intersection > 0)
+  - FN: Ground truth instances with NO overlap with predictions
+  - FP: Predicted instances with NO overlap with ground truth
+  - New method `get_fp_tp_fn_statistics()` returns binned counts by instance size
+  - New method `get_per_sample_fp_tp_fn_statistics()` returns per-sample classification results
+- **Instance-Size-Based Binned Statistics**: CCMetric now bins instances by size and computes statistics per bin
+  - Bins: "0-2cc" (0-2 pixels/voxels), "2-10cc" (2-10 pixels/voxels), ">10cc" (≥10 pixels/voxels), "all"
+  - New method `get_binned_statistics()` returns mean, std, min, max, count of CC scores per size bin
+  - New method `get_per_sample_binned_statistics()` returns per-sample binned statistics
+  - New method `reset_instance_scores()` to clear instance tracking for new validation runs
+- **Comprehensive Test Suite**: Added `test_ccmetric_fp_tp_fn.py` with 15+ tests covering FP/TP/FN classification logic
+  - Tests for basic TP/FN/FP classification, instance size binning, edge cases, partial overlaps
+  - Tests for per-sample tracking, bin boundaries, and double-counting prevention
+- **Visualization Scripts**: Added plotting utilities for binned instance analysis
+  - `scripts/viz.py`: Generate comprehensive visualizations of binned statistics
+  - `scripts/table.py`: Generate tables from binned statistics
+  - `src/plotting/binned.py`: Core plotting functions for instance-size binned data
+  - `src/plotting/generate.py`: High-level plotting interface
+- **Documentation**: Added `AGENTS.md` with agent workflow documentation
+
+### Fixed
+- **Instance Size Measurement**: Fixed `get_gt_regions()` to return original ground truth component labels
+  - Now returns 3 values: `(region_map, labeled_gt, num_regions)` instead of 2
+  - Critical fix: Instance sizes now measured from actual GT components, not Voronoi-expanded regions
+  - Ensures binning statistics reflect true instance sizes
+- **Code Style**: Removed unused imports and improved formatting consistency across multiple files
+
+### Changed
+- **Results Organization**: Reorganized example config files into `configs/` subdirectory under `docs/datasets/Dataset001_Cellpose/`
+
 ## [0.2.0] - 2025-11-18
 
 ### BREAKING CHANGES
