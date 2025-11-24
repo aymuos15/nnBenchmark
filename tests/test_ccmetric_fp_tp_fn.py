@@ -397,7 +397,5 @@ class TestCCMetricFPTPFN:
         assert stats["all"]["FP"] == 0
 
         # Check that total across bins equals total in "all"
-        total_tp = (
-            stats["0-2cc"]["TP"] + stats["2-10cc"]["TP"] + stats[">10cc"]["TP"]
-        )
+        total_tp = stats["0-2cc"]["TP"] + stats["2-10cc"]["TP"] + stats[">10cc"]["TP"]
         assert total_tp == stats["all"]["TP"]

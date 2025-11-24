@@ -106,7 +106,9 @@ def generate_plots(results_dir: str) -> None:
         if val_epochs:
             final_epoch = val_epochs[-1]
             final_val_path = str(
-                Path(results_dir) / "history" / f"validation_epoch_{final_epoch:03d}.json"
+                Path(results_dir)
+                / "history"
+                / f"validation_epoch_{final_epoch:03d}.json"
             )
 
             if Path(final_val_path).exists():
@@ -154,7 +156,8 @@ def generate_plots(results_dir: str) -> None:
                         # Try to plot per-sample FP/TP/FN statistics
                         try:
                             per_sample_fp_tp_fn_path = str(
-                                Path(plots_dir) / f"val_per_sample_fp_tp_fn_{metric_name}.png"
+                                Path(plots_dir)
+                                / f"val_per_sample_fp_tp_fn_{metric_name}.png"
                             )
                             plot_per_sample_fp_tp_fn(
                                 history_path=final_val_path,

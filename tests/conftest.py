@@ -18,7 +18,10 @@ import yaml
 def pytest_configure(config: pytest.Config) -> None:
     """Register custom markers."""
     config.addinivalue_line("markers", "gpu: mark test as requiring GPU/CUDA support")
-    config.addinivalue_line("markers", "gpu_deps: mark test as requiring GPU-accelerated dependencies (cupy/cupyx)")
+    config.addinivalue_line(
+        "markers",
+        "gpu_deps: mark test as requiring GPU-accelerated dependencies (cupy/cupyx)",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -33,13 +36,16 @@ def gpu_deps_available() -> bool:
     try:
         import cupy  # noqa: F401
         from cupyx.scipy.ndimage import distance_transform_edt  # noqa: F401
+
         return True
     except ImportError:
         return False
 
 
 @pytest.fixture(autouse=True)
-def skip_if_no_cuda(request: pytest.FixtureRequest, cuda_available: bool, gpu_deps_available: bool) -> None:
+def skip_if_no_cuda(
+    request: pytest.FixtureRequest, cuda_available: bool, gpu_deps_available: bool
+) -> None:
     """Skip tests marked with @pytest.mark.gpu if CUDA is not available."""
     if request.node.get_closest_marker("gpu"):
         if not cuda_available:
@@ -47,7 +53,9 @@ def skip_if_no_cuda(request: pytest.FixtureRequest, cuda_available: bool, gpu_de
 
     if request.node.get_closest_marker("gpu_deps"):
         if not gpu_deps_available:
-            pytest.skip("Test requires GPU-accelerated dependencies (cupy/cupyx). Install with: pip install cupy-cuda11x")
+            pytest.skip(
+                "Test requires GPU-accelerated dependencies (cupy/cupyx). Install with: pip install cupy-cuda11x"
+            )
 
 
 @pytest.fixture(scope="session", autouse=True)

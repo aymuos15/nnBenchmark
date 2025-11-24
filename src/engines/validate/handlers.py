@@ -214,7 +214,9 @@ class ValidationMetricsHandler:
                 # Get per-sample FP/TP/FN statistics if metric supports it
                 if hasattr(metric, "get_per_sample_fp_tp_fn_statistics"):
                     try:
-                        per_sample_fp_tp_fn = metric.get_per_sample_fp_tp_fn_statistics()
+                        per_sample_fp_tp_fn = (
+                            metric.get_per_sample_fp_tp_fn_statistics()
+                        )
                         results[name]["per_sample_fp_tp_fn"] = per_sample_fp_tp_fn
                     except Exception:
                         # If per-sample FP/TP/FN fails, continue without it

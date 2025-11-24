@@ -30,7 +30,9 @@ def load_json(filepath: str) -> dict[str, Any]:
 
 def create_metrics_table(data: dict[str, Any]) -> Table:
     """Create main metrics table."""
-    table = Table(title="📊 Metrics Summary", show_header=True, header_style="bold cyan")
+    table = Table(
+        title="📊 Metrics Summary", show_header=True, header_style="bold cyan"
+    )
 
     table.add_column("Metric", style="cyan", width=25)
     table.add_column("Mean", justify="right", style="green")
@@ -158,9 +160,11 @@ def create_per_sample_summary(data: dict[str, Any]) -> Table:
 
                 # Only show sample/metric names for "all" bin
                 if bin_name == "all":
-                    sample_name = sample_names[sample_idx] if sample_idx < len(
-                        sample_names
-                    ) else f"Sample {sample_idx}"
+                    sample_name = (
+                        sample_names[sample_idx]
+                        if sample_idx < len(sample_names)
+                        else f"Sample {sample_idx}"
+                    )
                     display_sample = sample_name
                     display_metric = metric_name
                 else:
@@ -214,9 +218,7 @@ def create_config_table(data: dict[str, Any]) -> Table:
 def main():
     """Main entry point."""
     if len(sys.argv) < 2:
-        console.print(
-            "[red]Usage:[/red] python table.py [bold]<path/to/json>[/bold]"
-        )
+        console.print("[red]Usage:[/red] python table.py [bold]<path/to/json>[/bold]")
         console.print("\nExamples:")
         console.print("  python table.py results/history/test.json")
         console.print("  python table.py results/history/validation_epoch_010.json")

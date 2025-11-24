@@ -294,7 +294,9 @@ class CCMetric:
                 continue
 
             # Get regions from connected components
-            region_map, labeled_gt, num_regions = get_gt_regions(target_class, pred.device)
+            region_map, labeled_gt, num_regions = get_gt_regions(
+                target_class, pred.device
+            )
 
             if num_regions == 0:
                 # No regions found
@@ -341,7 +343,11 @@ class CCMetric:
                     # Use labeled_gt to get the actual size of the ground truth instance, not the Voronoi-expanded region
                     original_component_mask = labeled_gt == region_id
                     instance_size = int(torch.sum(original_component_mask).item())
-                    score_value = float(region_score.item() if isinstance(region_score, torch.Tensor) else region_score)
+                    score_value = float(
+                        region_score.item()
+                        if isinstance(region_score, torch.Tensor)
+                        else region_score
+                    )
 
                     # Track globally
                     self._instance_scores.append((score_value, instance_size))
@@ -365,7 +371,9 @@ class CCMetric:
 
             # Classify instances as TP/FN/FP (only for non-background classes)
             if should_track_instances and num_regions > 0:
-                self._classify_instances(pred_class, target_class, labeled_gt, num_regions)
+                self._classify_instances(
+                    pred_class, target_class, labeled_gt, num_regions
+                )
 
         return torch.stack(class_scores)
 

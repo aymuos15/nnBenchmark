@@ -12,12 +12,14 @@ from pathlib import Path
 
 import torch
 import yaml
-from monai.transforms import Compose, LoadImaged, EnsureChannelFirstd, NormalizeIntensityd
+from monai.transforms import (
+    Compose,
+    LoadImaged,
+    NormalizeIntensityd,
+)
 
 from src.config import get_datasets_root, get_results_root
 from src.factory.models import model_registry
-from src.plotting.validation import save_validation_visualizations
-from src.utils.data import get_class_labels
 
 
 def parse_args():
@@ -79,9 +81,7 @@ def find_config_yaml(config_name: str, dataset_name: str) -> Path:
     config_dir = Path.cwd() / "docs" / "datasets" / dataset_name
 
     if not config_dir.exists():
-        raise FileNotFoundError(
-            f"Could not find config directory: {config_dir}"
-        )
+        raise FileNotFoundError(f"Could not find config directory: {config_dir}")
 
     # Try exact match first
     config_path = config_dir / f"{config_name}.yaml"
@@ -129,7 +129,9 @@ def find_checkpoint(config_name: str, dataset_name: str) -> Path:
     )
 
 
-def find_sample_path(dataset_dir: Path, sample_name: str, data_type: str = "imagesTs") -> Path:
+def find_sample_path(
+    dataset_dir: Path, sample_name: str, data_type: str = "imagesTs"
+) -> Path:
     """Find the path to a sample image."""
     sample_path = dataset_dir / data_type / sample_name
 
@@ -155,7 +157,12 @@ def find_sample_path(dataset_dir: Path, sample_name: str, data_type: str = "imag
     return sample_path
 
 
-def load_sample(image_path: Path, label_path: Path = None, spatial_dims: int = 2, patch_size: list = None):
+def load_sample(
+    image_path: Path,
+    label_path: Path = None,
+    spatial_dims: int = 2,
+    patch_size: list = None,
+):
     """Load image and label with proper preprocessing."""
     from monai.transforms import SpatialPadd
 
@@ -168,7 +175,9 @@ def load_sample(image_path: Path, label_path: Path = None, spatial_dims: int = 2
 
     # Add padding if patch size is specified
     if patch_size:
-        transform_list.append(SpatialPadd(keys=keys, spatial_size=patch_size, mode="constant"))
+        transform_list.append(
+            SpatialPadd(keys=keys, spatial_size=patch_size, mode="constant")
+        )
 
     transforms = Compose(transform_list)
 
@@ -252,10 +261,10 @@ def visualize_with_matplotlib(
 ):
     """Fallback visualization using matplotlib with connected components analysis."""
     try:
+        import matplotlib.colors as mcolors
         import matplotlib.pyplot as plt
         import numpy as np
         from scipy import ndimage
-        import matplotlib.colors as mcolors
 
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))
 
@@ -282,7 +291,9 @@ def visualize_with_matplotlib(
 
         # Ensure label and prediction have the same size
         if label_data.shape != pred_data.shape:
-            print(f"⚠️  Warning: Label shape {label_data.shape} != Prediction shape {pred_data.shape}")
+            print(
+                f"⚠️  Warning: Label shape {label_data.shape} != Prediction shape {pred_data.shape}"
+            )
             # Crop to the smaller size
             min_h = min(label_data.shape[0], pred_data.shape[0])
             min_w = min(label_data.shape[1], pred_data.shape[1])
@@ -293,18 +304,20 @@ def visualize_with_matplotlib(
         # Connected components analysis for ground truth
         binary_label = (label_data > 0).astype(int)
         labeled_label, num_label_features = ndimage.label(binary_label)
-        print(f"🔍 GT: binary_label unique = {np.unique(binary_label)}, labeled_label max = {labeled_label.max()}")
+        print(
+            f"🔍 GT: binary_label unique = {np.unique(binary_label)}, labeled_label max = {labeled_label.max()}"
+        )
 
         # Create colormap for ground truth components
         if num_label_features > 0:
             try:
-                tab20 = plt.colormaps()['tab20']
+                tab20 = plt.colormaps()["tab20"]
             except TypeError:
-                tab20 = plt.cm.get_cmap('tab20')
+                tab20 = plt.cm.get_cmap("tab20")
             num_colors = max(20, num_label_features)
             colors = [tab20(i % 20) for i in range(num_colors)]
             cmap_label = mcolors.ListedColormap(colors)
-            cmap_label.set_under('black')
+            cmap_label.set_under("black")
         else:
             cmap_label = "gray"
 
@@ -316,31 +329,46 @@ def visualize_with_matplotlib(
 
         # Add component numbers for ground truth (BEFORE turning off axis)
         if num_label_features > 0:
-            center_of_mass_label = ndimage.center_of_mass(binary_label, labeled_label, range(1, num_label_features + 1))
+            center_of_mass_label = ndimage.center_of_mass(
+                binary_label, labeled_label, range(1, num_label_features + 1)
+            )
             for i, (y, x) in enumerate(center_of_mass_label, 1):
-                axes[1, 1].text(x, y, str(i), color="white", fontsize=12, ha="center", va="center",
-                               fontweight="bold", zorder=100)
+                axes[1, 1].text(
+                    x,
+                    y,
+                    str(i),
+                    color="white",
+                    fontsize=12,
+                    ha="center",
+                    va="center",
+                    fontweight="bold",
+                    zorder=100,
+                )
             print(f"📊 GT Components numbered 1-{num_label_features}")
 
         axes[1, 1].axis("off")
 
         # Connected components analysis for prediction
-        print(f"🔍 PRED before: pred_data shape={pred_data.shape}, unique={sorted(np.unique(pred_data))}")
+        print(
+            f"🔍 PRED before: pred_data shape={pred_data.shape}, unique={sorted(np.unique(pred_data))}"
+        )
         binary_pred = (pred_data > 0).astype(int)
         print(f"🔍 PRED binary: unique={np.unique(binary_pred)}")
         labeled_pred, num_pred_features = ndimage.label(binary_pred)
-        print(f"🔍 PRED: labeled_pred max = {labeled_pred.max()}, num_pred_features = {num_pred_features}")
+        print(
+            f"🔍 PRED: labeled_pred max = {labeled_pred.max()}, num_pred_features = {num_pred_features}"
+        )
 
         # Create colormap for prediction components
         if num_pred_features > 0:
             try:
-                tab20 = plt.colormaps()['tab20']
+                tab20 = plt.colormaps()["tab20"]
             except TypeError:
-                tab20 = plt.cm.get_cmap('tab20')
+                tab20 = plt.cm.get_cmap("tab20")
             num_colors = max(20, num_pred_features)
             colors = [tab20(i % 20) for i in range(num_colors)]
             cmap_pred = mcolors.ListedColormap(colors)
-            cmap_pred.set_under('black')
+            cmap_pred.set_under("black")
         else:
             cmap_pred = "gray"
 
@@ -349,10 +377,21 @@ def visualize_with_matplotlib(
 
         # Add component numbers for prediction (BEFORE turning off axis)
         if num_pred_features > 0:
-            center_of_mass_pred = ndimage.center_of_mass(binary_pred, labeled_pred, range(1, num_pred_features + 1))
+            center_of_mass_pred = ndimage.center_of_mass(
+                binary_pred, labeled_pred, range(1, num_pred_features + 1)
+            )
             for i, (y, x) in enumerate(center_of_mass_pred, 1):
-                axes[1, 2].text(x, y, str(i), color="white", fontsize=12, ha="center", va="center",
-                               fontweight="bold", zorder=100)
+                axes[1, 2].text(
+                    x,
+                    y,
+                    str(i),
+                    color="white",
+                    fontsize=12,
+                    ha="center",
+                    va="center",
+                    fontweight="bold",
+                    zorder=100,
+                )
             print(f"📊 Pred Components numbered 1-{num_pred_features}")
 
         axes[1, 2].axis("off")
@@ -419,7 +458,7 @@ def main():
         # Load checkpoint
         print("⚡ Loading checkpoint...")
         checkpoint = torch.load(checkpoint_path, map_location="cpu")
-        print(f"✓ Checkpoint loaded")
+        print("✓ Checkpoint loaded")
         print()
 
         # Extract config parameters
@@ -431,7 +470,7 @@ def main():
         in_channels = model_config.get("in_channels", 1)
         model_type = model_config.get("type", "DynUNet")
 
-        print(f"📊 Model Configuration:")
+        print("📊 Model Configuration:")
         print(f"  Model type: {model_type}")
         print(f"  Spatial dims: {spatial_dims}D")
         print(f"  In channels: {in_channels}")
@@ -460,9 +499,13 @@ def main():
 
         # Load state dict with strict=False to handle architecture mismatches
         # (e.g., deep supervision heads that may not be in the built model)
-        missing, unexpected = model.load_state_dict(checkpoint.get("model"), strict=False)
+        missing, unexpected = model.load_state_dict(
+            checkpoint.get("model"), strict=False
+        )
         if missing or unexpected:
-            print(f"⚠️  Note: {len(missing) if missing else 0} missing, {len(unexpected) if unexpected else 0} unexpected keys")
+            print(
+                f"⚠️  Note: {len(missing) if missing else 0} missing, {len(unexpected) if unexpected else 0} unexpected keys"
+            )
         print(f"✓ Model built and loaded on {device}")
         print()
 
@@ -500,6 +543,7 @@ def main():
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

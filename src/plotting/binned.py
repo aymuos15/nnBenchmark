@@ -5,7 +5,6 @@ instance-size-based binned statistics (e.g., CCMetric).
 """
 
 from pathlib import Path
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -354,7 +353,11 @@ def plot_fp_tp_fn_bar_chart(
     all_counts = tp_counts + fn_counts + fp_counts
     max_count = max(all_counts) if all_counts else 1
 
-    for bars, counts in [(bars_tp, tp_counts), (bars_fn, fn_counts), (bars_fp, fp_counts)]:
+    for bars, counts in [
+        (bars_tp, tp_counts),
+        (bars_fn, fn_counts),
+        (bars_fp, fp_counts),
+    ]:
         for bar, count in zip(bars, counts):
             if count > 0:  # Only show label if count is non-zero
                 ax.text(
