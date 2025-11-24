@@ -176,7 +176,7 @@ class CCLoss(nn.Module):
             target_class = target[c]  # (H, W) or (H, W, D)
 
             # Get connected components in ground truth
-            region_map, num_regions = get_gt_regions(target_class, pred.device)
+            region_map, _, num_regions = get_gt_regions(target_class, pred.device)
 
             if num_regions == 0:
                 # No ground truth for this class, loss = 1.0

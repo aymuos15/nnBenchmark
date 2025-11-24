@@ -62,7 +62,7 @@ def gpu_connected_components(
 def get_gt_regions(
     gt: torch.Tensor,
     device: torch.device,
-) -> Tuple[torch.Tensor, int]:
+) -> Tuple[torch.Tensor, torch.Tensor, int]:
     """
     Divides the ground truth segmentation space into regions based on proximity to instances.
 
@@ -74,8 +74,9 @@ def get_gt_regions(
         device: Device to place tensors on
 
     Returns:
-        tuple: (region_map, num_features)
+        tuple: (region_map, labeled_gt, num_features)
             - region_map: Tensor where each pixel is labeled with the nearest region ID
+            - labeled_gt: Tensor with connected component labels from original ground truth
             - num_features: Number of distinct regions/connected components
 
     Raises:
@@ -125,7 +126,7 @@ def get_gt_regions(
             distance_map[update_mask] = distance[update_mask]
             region_map[update_mask] = region_label
 
-    return region_map, num_features
+    return region_map, labeled_gt, num_features
 
 
 __all__ = ["gpu_connected_components", "get_gt_regions"]

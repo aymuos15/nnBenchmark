@@ -34,7 +34,7 @@ venv.bak/
 
 # uv (package manager)
 .python-version  # Optional: remove if using project-wide Python version pinning
-# Note: uv.lock is tracked for development consistency
+uv.lock
 
 # Jupyter Notebook
 .ipynb_checkpoints

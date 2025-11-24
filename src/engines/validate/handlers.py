@@ -68,11 +68,21 @@ class ValidationMetricsHandler:
 
     def attach(self, engine: Engine) -> None:
         """Attach handler to engine events."""
+        # Reset instance scores at start of validation (for binned statistics)
+        engine.add_event_handler(Events.STARTED, self._reset_instance_scores)
+
         # Log per-sample scores after each iteration
         engine.add_event_handler(Events.ITERATION_COMPLETED, self._log_iteration_scores)
 
         # Compute final statistics at end of validation
         engine.add_event_handler(Events.COMPLETED, self._compute_final_metrics)
+
+    def _reset_instance_scores(self, engine: Engine) -> None:
+        """Reset instance scores for CCMetrics at start of validation."""
+        for name, metric in self.metric_fns.items():
+            # Reset instance scores if metric supports it (e.g., CCMetric)
+            if hasattr(metric, "reset_instance_scores"):
+                metric.reset_instance_scores()
 
     def _log_iteration_scores(self, engine: Engine) -> None:
         """Log scores for current iteration."""
@@ -171,6 +181,26 @@ class ValidationMetricsHandler:
                     "max": float(np.max(scores)),
                     "all_scores": scores,
                 }
+
+            # Get binned statistics if metric supports it (e.g., CCMetric)
+            if name in self.metric_fns:
+                metric = self.metric_fns[name]
+                if hasattr(metric, "get_binned_statistics"):
+                    try:
+                        binned_stats = metric.get_binned_statistics()
+                        results[name]["bins"] = binned_stats
+                    except Exception:
+                        # If binning fails, continue without it
+                        pass
+
+                # Get per-sample binned statistics if metric supports it
+                if hasattr(metric, "get_per_sample_binned_statistics"):
+                    try:
+                        per_sample_binned = metric.get_per_sample_binned_statistics()
+                        results[name]["per_sample_bins"] = per_sample_binned
+                    except Exception:
+                        # If per-sample binning fails, continue without it
+                        pass
 
         # Store results in engine state for other handlers
         engine.state.metrics = results
@@ -310,6 +340,14 @@ class ValidationResultsHandler:
             # Add per-class statistics if available
             if "per_class" in results:
                 metric_summary["per_class"] = results["per_class"]
+
+            # Add binned statistics if available (for CCMetric)
+            if "bins" in results:
+                metric_summary["bins"] = results["bins"]
+
+            # Add per-sample binned statistics if available (for CCMetric)
+            if "per_sample_bins" in results:
+                metric_summary["per_sample_bins"] = results["per_sample_bins"]
 
             summary[metric_name] = metric_summary
 

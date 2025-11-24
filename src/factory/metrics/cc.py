@@ -125,6 +125,27 @@ class CCMetric:
         # State for accumulating results (MONAI pattern)
         self._scores: list[torch.Tensor] = []
 
+        # State for tracking instance-size binned statistics
+        # Each element is (score, instance_size) tuple
+        self._instance_scores: list[tuple[float, int]] = []
+
+        # Track instances per sample for per-sample binned statistics
+        # Structure: list of dicts, one per sample, each containing {size_bin: [scores]}
+        self._per_sample_instances: list[dict[str, list[float]]] = []
+        self._current_sample_instances: dict[str, list[float]] = {
+            "all": [],
+            "0-2cc": [],
+            "2-10cc": [],
+            ">10cc": [],
+        }
+
+        self._binned_scores: dict[str, list[float]] = {
+            "all": [],
+            "0-2cc": [],
+            "2-10cc": [],
+            ">10cc": [],
+        }
+
     def __call__(
         self,
         y_pred: torch.Tensor,
@@ -153,6 +174,14 @@ class CCMetric:
 
         # Compute scores for each sample in batch
         for b in range(batch_size):
+            # Reset per-sample instance tracking for this sample
+            self._current_sample_instances = {
+                "all": [],
+                "0-2cc": [],
+                "2-10cc": [],
+                ">10cc": [],
+            }
+
             pred_volume = y_pred[b]  # (C, H, W) or (C, H, W, D)
             target_volume = y_onehot[b]  # (C, H, W) or (C, H, W, D)
 
@@ -166,6 +195,9 @@ class CCMetric:
 
             # Store scores for this sample
             self._scores.append(sample_scores)
+
+            # Save per-sample instance data for later
+            self._per_sample_instances.append(self._current_sample_instances.copy())
 
     def _prepare_inputs(
         self,
@@ -224,6 +256,9 @@ class CCMetric:
         class_scores = []
 
         for c in range(num_classes):
+            # Skip background class when tracking instance sizes (only track for foreground classes)
+            should_track_instances = c > 0 or self.include_background
+
             pred_class = pred[c]
             target_class = target[c]
 
@@ -234,7 +269,7 @@ class CCMetric:
                 continue
 
             # Get regions from connected components
-            region_map, num_regions = get_gt_regions(target_class, pred.device)
+            region_map, labeled_gt, num_regions = get_gt_regions(target_class, pred.device)
 
             if num_regions == 0:
                 # No regions found
@@ -274,6 +309,26 @@ class CCMetric:
                     raise ValueError(f"Unknown metric_type: {self.metric_type}")
 
                 region_scores.append(region_score)
+
+                # Track instance size only for non-background classes
+                # (number of pixels/voxels in original connected component)
+                if should_track_instances:
+                    # Use labeled_gt to get the actual size of the ground truth instance, not the Voronoi-expanded region
+                    original_component_mask = labeled_gt == region_id
+                    instance_size = int(torch.sum(original_component_mask).item())
+                    score_value = float(region_score.item() if isinstance(region_score, torch.Tensor) else region_score)
+
+                    # Track globally
+                    self._instance_scores.append((score_value, instance_size))
+
+                    # Track per-sample
+                    self._current_sample_instances["all"].append(score_value)
+                    if instance_size < 2:
+                        self._current_sample_instances["0-2cc"].append(score_value)
+                    elif instance_size < 10:
+                        self._current_sample_instances["2-10cc"].append(score_value)
+                    else:
+                        self._current_sample_instances[">10cc"].append(score_value)
 
             # Mean across regions for this class
             if region_scores:
@@ -426,9 +481,168 @@ class CCMetric:
         # Result is tensor, squeeze to scalar
         return surface_dice.squeeze()
 
+    def _compute_binned_statistics(self) -> None:
+        """Compute binned statistics from accumulated instance scores.
+
+        Categorizes instance scores into bins based on instance SIZE (pixel/voxel count):
+        - all: all instances
+        - 0-2cc: instances with size [0, 2) pixels/voxels
+        - 2-10cc: instances with size [2, 10) pixels/voxels
+        - >10cc: instances with size >= 10 pixels/voxels
+        """
+        # Clear previous binned scores
+        for key in self._binned_scores:
+            self._binned_scores[key] = []
+
+        # Bin all instance scores by instance size
+        for score, instance_size in self._instance_scores:
+            # All instances go to "all" bin
+            self._binned_scores["all"].append(score)
+
+            # Also add to category bin based on instance size
+            if instance_size < 2:
+                self._binned_scores["0-2cc"].append(score)
+            elif instance_size < 10:
+                self._binned_scores["2-10cc"].append(score)
+            else:
+                self._binned_scores[">10cc"].append(score)
+
+    def get_binned_statistics(self) -> dict[str, dict[str, float]]:
+        """Get CC loss statistics binned by instance size.
+
+        Bins instances based on their size (pixel/voxel count) and returns
+        CC loss statistics for each size bin.
+
+        Returns:
+            Dictionary with bin names as keys and statistics dicts as values.
+            Each statistics dict contains: mean, std, min, max, count of CC loss scores
+            for instances in that size bin.
+
+            Example:
+            {
+                "all": {"mean": 0.75, "std": 0.15, "min": 0.2, "max": 0.98, "count": 500},
+                "0-2cc": {"mean": 0.45, "std": 0.20, "min": 0.1, "max": 0.95, "count": 150},
+                "2-10cc": {"mean": 0.80, "std": 0.12, "min": 0.3, "max": 0.99, "count": 250},
+                ">10cc": {"mean": 0.85, "std": 0.10, "min": 0.4, "max": 1.0, "count": 100}
+            }
+
+            Where:
+            - 0-2cc: CC loss scores for instances with 0-2 pixels/voxels
+            - 2-10cc: CC loss scores for instances with 2-10 pixels/voxels
+            - >10cc: CC loss scores for instances with >10 pixels/voxels
+        """
+        import numpy as np
+
+        # Compute bins first
+        self._compute_binned_statistics()
+
+        # Compute statistics for each bin
+        binned_stats: dict[str, dict[str, float]] = {}
+
+        for bin_name, bin_scores in self._binned_scores.items():
+            if len(bin_scores) == 0:
+                # Empty bin: create default stats
+                binned_stats[bin_name] = {
+                    "mean": 0.0,
+                    "std": 0.0,
+                    "min": 0.0,
+                    "max": 0.0,
+                    "count": 0,
+                }
+            else:
+                # Non-empty bin: compute statistics
+                scores_array = np.array(bin_scores)
+                binned_stats[bin_name] = {
+                    "mean": float(np.mean(scores_array)),
+                    "std": float(np.std(scores_array)),
+                    "min": float(np.min(scores_array)),
+                    "max": float(np.max(scores_array)),
+                    "count": int(len(bin_scores)),
+                }
+
+        return binned_stats
+
     def reset(self) -> None:
-        """Reset accumulated scores. Required for MONAI compatibility."""
+        """Reset accumulated scores. Required for MONAI compatibility.
+
+        Note: Only resets _scores (per-sample scores) for MONAI compatibility.
+        Instance scores are NOT reset here to allow accumulation across the entire
+        validation/inference run for final binned statistics computation.
+        """
         self._scores = []
+        # Do NOT reset _instance_scores - they need to accumulate across all samples
+        # to compute final binned statistics at the end of validation/inference
+
+    def reset_instance_scores(self) -> None:
+        """Reset instance scores for a new validation/inference run.
+
+        This should be called when starting a fresh validation or inference
+        to clear accumulated instance scores from previous runs.
+        """
+        self._instance_scores = []
+        self._per_sample_instances = []
+        self._current_sample_instances = {
+            "all": [],
+            "0-2cc": [],
+            "2-10cc": [],
+            ">10cc": [],
+        }
+        self._binned_scores = {
+            "all": [],
+            "0-2cc": [],
+            "2-10cc": [],
+            ">10cc": [],
+        }
+
+    def get_per_sample_binned_statistics(self) -> list[dict[str, dict[str, float]]]:
+        """Get per-sample binned statistics for all samples.
+
+        Returns:
+            List of dicts, one per sample, each containing binned statistics.
+            Each sample dict has keys: all, 0-2cc, 2-10cc, >10cc
+            Each bin contains: mean, std, min, max, count
+
+            Example:
+            [
+                {
+                    "all": {"mean": 0.85, "std": 0.12, "min": 0.5, "max": 0.98, "count": 5},
+                    "0-2cc": {"mean": 0.45, "std": 0.0, "min": 0.45, "max": 0.45, "count": 1},
+                    ...
+                },
+                {...}  # next sample
+            ]
+        """
+        import numpy as np
+
+        per_sample_stats = []
+
+        for sample_instances in self._per_sample_instances:
+            sample_stats = {}
+
+            for bin_name, bin_scores in sample_instances.items():
+                if len(bin_scores) == 0:
+                    # Empty bin
+                    sample_stats[bin_name] = {
+                        "mean": 0.0,
+                        "std": 0.0,
+                        "min": 0.0,
+                        "max": 0.0,
+                        "count": 0,
+                    }
+                else:
+                    # Non-empty bin
+                    scores_array = np.array(bin_scores)
+                    sample_stats[bin_name] = {
+                        "mean": float(np.mean(scores_array)),
+                        "std": float(np.std(scores_array)),
+                        "min": float(np.min(scores_array)),
+                        "max": float(np.max(scores_array)),
+                        "count": int(len(bin_scores)),
+                    }
+
+            per_sample_stats.append(sample_stats)
+
+        return per_sample_stats
 
     def aggregate(self) -> torch.Tensor:
         """
