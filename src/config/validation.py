@@ -117,7 +117,10 @@ def validate_model_config(config: dict[str, Any]) -> None:
 
 # Model-specific required parameters
 _MODEL_REQUIRED_PARAMS: dict[str, tuple[list[str], str]] = {
-    "DynUNet": (["filters", "kernel_size", "strides", "upsample_kernel_size"], "DynUNet"),
+    "DynUNet": (
+        ["filters", "kernel_size", "strides", "upsample_kernel_size"],
+        "DynUNet",
+    ),
     "UNet": (["channels", "strides"], "UNet"),
     "KiUNet2D": (["features"], "KiUNet"),
     "KiUNet3D": (["features"], "KiUNet"),
@@ -145,7 +148,9 @@ def _validate_model_params(
 
     for param in required:
         if param not in params:
-            raise ValueError(f"Missing required {name} parameter '{param}' in {section}")
+            raise ValueError(
+                f"Missing required {name} parameter '{param}' in {section}"
+            )
 
     # KiUNet-specific additional validation
     if model_type in ("KiUNet2D", "KiUNet3D") and "features" in params:

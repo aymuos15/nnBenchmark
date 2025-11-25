@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import torch
 from ignite.engine import Engine, Events
 
 from src.engines.shared.handlers import BaseMetricsHandler, BaseProgressHandler
@@ -41,15 +40,21 @@ class InferenceMetricsHandler(BaseMetricsHandler):
                         class_scores_str = ", ".join(
                             [
                                 f"{self.class_labels[idx]}: {per_class[i]:.4f}"
-                                for i, idx in enumerate(sorted(self.class_labels.keys()))
+                                for i, idx in enumerate(
+                                    sorted(self.class_labels.keys())
+                                )
                             ]
                         )
-                        print(f"{case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}")
+                        print(
+                            f"{case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
+                        )
                         if self.logger is not None:
                             log_msg = f"Sample {batch_idx + 1}: {case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
                             self.logger.info(log_msg)
             else:
-                scores_str = ", ".join([f"{n} = {s:.4f}" for n, s in batch_scores.items()])
+                scores_str = ", ".join(
+                    [f"{n} = {s:.4f}" for n, s in batch_scores.items()]
+                )
                 print(f"{case_path}: {scores_str}")
                 if self.logger is not None:
                     log_msg = f"Sample {batch_idx + 1}: {case_path}: {scores_str}"
@@ -120,7 +125,13 @@ class InferenceResultsHandler:
             }
 
             # Add optional extended statistics
-            for key in ["per_class", "bins", "per_sample_bins", "fp_tp_fn", "per_sample_fp_tp_fn"]:
+            for key in [
+                "per_class",
+                "bins",
+                "per_sample_bins",
+                "fp_tp_fn",
+                "per_sample_fp_tp_fn",
+            ]:
                 if key in results:
                     metric_summary[key] = results[key]
 
@@ -131,7 +142,9 @@ class InferenceResultsHandler:
             if len(metric_per_sample_scores) > 0 and isinstance(
                 metric_per_sample_scores[0], np.ndarray
             ):
-                metric_per_sample_scores = [score.tolist() for score in metric_per_sample_scores]
+                metric_per_sample_scores = [
+                    score.tolist() for score in metric_per_sample_scores
+                ]
             per_sample_scores[metric_name] = metric_per_sample_scores
 
         test_history = {

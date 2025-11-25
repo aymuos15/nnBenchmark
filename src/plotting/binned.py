@@ -71,7 +71,7 @@ def plot_binned_bar_chart(
             counts.append(0)
 
     # Create figure
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _fig, ax = plt.subplots(figsize=(10, 6))
 
     # Create bar positions
     x_pos = np.arange(len(bin_labels))
@@ -92,7 +92,7 @@ def plot_binned_bar_chart(
     )
 
     # Add mean value and count annotations above bars
-    for i, (bar, count, mean, std) in enumerate(zip(bars, counts, means, stds)):
+    for _i, (bar, count, mean, std) in enumerate(zip(bars, counts, means, stds)):
         height = mean + std
         # Add mean value
         ax.text(
@@ -203,7 +203,7 @@ def plot_binned_bar_chart_multi_metric(
         return
 
     # Create figure
-    fig, ax = plt.subplots(figsize=(12, 6))
+    _fig, ax = plt.subplots(figsize=(12, 6))
 
     # Create bar positions
     x_pos = np.arange(len(bin_labels))
@@ -308,7 +308,7 @@ def plot_fp_tp_fn_bar_chart(
             fp_counts.append(0)
 
     # Create figure
-    fig, ax = plt.subplots(figsize=(12, 6))
+    _fig, ax = plt.subplots(figsize=(12, 6))
 
     # Create bar positions
     x_pos = np.arange(len(bin_labels))
@@ -440,7 +440,7 @@ def plot_per_sample_fp_tp_fn(
     fp_counts = [sample["all"]["FP"] for sample in per_sample_stats]
 
     # Create figure
-    fig, ax = plt.subplots(figsize=(14, 6))
+    _fig, ax = plt.subplots(figsize=(14, 6))
 
     # Sample indices for x-axis
     sample_indices = np.arange(len(tp_counts))

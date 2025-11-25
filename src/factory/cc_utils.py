@@ -92,7 +92,11 @@ def get_gt_regions(
     labeled_gt, num_features = gpu_connected_components(gt)
 
     if num_features == 0:
-        return torch.zeros_like(gt, dtype=torch.long), 0
+        return (
+            torch.zeros_like(gt, dtype=torch.long),
+            torch.zeros_like(gt, dtype=torch.long),
+            0,
+        )
 
     # Initialize distance map (stores distance to nearest instance)
     distance_map = torch.zeros_like(gt, dtype=torch.float32)

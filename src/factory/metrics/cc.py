@@ -291,6 +291,36 @@ class CCMetric:
             score, handled = self._handle_empty_classes(pred_class, target_class)
             if handled:
                 class_scores.append(score)
+                # Still need to classify FP instances even when GT is empty or pred is empty
+                if should_track_instances:
+                    # When GT is empty, we need to count all predictions as FP
+                    # When pred is empty, there are no FP to count
+                    # When both are empty, no FP/TP/FN to count
+                    pred_empty = torch.sum(pred_class) == 0
+
+                    if not pred_empty:  # Only classify FP if predictions exist
+                        from src.factory.cc_utils import gpu_connected_components
+
+                        # Binarize predictions at threshold 0.5
+                        pred_binary = (pred_class > 0.5).float()
+
+                        # Run connected components on binarized predictions
+                        labeled_pred, num_pred = gpu_connected_components(pred_binary)
+
+                        # All predicted instances are FP when GT is empty
+                        for pred_id in range(1, num_pred + 1):
+                            pred_mask = labeled_pred == pred_id
+                            pred_size = int(torch.sum(pred_mask).item())
+
+                            # False Positive: Predicted instance with no GT
+                            self._fp_instances.append(pred_size)
+                            self._current_sample_fp_tp_fn["all"]["FP"] += 1
+                            if pred_size < 2:
+                                self._current_sample_fp_tp_fn["0-2cc"]["FP"] += 1
+                            elif pred_size < 10:
+                                self._current_sample_fp_tp_fn["2-10cc"]["FP"] += 1
+                            else:
+                                self._current_sample_fp_tp_fn[">10cc"]["FP"] += 1
                 continue
 
             # Get regions from connected components
@@ -301,6 +331,33 @@ class CCMetric:
             if num_regions == 0:
                 # No regions found
                 class_scores.append(torch.tensor(1.0, device=pred.device))
+                # Still need to classify FP instances even when no GT regions found
+                if should_track_instances:
+                    pred_empty = torch.sum(pred_class) == 0
+
+                    if not pred_empty:  # Only classify FP if predictions exist
+                        from src.factory.cc_utils import gpu_connected_components
+
+                        # Binarize predictions at threshold 0.5
+                        pred_binary = (pred_class > 0.5).float()
+
+                        # Run connected components on binarized predictions
+                        labeled_pred, num_pred = gpu_connected_components(pred_binary)
+
+                        # All predicted instances are FP when no GT regions
+                        for pred_id in range(1, num_pred + 1):
+                            pred_mask = labeled_pred == pred_id
+                            pred_size = int(torch.sum(pred_mask).item())
+
+                            # False Positive: Predicted instance with no GT
+                            self._fp_instances.append(pred_size)
+                            self._current_sample_fp_tp_fn["all"]["FP"] += 1
+                            if pred_size < 2:
+                                self._current_sample_fp_tp_fn["0-2cc"]["FP"] += 1
+                            elif pred_size < 10:
+                                self._current_sample_fp_tp_fn["2-10cc"]["FP"] += 1
+                            else:
+                                self._current_sample_fp_tp_fn[">10cc"]["FP"] += 1
                 continue
 
             # Compute metric for each region
@@ -343,11 +400,7 @@ class CCMetric:
                     # Use labeled_gt to get the actual size of the ground truth instance, not the Voronoi-expanded region
                     original_component_mask = labeled_gt == region_id
                     instance_size = int(torch.sum(original_component_mask).item())
-                    score_value = float(
-                        region_score.item()
-                        if isinstance(region_score, torch.Tensor)
-                        else region_score
-                    )
+                    score_value = float(region_score.item())
 
                     # Track globally
                     self._instance_scores.append((score_value, instance_size))
@@ -759,7 +812,7 @@ class CCMetric:
             Example:
             >>> stats = metric.get_per_sample_fp_tp_fn_statistics()
             >>> sample_0 = stats[0]
-            >>> print(f"Sample 0: {sample_0['all']['TP']} TPs, {sample_0['all']['FP']} FPs")
+            >>> # Access: sample_0['all']['TP'], sample_0['all']['FP']
         """
         return self._per_sample_fp_tp_fn
 

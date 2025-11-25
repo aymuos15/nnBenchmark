@@ -72,7 +72,7 @@ class TestCCMetricFPTPFN:
 
         # Prediction: NO overlap with GT (predicts elsewhere)
         pred = torch.zeros(batch_size, num_classes, h, w, device=device)
-        pred[0, 0, :, :] = 0.9  # Background high probability
+        pred[0, 0, :, :] = 0.1  # Background low probability
         pred[0, 1, 0:2, 0:2] = 0.9  # Foreground prediction away from GT
 
         # Reset and run metric
@@ -233,7 +233,6 @@ class TestCCMetricFPTPFN:
 
     def test_per_sample_tracking(self, simple_metric, device):
         """Test that per-sample FP/TP/FN statistics are correctly tracked."""
-        batch_size = 2
         num_classes = 2
         h, w = 10, 10
 

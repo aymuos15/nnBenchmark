@@ -112,7 +112,7 @@ def ensure_directory(path: str) -> str:
     return path
 
 
-def load_json(path: str, description: str = "JSON file") -> dict[str, Any]:
+def load_json(path: str | Path, description: str = "JSON file") -> dict[str, Any]:
     """
     Load JSON file with error handling.
 

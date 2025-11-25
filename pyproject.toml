@@ -69,6 +69,7 @@ src = ["py.typed"]
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+exclude = ["scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
@@ -109,9 +110,12 @@ ignore_names = [
 
 [tool.pyright]
 include = ["src", "tests"]
-exclude = [".venv", ".tox", "build", "dist"]
+exclude = [".venv", ".tox", "build", "dist", "scripts"]
 typeCheckingMode = "standard"
 reportUnusedVariable = true
 reportUnnecessaryIsInstance = true
 reportIncompatibleMethodOverride = true
 reportPrivateImportUsage = false  # Allow using public re-exports from MONAI/torch
+
+[tool.ty.rules]
+unresolved-import = "ignore"  # cupy/cupyx are optional GPU dependencies

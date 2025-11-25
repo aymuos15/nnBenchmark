@@ -101,7 +101,13 @@ class ValidationResultsHandler:
             }
 
             # Add optional extended statistics
-            for key in ["per_class", "bins", "per_sample_bins", "fp_tp_fn", "per_sample_fp_tp_fn"]:
+            for key in [
+                "per_class",
+                "bins",
+                "per_sample_bins",
+                "fp_tp_fn",
+                "per_sample_fp_tp_fn",
+            ]:
                 if key in results:
                     metric_summary[key] = results[key]
 
@@ -112,7 +118,9 @@ class ValidationResultsHandler:
             if len(metric_per_sample_scores) > 0 and isinstance(
                 metric_per_sample_scores[0], np.ndarray
             ):
-                metric_per_sample_scores = [score.tolist() for score in metric_per_sample_scores]
+                metric_per_sample_scores = [
+                    score.tolist() for score in metric_per_sample_scores
+                ]
             per_sample_scores[metric_name] = metric_per_sample_scores
 
         validation_history = {
@@ -135,7 +143,9 @@ class ValidationResultsHandler:
         history_dir.mkdir(parents=True, exist_ok=True)
 
         if self.epoch is not None:
-            validation_history_path = str(history_dir / f"validation_epoch_{self.epoch:03d}.json")
+            validation_history_path = str(
+                history_dir / f"validation_epoch_{self.epoch:03d}.json"
+            )
         else:
             validation_history_path = str(history_dir / "validation.json")
 
@@ -182,10 +192,10 @@ class ValidationVisualizationHandler:
         if self.batches_saved >= self.save_first_n_batches:
             return
 
-        outputs = engine.state.output
-        images = outputs["images"]
-        labels = outputs["labels"]
-        preds = outputs["predictions"]
+        outputs = engine.state.output  # type: ignore[attr-defined]
+        images = outputs["images"]  # type: ignore[index]
+        labels = outputs["labels"]  # type: ignore[index]
+        preds = outputs["predictions"]  # type: ignore[index]
 
         viz_dir = self.results_dir / "visualizations"
         viz_dir.mkdir(parents=True, exist_ok=True)
