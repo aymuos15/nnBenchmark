@@ -1,0 +1,18 @@
+#===============================================================================
+# CCLoss Configuration for Dataset004_BraTS2025 (fold=-1) - UNet (Simple)
+#===============================================================================
+# Inherits: fold_0.yaml → base_exp.yaml → this config
+# Model: UNet (simple), 500 epochs, CCMetric included
+#===============================================================================
+
+base_config: base_exp.yaml
+
+overrides:
+  model:
+    type: UNet
+
+  loss:
+    type: CCLoss
+    to_onehot_y: true
+    sigmoid: true
+    softmax: false

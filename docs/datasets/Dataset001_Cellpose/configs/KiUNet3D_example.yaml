@@ -89,7 +89,7 @@ loss:
 # ============================================================================
 
 training:
-  epochs: 1000
+  epochs: 500
   batch_size: 1  # 3D typically requires batch_size=1 due to memory
   num_workers: 4
 

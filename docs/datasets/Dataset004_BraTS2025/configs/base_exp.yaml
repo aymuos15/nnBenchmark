@@ -1,12 +1,12 @@
 #===============================================================================
-# Base Experiment Configuration for Dataset001_Cellpose
+# Base Experiment Configuration for Dataset004_BraTS2025
 #===============================================================================
 # Common settings for all fold=-1 experiments.
 # All experiment configs should inherit from this.
 #
 # Settings:
 #   - fold: -1 (full dataset)
-#   - epochs: 1000
+#   - epochs: 500
 #   - num_workers: 5
 #   - CCMetric added to evaluation
 #===============================================================================
@@ -20,7 +20,7 @@ overrides:
   training:
     epochs: 500
     num_workers: 5
-    batch_size: 1
+    batch_size: 2
 
   validation_metrics:
   - &id001
