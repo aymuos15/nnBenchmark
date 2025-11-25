@@ -115,10 +115,9 @@ class ModelRegistry(BaseRegistry):
         # Model-specific parameter preparation
         if model_type == "DynUNet":
             model_params = self._prepare_dynunet_params(model_params)
-        elif model_type == "UNet":
-            model_params = self._prepare_unet_params(model_params)
         elif model_type in ("KiUNet2D", "KiUNet3D"):
             model_params = self._prepare_kiunet_params(model_params)
+        # UNet needs no special preparation - params are used directly
 
         # Instantiate and move to device
         model = model_class(**model_params).to(device)
@@ -154,24 +153,6 @@ class ModelRegistry(BaseRegistry):
             processed["trans_bias"] = True  # nnU-Net has bias in transpose convs
 
         return processed
-
-    def _prepare_unet_params(self, params: dict[str, Any]) -> dict[str, Any]:
-        """Prepare UNet-specific parameters.
-
-        UNet has simpler parameter requirements than DynUNet:
-        - No tuple conversions needed (norm/act names are strings)
-        - No special kernel size or stride processing required
-        - Parameters are used directly as provided in config
-
-        Args:
-            params: Raw parameter dictionary from config
-
-        Returns:
-            Processed parameters ready for UNet instantiation
-        """
-        # UNet parameters are straightforward - just return a copy
-        # No special processing needed unlike DynUNet
-        return params.copy()
 
     def _prepare_kiunet_params(self, params: dict[str, Any]) -> dict[str, Any]:
         """Prepare KiU-Net-specific parameters.

@@ -11,44 +11,20 @@ if TYPE_CHECKING:
     from loguru._logger import Logger
 
 
-def _log_with_level(logger: Logger, message: str, level: str) -> None:
-    """
-    Internal helper to log a message at the appropriate level.
-
-    Args:
-        logger: Loguru logger instance
-        message: Message to log
-        level: Log level (must be uppercase: INFO, WARNING, ERROR, DEBUG)
-    """
-    if level == "INFO":
-        logger.info(message)
-    elif level == "WARNING":
-        logger.warning(message)
-    elif level == "ERROR":
-        logger.error(message)
-    elif level == "DEBUG":
-        logger.debug(message)
-    else:
-        logger.info(message)  # Default to info for unknown levels
+_VALID_LEVELS = {"INFO", "WARNING", "ERROR", "DEBUG"}
 
 
 def log_and_print(logger: Logger, message: str, level: str = "INFO") -> None:
     """
     Write a message to both the log file and console output.
 
-    This helper eliminates the common pattern of calling both logger.info()
-    and print() for the same message. The log file gets the formatted message
-    with timestamp/level, while console gets clean output.
-
     Args:
         logger: Loguru logger instance
         message: Message to log and print
         level: Log level (INFO, WARNING, ERROR, DEBUG). Default: INFO
     """
-    # Write to log file with appropriate level
-    _log_with_level(logger, message, level.upper())
-
-    # Print to console (clean, no formatting)
+    log_level = level.upper() if level.upper() in _VALID_LEVELS else "INFO"
+    logger.log(log_level, message)
     print(message)
 
 
@@ -61,8 +37,8 @@ def log_only(logger: Logger, message: str, level: str = "INFO") -> None:
         message: Message to log
         level: Log level (INFO, WARNING, ERROR, DEBUG). Default: INFO
     """
-    # Write to log file with appropriate level
-    _log_with_level(logger, message, level.upper())
+    log_level = level.upper() if level.upper() in _VALID_LEVELS else "INFO"
+    logger.log(log_level, message)
 
 
 def log_separator(

@@ -7,294 +7,40 @@ logging, results saving, and visualization during validation.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
-import torch
 from ignite.engine import Engine, Events
 
+from src.engines.shared.handlers import BaseMetricsHandler, BaseProgressHandler
 from src.plotting.validation import save_validation_visualizations
-from src.utils.data import get_class_labels
 from src.utils.files import save_json
 
-if TYPE_CHECKING:
-    from loguru._logger import Logger
 
-
-class ValidationMetricsHandler:
+class ValidationMetricsHandler(BaseMetricsHandler):
     """Computes and logs metrics during validation.
 
-    Accumulates per-sample scores during validation and computes
-    summary statistics at the end.
+    Uses simple scalar logging (all metrics in one line).
     """
-
-    def __init__(
-        self,
-        metric_fns: dict[str, Any],
-        logger: Logger | None = None,
-        data_dir: str | None = None,
-        include_background: bool = False,
-        verbose: bool = True,
-        device: torch.device | None = None,
-        data_dicts: list[dict[str, str]] | None = None,
-    ):
-        """Initialize ValidationMetricsHandler.
-
-        Args:
-            metric_fns: Dictionary of metric functions {name: metric_fn}
-            logger: Optional logger instance for file logging
-            data_dir: Optional dataset directory for loading class labels
-            include_background: Whether metrics include background class
-            verbose: Whether to print per-case scores to console
-            device: Device for GPU memory logging
-            data_dicts: Optional list of data dictionaries with case paths
-        """
-        self.metric_fns = metric_fns
-        self.logger = logger
-        self.data_dir = data_dir
-        self.verbose = verbose
-        self.device = device
-        self.data_dicts = data_dicts
-
-        # Load class labels if available
-        self.class_labels: dict[int, str] | None = None
-        if data_dir is not None:
-            self.class_labels = get_class_labels(
-                data_dir, include_background=include_background
-            )
-
-        # Track scores per metric
-        self.all_scores: dict[str, list] = {name: [] for name in metric_fns.keys()}
-
-    def attach(self, engine: Engine) -> None:
-        """Attach handler to engine events."""
-        # Reset instance scores at start of validation (for binned statistics)
-        engine.add_event_handler(Events.STARTED, self._reset_instance_scores)
-
-        # Log per-sample scores after each iteration
-        engine.add_event_handler(Events.ITERATION_COMPLETED, self._log_iteration_scores)
-
-        # Compute final statistics at end of validation
-        engine.add_event_handler(Events.COMPLETED, self._compute_final_metrics)
-
-    def _reset_instance_scores(self, engine: Engine) -> None:
-        """Reset instance scores for CCMetrics at start of validation."""
-        for name, metric in self.metric_fns.items():
-            # Reset instance scores if metric supports it (e.g., CCMetric)
-            if hasattr(metric, "reset_instance_scores"):
-                metric.reset_instance_scores()
 
     def _log_iteration_scores(self, engine: Engine) -> None:
         """Log scores for current iteration."""
         batch_idx = engine.state.iteration - 1
-
-        # Compute batch scores from accumulated metrics
-        batch_scores = {}
-        batch_scores_per_class = {}
-
-        for name, metric in self.metric_fns.items():
-            result = metric.aggregate()
-
-            # Check if result is per-class or scalar
-            if isinstance(result, torch.Tensor) and result.numel() > 1:
-                # Per-class scores
-                per_class_scores = result.cpu().numpy()
-                self.all_scores[name].append(per_class_scores)
-
-                # Compute mean across classes for display
-                mean_score = float(np.mean(per_class_scores))
-                batch_scores[name] = mean_score
-                batch_scores_per_class[name] = per_class_scores
-            else:
-                # Scalar score
-                score: float = result.item()
-                self.all_scores[name].append(score)
-                batch_scores[name] = score
-
-            # Reset metric for next sample
-            metric.reset()
+        batch_scores, _ = self._compute_batch_scores()
 
         if self.verbose:
-            # Extract case path from data_dicts if available
-            case_path = "unknown"
-            if self.data_dicts is not None and batch_idx < len(self.data_dicts):
-                image_path = self.data_dicts[batch_idx].get("image", "unknown")
-                case_path = Path(image_path).name
-
-            # Build a single log message with all metrics
+            case_path = self._get_case_path(batch_idx)
             scores_str = ", ".join([f"{n} = {s:.4f}" for n, s in batch_scores.items()])
             print(f"{case_path}: {scores_str}")
-
-            # Log to file
             if self.logger is not None:
                 log_msg = f"Sample {batch_idx + 1}: {case_path}: {scores_str}"
                 self.logger.info(log_msg)
 
-    def _compute_final_metrics(self, engine: Engine) -> None:
-        """Compute final statistics from all scores."""
-        results = {}
 
-        for name, scores in self.all_scores.items():
-            if len(scores) > 0 and isinstance(scores[0], np.ndarray):
-                # Per-class scores
-                scores_array = np.array(scores)  # Shape: (num_cases, num_classes)
+class ValidationProgressHandler(BaseProgressHandler):
+    """Displays progress during validation."""
 
-                # Overall statistics (mean across all classes and cases)
-                all_values = scores_array.flatten()
-                results[name] = {
-                    "mean": float(np.mean(all_values)),
-                    "std": float(np.std(all_values)),
-                    "min": float(np.min(all_values)),
-                    "max": float(np.max(all_values)),
-                    "all_scores": scores,
-                }
-
-                # Per-class statistics
-                per_class_stats = {}
-                num_classes = scores_array.shape[1]
-                for class_idx in range(num_classes):
-                    class_scores = scores_array[:, class_idx]
-
-                    # Find the class name
-                    if self.class_labels is not None:
-                        sorted_class_indices = sorted(self.class_labels.keys())
-                        actual_class_idx = sorted_class_indices[class_idx]
-                        class_name = self.class_labels[actual_class_idx]
-                    else:
-                        class_name = f"Class {class_idx + 1}"
-
-                    per_class_stats[class_name] = {
-                        "mean": float(np.mean(class_scores)),
-                        "std": float(np.std(class_scores)),
-                        "min": float(np.min(class_scores)),
-                        "max": float(np.max(class_scores)),
-                        "all_scores": class_scores.tolist(),
-                    }
-
-                results[name]["per_class"] = per_class_stats
-            else:
-                # Scalar scores
-                results[name] = {
-                    "mean": float(np.mean(scores)),
-                    "std": float(np.std(scores)),
-                    "min": float(np.min(scores)),
-                    "max": float(np.max(scores)),
-                    "all_scores": scores,
-                }
-
-            # Get binned statistics if metric supports it (e.g., CCMetric)
-            if name in self.metric_fns:
-                metric = self.metric_fns[name]
-                if hasattr(metric, "get_binned_statistics"):
-                    try:
-                        binned_stats = metric.get_binned_statistics()
-                        results[name]["bins"] = binned_stats
-                    except Exception:
-                        # If binning fails, continue without it
-                        pass
-
-                # Get per-sample binned statistics if metric supports it
-                if hasattr(metric, "get_per_sample_binned_statistics"):
-                    try:
-                        per_sample_binned = metric.get_per_sample_binned_statistics()
-                        results[name]["per_sample_bins"] = per_sample_binned
-                    except Exception:
-                        # If per-sample binning fails, continue without it
-                        pass
-
-                # Get FP/TP/FN statistics if metric supports it
-                if hasattr(metric, "get_fp_tp_fn_statistics"):
-                    try:
-                        fp_tp_fn_stats = metric.get_fp_tp_fn_statistics()
-                        results[name]["fp_tp_fn"] = fp_tp_fn_stats
-                    except Exception:
-                        # If FP/TP/FN fails, continue without it
-                        pass
-
-                # Get per-sample FP/TP/FN statistics if metric supports it
-                if hasattr(metric, "get_per_sample_fp_tp_fn_statistics"):
-                    try:
-                        per_sample_fp_tp_fn = (
-                            metric.get_per_sample_fp_tp_fn_statistics()
-                        )
-                        results[name]["per_sample_fp_tp_fn"] = per_sample_fp_tp_fn
-                    except Exception:
-                        # If per-sample FP/TP/FN fails, continue without it
-                        pass
-
-        # Store results in engine state for other handlers
-        engine.state.metrics = results
-
-
-class ValidationProgressHandler:
-    """Displays progress during validation.
-
-    Shows sample-by-sample progress with case names.
-    """
-
-    def __init__(
-        self,
-        logger: Logger | None = None,
-        total_samples: int | None = None,
-        data_dicts: list[dict[str, str]] | None = None,
-    ):
-        """Initialize ValidationProgressHandler.
-
-        Args:
-            logger: Optional logger instance
-            total_samples: Total number of samples (for progress percentage)
-            data_dicts: Optional list of data dictionaries with case paths
-        """
-        self.logger = logger
-        self.total_samples = total_samples
-        self.data_dicts = data_dicts
-
-    def attach(self, engine: Engine) -> None:
-        """Attach handler to engine events."""
-        engine.add_event_handler(Events.STARTED, self._on_started)
-        engine.add_event_handler(Events.ITERATION_STARTED, self._on_iteration_started)
-        engine.add_event_handler(Events.COMPLETED, self._on_completed)
-
-    def _on_started(self, engine: Engine) -> None:
-        """Log validation start."""
-        if self.logger is not None:
-            self.logger.info("=" * 50)
-            self.logger.info("Starting validation...")
-            if self.total_samples is not None:
-                self.logger.info(f"Total samples: {self.total_samples}")
-            self.logger.info("=" * 50)
-
-    def _on_iteration_started(self, engine: Engine) -> None:
-        """Log iteration start."""
-        batch_idx = engine.state.iteration - 1
-
-        # Extract case path if available
-        case_path = "unknown"
-        if self.data_dicts is not None and batch_idx < len(self.data_dicts):
-            image_path = self.data_dicts[batch_idx].get("image", "unknown")
-            case_path = Path(image_path).name
-
-        # Compute progress
-        if self.total_samples is not None:
-            progress = (batch_idx + 1) / self.total_samples * 100
-            msg = f"[{batch_idx + 1}/{self.total_samples}] ({progress:.1f}%) Processing: {case_path}"
-        else:
-            msg = f"[{batch_idx + 1}] Processing: {case_path}"
-
-        print(msg)
-        if self.logger is not None:
-            self.logger.info(msg)
-
-    def _on_completed(self, engine: Engine) -> None:
-        """Log validation completion."""
-        print("\n" + "=" * 50)
-        print("Validation completed!")
-        print("=" * 50)
-
-        if self.logger is not None:
-            self.logger.info("=" * 50)
-            self.logger.info("Validation completed!")
-            self.logger.info("=" * 50)
+    context_name = "validation"
 
 
 class ValidationResultsHandler:
@@ -339,12 +85,9 @@ class ValidationResultsHandler:
 
     def _save_results(self, engine: Engine) -> None:
         """Save results to validation_history.json."""
-        # Get metrics from engine state (set by ValidationMetricsHandler)
         all_results = engine.state.metrics
-
         metric_names = list(all_results.keys())
 
-        # Prepare summary statistics for all metrics
         summary = {}
         per_sample_scores = {}
 
@@ -357,25 +100,10 @@ class ValidationResultsHandler:
                 "num_cases": len(results["all_scores"]),
             }
 
-            # Add per-class statistics if available
-            if "per_class" in results:
-                metric_summary["per_class"] = results["per_class"]
-
-            # Add binned statistics if available (for CCMetric)
-            if "bins" in results:
-                metric_summary["bins"] = results["bins"]
-
-            # Add per-sample binned statistics if available (for CCMetric)
-            if "per_sample_bins" in results:
-                metric_summary["per_sample_bins"] = results["per_sample_bins"]
-
-            # Add FP/TP/FN statistics if available (for CCMetric)
-            if "fp_tp_fn" in results:
-                metric_summary["fp_tp_fn"] = results["fp_tp_fn"]
-
-            # Add per-sample FP/TP/FN statistics if available (for CCMetric)
-            if "per_sample_fp_tp_fn" in results:
-                metric_summary["per_sample_fp_tp_fn"] = results["per_sample_fp_tp_fn"]
+            # Add optional extended statistics
+            for key in ["per_class", "bins", "per_sample_bins", "fp_tp_fn", "per_sample_fp_tp_fn"]:
+                if key in results:
+                    metric_summary[key] = results[key]
 
             summary[metric_name] = metric_summary
 
@@ -384,14 +112,9 @@ class ValidationResultsHandler:
             if len(metric_per_sample_scores) > 0 and isinstance(
                 metric_per_sample_scores[0], np.ndarray
             ):
-                # Per-class scores - convert numpy arrays to lists
-                metric_per_sample_scores = [
-                    score.tolist() for score in metric_per_sample_scores
-                ]
-
+                metric_per_sample_scores = [score.tolist() for score in metric_per_sample_scores]
             per_sample_scores[metric_name] = metric_per_sample_scores
 
-        # Create validation history JSON
         validation_history = {
             "config_name": self.config_name,
             "dataset_name": self.cfg["dataset"]["name"],
@@ -408,14 +131,11 @@ class ValidationResultsHandler:
             ),
         }
 
-        # Create history subdirectory and save validation history JSON
         history_dir = Path(self.results_dir) / "history"
         history_dir.mkdir(parents=True, exist_ok=True)
 
         if self.epoch is not None:
-            validation_history_path = str(
-                history_dir / f"validation_epoch_{self.epoch:03d}.json"
-            )
+            validation_history_path = str(history_dir / f"validation_epoch_{self.epoch:03d}.json")
         else:
             validation_history_path = str(history_dir / "validation.json")
 
@@ -459,22 +179,17 @@ class ValidationVisualizationHandler:
 
     def _save_visualization(self, engine: Engine) -> None:
         """Save visualization for current batch."""
-        # Only save first N batches
         if self.batches_saved >= self.save_first_n_batches:
             return
 
-        # Get outputs from current iteration
-        outputs = engine.state.output  # type: ignore[attr-defined]
+        outputs = engine.state.output
+        images = outputs["images"]
+        labels = outputs["labels"]
+        preds = outputs["predictions"]
 
-        images = outputs["images"]  # type: ignore[index]
-        labels = outputs["labels"]  # type: ignore[index]
-        preds = outputs["predictions"]  # type: ignore[index]
-
-        # Create visualizations directory
         viz_dir = self.results_dir / "visualizations"
         viz_dir.mkdir(parents=True, exist_ok=True)
 
-        # Save visualization
         save_validation_visualizations(
             images=images,
             labels=labels,
