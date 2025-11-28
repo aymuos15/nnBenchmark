@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-11-28
+
+### Changed
+- **Engine Consolidation**: Unified `InferenceEngine` and `ValidationEngine` into single `EvaluationEngine` class
+  - Deleted `src/engines/validate/engine.py` (was 95% duplicate of inference engine)
+  - Renamed `InferenceEngine` to `EvaluationEngine` with backward compatibility alias
+  - Both inference and validation pipelines now share the same evaluation engine
+- **Shared Build Functions**: Consolidated duplicate component factory functions into `src/engines/common.py`
+  - Added `build_transforms()`, `build_model()`, `build_metrics()` shared utilities
+  - Removed duplicate implementations from `train/run.py`, `validate/run.py`, and `inference/run.py`
+- **Results Handler Consolidation**: Created `BaseResultsHandler` class in `src/engines/shared/handlers.py`
+  - `InferenceResultsHandler` and `ValidationResultsHandler` now extend shared base class
+  - Eliminated ~100 lines of duplicate JSON serialization and file writing code
+- **Print/Log Helpers**: Added shared `print_results()` and `log_metrics_summary()` to `common.py`
+  - Unified result formatting across inference and validation pipelines
+- **Warning Filter Centralization**: Moved MONAI deprecation warning filter to `src/engines/__init__.py`
+  - Removed duplicate `warnings.filterwarnings()` calls from all `run.py` files
+- **Dynamic Component Loading**: Replaced factory registry pattern with direct `getattr()` dynamic loading
+  - Simplified component instantiation for models, losses, metrics, optimizers, and schedulers
+  - Reduced boilerplate while maintaining flexibility
+
+### Added
+- **Documentation**: Added BraTS2025 dataset configuration examples
+- **Documentation**: Updated Cellpose configuration examples
+
+### Fixed
+- **CCMetric**: Track false positive instances correctly when ground truth is empty
+
 ## [0.2.1] - 2025-01-24
 
 ### Added
