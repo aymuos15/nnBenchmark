@@ -12,6 +12,7 @@ from pathlib import Path
 
 import torch
 import yaml
+from monai import networks
 from monai.transforms import (
     Compose,
     LoadImaged,
@@ -19,7 +20,6 @@ from monai.transforms import (
 )
 
 from src.config import get_datasets_root, get_results_root
-from src.factory.models import model_registry
 
 
 def parse_args():
@@ -495,7 +495,10 @@ def main():
         elif model_type == "UNet" and "UNet" in model_config:
             complete_model_config.update(model_config["UNet"])
 
-        model = model_registry.build(complete_model_config, device)
+        # Build model via getattr (supports any MONAI model)
+        model_type_name = complete_model_config.pop("type")
+        model_class = getattr(networks.nets, model_type_name)
+        model = model_class(**complete_model_config).to(device)
 
         # Load state dict with strict=False to handle architecture mismatches
         # (e.g., deep supervision heads that may not be in the built model)

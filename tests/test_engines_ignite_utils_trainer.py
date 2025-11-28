@@ -4,12 +4,8 @@ Tests for src/engines/ignite_utils/trainer.py - Trainer factory and deep supervi
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 import torch
 import torch.nn as nn
-from monai.data.dataloader import DataLoader
-from monai.data.dataset import Dataset
 
 
 class TestDeepSupervisionLossWrapper:
@@ -98,142 +94,6 @@ class TestDeepSupervisionLossWrapper:
 
         loss = wrapper(outputs, labels)
         assert isinstance(loss, torch.Tensor)
-
-
-class TestCreateTrainerBasics:
-    """Test basic trainer creation."""
-
-    def test_create_trainer_calls_model_registry(
-        self, sample_config: dict, tmp_path
-    ) -> None:
-        """Test that create_trainer calls model registry to build model."""
-        from src.engines.ignite_utils.trainer import create_trainer
-
-        device = torch.device("cpu")
-        logger = MagicMock()
-        data = [
-            {
-                "image": torch.randn(1, 32, 32, 32),
-                "label": torch.randint(0, 3, (32, 32, 32)),
-            }
-            for _ in range(2)
-        ]
-        ds = Dataset(data=data)
-        loader = DataLoader(ds, batch_size=1)
-
-        with patch(
-            "src.engines.ignite_utils.trainer.model_registry.build"
-        ) as mock_model:
-            with patch(
-                "src.engines.ignite_utils.trainer.loss_registry.build"
-            ) as mock_loss:
-                with patch(
-                    "src.engines.ignite_utils.trainer.optimizer_registry.build"
-                ) as mock_opt:
-                    mock_model.return_value = nn.Linear(1, 1)
-                    mock_loss.return_value = nn.MSELoss()
-                    mock_opt.return_value = torch.optim.SGD(
-                        nn.Linear(1, 1).parameters(), lr=0.001
-                    )
-
-                    create_trainer(
-                        cfg=sample_config,
-                        device=device,
-                        train_loader=loader,
-                        results_dir=str(tmp_path),
-                        logger=logger,
-                    )
-
-                    # Model registry should be called
-                    assert mock_model.called
-
-    def test_create_trainer_calls_loss_registry(
-        self, sample_config: dict, tmp_path
-    ) -> None:
-        """Test that create_trainer calls loss registry to build loss."""
-        from src.engines.ignite_utils.trainer import create_trainer
-
-        device = torch.device("cpu")
-        logger = MagicMock()
-        data = [
-            {
-                "image": torch.randn(1, 32, 32, 32),
-                "label": torch.randint(0, 3, (32, 32, 32)),
-            }
-            for _ in range(2)
-        ]
-        ds = Dataset(data=data)
-        loader = DataLoader(ds, batch_size=1)
-
-        with patch(
-            "src.engines.ignite_utils.trainer.model_registry.build"
-        ) as mock_model:
-            with patch(
-                "src.engines.ignite_utils.trainer.loss_registry.build"
-            ) as mock_loss:
-                with patch(
-                    "src.engines.ignite_utils.trainer.optimizer_registry.build"
-                ) as mock_opt:
-                    mock_model.return_value = nn.Linear(1, 1)
-                    mock_loss.return_value = nn.MSELoss()
-                    mock_opt.return_value = torch.optim.SGD(
-                        nn.Linear(1, 1).parameters(), lr=0.001
-                    )
-
-                    create_trainer(
-                        cfg=sample_config,
-                        device=device,
-                        train_loader=loader,
-                        results_dir=str(tmp_path),
-                        logger=logger,
-                    )
-
-                    # Loss registry should be called
-                    assert mock_loss.called
-
-    def test_create_trainer_builds_optimizer(
-        self, sample_config: dict, tmp_path
-    ) -> None:
-        """Test that create_trainer builds optimizer using registry."""
-        from src.engines.ignite_utils.trainer import create_trainer
-
-        device = torch.device("cpu")
-        logger = MagicMock()
-        data = [
-            {
-                "image": torch.randn(1, 32, 32, 32),
-                "label": torch.randint(0, 3, (32, 32, 32)),
-            }
-            for _ in range(2)
-        ]
-        ds = Dataset(data=data)
-        loader = DataLoader(ds, batch_size=1)
-
-        with patch(
-            "src.engines.ignite_utils.trainer.model_registry.build"
-        ) as mock_model:
-            with patch(
-                "src.engines.ignite_utils.trainer.loss_registry.build"
-            ) as mock_loss:
-                with patch(
-                    "src.engines.ignite_utils.trainer.optimizer_registry.build"
-                ) as mock_opt:
-                    mock_model.return_value = nn.Linear(1, 1)
-                    mock_loss.return_value = nn.MSELoss()
-                    mock_opt.return_value = torch.optim.SGD(
-                        nn.Linear(1, 1).parameters(), lr=0.001
-                    )
-
-                    create_trainer(
-                        cfg=sample_config,
-                        device=device,
-                        train_loader=loader,
-                        results_dir=str(tmp_path),
-                        logger=logger,
-                    )
-
-                    # Optimizer registry should be called
-                    mock_opt.assert_called_once()
 
 
 class TestCreateTrainerDeepSupervision:

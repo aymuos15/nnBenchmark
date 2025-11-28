@@ -7,7 +7,10 @@ import warnings
 from pathlib import Path
 
 import torch
+from monai import metrics as monai_metrics
+from monai import transforms
 from monai.data.dataset import Dataset
+from monai.networks import nets as monai_nets
 from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
@@ -19,7 +22,6 @@ from src.engines.validate.handlers import (
     ValidationResultsHandler,
     ValidationVisualizationHandler,
 )
-from src.factory import metric_registry, model_registry, transform_registry
 from src.logging import (
     log_header,
     log_separator,
@@ -35,6 +37,41 @@ from src.utils.seeding import (
 
 # Suppress MONAI deprecation warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="monai")
+
+
+def build_transforms(config: dict, mode: str = "val") -> transforms.Compose:
+    """Build transform pipeline from config using getattr for MONAI transforms."""
+    transform_list = []
+    for t_cfg in config["transforms"]["common"]:
+        t_cfg = t_cfg.copy()
+        t_type = t_cfg.pop("type")
+        t_class = getattr(transforms, t_type)
+        transform_list.append(t_class(**t_cfg))
+    for t_cfg in config["transforms"][mode]:
+        t_cfg = t_cfg.copy()
+        t_type = t_cfg.pop("type")
+        t_class = getattr(transforms, t_type)
+        transform_list.append(t_class(**t_cfg))
+    return transforms.Compose(transform_list)
+
+
+def build_model(config: dict, device: torch.device) -> torch.nn.Module:
+    """Build model from config using getattr for MONAI networks."""
+    model_cfg = config["model"].copy()
+    model_type = model_cfg.pop("type")
+    model_class = getattr(monai_nets, model_type)
+    return model_class(**model_cfg).to(device)
+
+
+def build_metrics(config: dict) -> dict:
+    """Build metrics from config using getattr for MONAI metrics."""
+    metric_fns = {}
+    for m_cfg in config["metrics"]:
+        m_cfg = m_cfg.copy()
+        m_type = m_cfg.pop("type")
+        m_class = getattr(monai_metrics, m_type)
+        metric_fns[m_type] = m_class(**m_cfg)
+    return metric_fns
 
 
 def print_validation_results(results: dict, metric_name: str) -> None:
@@ -207,7 +244,7 @@ def _validate_single_checkpoint(
     log.info(f"Validation cases: {len(val_data)}")
 
     # Transforms
-    val_transforms = transform_registry.build(cfg, mode="val")
+    val_transforms = build_transforms(cfg, mode="val")
 
     # Dataset and loader
     val_batch_size = (
@@ -226,7 +263,7 @@ def _validate_single_checkpoint(
 
     # Load model
     log.info(f"Model: {cfg['model']['type']}")
-    model = model_registry.build(cfg["model"], device)
+    model = build_model(cfg, device)
 
     # Load model weights from checkpoint
     if "model" in checkpoint:
@@ -267,7 +304,7 @@ def _validate_single_checkpoint(
     else:
         log.info("Using default metrics (validation_metrics not specified)")
 
-    metric_fns = metric_registry.build(metrics_cfg)
+    metric_fns = build_metrics(metrics_cfg)
     metric_names = list(metric_fns.keys())
     log.info(f"Metrics: {', '.join(metric_names)}")
 

@@ -11,20 +11,17 @@ from typing import TYPE_CHECKING, Any
 import torch
 import torch.nn as nn
 from ignite.engine import Engine, Events
+from monai import losses as monai_losses
 from monai.data import DataLoader
 from monai.engines import SupervisedTrainer
 from monai.handlers.lr_schedule_handler import LrScheduleHandler
+from monai.networks import nets as monai_nets
 
 from src.engines.ignite_utils.progress import ConsoleProgressHandler
 from src.engines.train.handlers import (
     ComprehensiveCheckpointHandler,
     TrainingHistoryHandler,
     TrainingLogger,
-)
-from src.factory import (
-    loss_registry,
-    model_registry,
-    optimizer_registry,
 )
 from src.utils.lr_scheduler import PolyLRScheduler
 
@@ -156,17 +153,24 @@ def create_trainer(
     Returns:
         Tuple of (trainer, optimizer, lr_scheduler, scaler).
     """
-    # Build model
-    model = model_registry.build(cfg["model"], device)
+    # Build model via getattr (supports any MONAI model)
+    model_cfg = cfg["model"].copy()
+    model_type = model_cfg.pop("type")
+    model_class = getattr(monai_nets, model_type)
+    model = model_class(**model_cfg).to(device)
 
-    # Build optimizer
+    # Build optimizer via getattr (supports any PyTorch optimizer)
     learning_rate = cfg["training"]["learning_rate"]
-    optimizer = optimizer_registry.build(
-        cfg["optimizer"], model.parameters(), learning_rate
-    )
+    opt_cfg = cfg["optimizer"].copy()
+    opt_type = opt_cfg.pop("type")
+    opt_class = getattr(torch.optim, opt_type)
+    optimizer = opt_class(model.parameters(), lr=learning_rate, **opt_cfg)
 
-    # Build loss function
-    loss_fn_base = loss_registry.build(cfg["loss"])
+    # Build loss function via getattr (supports any MONAI loss)
+    loss_cfg = cfg["loss"].copy()
+    loss_type = loss_cfg.pop("type")
+    loss_class = getattr(monai_losses, loss_type)
+    loss_fn_base = loss_class(**loss_cfg)
 
     # Wrap loss function for deep supervision if enabled
     model_cfg = cfg.get("model", {})

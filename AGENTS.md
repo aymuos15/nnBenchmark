@@ -29,7 +29,7 @@ export nnBench_results="/path/to/nnBench_results"
 - **CLI flags**: Use hyphens (--gpu-memory-gb, not --gpu_memory_gb)
 
 ## Project-Specific Conventions
-- **Registry pattern**: All components (losses, metrics, models) use factory registries in `src/factory/`
+- **Dynamic loading**: Components (losses, metrics, models) are loaded via `getattr()` from MONAI/PyTorch
 - **Planning DOC comments**: Reference `src/planning/constants.py` and `docs/planning.md` sections
 - **Terminology**: Use consistent terms (see `docs/terminology.md`): "channel" (imaging input), "case" (patient dataset), "class" (segmentation target)
 - **Config inheritance**: YAML configs support `base_config` + `overrides` pattern

@@ -90,8 +90,8 @@ class TestRunValidationCheckpointHandling:
             patch("src.engines.common.setup_device") as mock_device,
             patch("src.engines.validate.run.ValidationEngine"),
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
-            patch("src.engines.validate.run.metric_registry") as mock_metrics,
-            patch("src.engines.validate.run.model_registry") as mock_model,
+            patch("src.engines.validate.run.build_metrics") as mock_metrics,
+            patch("src.engines.validate.run.build_model") as mock_model,
         ):
             # Setup experiment should return results_dir pointing to our test directory
             mock_setup.return_value = (
@@ -103,8 +103,8 @@ class TestRunValidationCheckpointHandling:
             )
             mock_device.return_value = (torch.device("cpu"), False)
             mock_data.return_value = ([], [])  # Return tuple of (train_data, val_data)
-            mock_metrics.build.return_value = {}  # Return empty dict for metrics
-            mock_model.build.return_value = torch.nn.Identity()
+            mock_metrics.return_value = {}  # Return empty dict for metrics
+            mock_model.return_value = torch.nn.Identity()
 
             # Run should not raise error
             try:
@@ -149,8 +149,8 @@ class TestRunValidationCheckpointHandling:
             patch("src.engines.common.setup_device") as mock_device,
             patch("src.engines.validate.run.ValidationEngine"),
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
-            patch("src.engines.validate.run.metric_registry") as mock_metrics,
-            patch("src.engines.validate.run.model_registry") as mock_model,
+            patch("src.engines.validate.run.build_metrics") as mock_metrics,
+            patch("src.engines.validate.run.build_model") as mock_model,
         ):
             mock_setup.return_value = (
                 sample_config,
@@ -161,8 +161,8 @@ class TestRunValidationCheckpointHandling:
             )
             mock_device.return_value = (torch.device("cpu"), False)
             mock_data.return_value = ([], [])  # Return tuple of (train_data, val_data)
-            mock_metrics.build.return_value = {}  # Return empty dict for metrics
-            mock_model.build.return_value = torch.nn.Identity()
+            mock_metrics.return_value = {}  # Return empty dict for metrics
+            mock_model.return_value = torch.nn.Identity()
 
             # Should process only the specified checkpoint
             try:
@@ -334,8 +334,8 @@ class TestValidationIntegration:
             patch("src.engines.common.setup_device") as mock_device,
             patch("src.engines.validate.run.ValidationEngine") as mock_engine_class,
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
-            patch("src.engines.validate.run.metric_registry") as mock_metrics,
-            patch("src.engines.validate.run.model_registry") as mock_model,
+            patch("src.engines.validate.run.build_metrics") as mock_metrics,
+            patch("src.engines.validate.run.build_model") as mock_model,
         ):
             mock_setup.return_value = (
                 sample_config,
@@ -346,8 +346,8 @@ class TestValidationIntegration:
             )
             mock_device.return_value = (torch.device("cpu"), False)
             mock_data.return_value = ([], [{"image": "test.nii.gz"}])  # (train, val)
-            mock_metrics.build.return_value = {}  # Return empty dict for metrics
-            mock_model.build.return_value = torch.nn.Identity()
+            mock_metrics.return_value = {}  # Return empty dict for metrics
+            mock_model.return_value = torch.nn.Identity()
 
             # Mock engine instance
             mock_engine = MagicMock()

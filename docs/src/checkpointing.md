@@ -111,12 +111,17 @@ Checkpoints contain full training state, but for inference you only need the mod
 
 ```python
 import torch
+from monai import networks
 from src.config import load_config
-from src.factory import model_registry
 
 # Load config
 cfg = load_config("fold_0.yaml")
-model = model_registry.build(cfg)
+
+# Build model via getattr (supports any MONAI model)
+model_cfg = cfg["model"].copy()
+model_type = model_cfg.pop("type")
+model_class = getattr(networks.nets, model_type)
+model = model_class(**model_cfg).to("cuda:0")
 
 # Load checkpoint (new format with comprehensive state)
 checkpoint_path = "results/Dataset001/fold_0/checkpoints/best_loss=0.1234.pt"

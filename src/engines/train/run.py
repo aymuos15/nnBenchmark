@@ -11,6 +11,7 @@ import warnings
 from pathlib import Path
 
 import torch
+from monai import transforms
 from monai.data.dataloader import DataLoader
 from monai.data.dataset import CacheDataset, Dataset
 
@@ -21,7 +22,6 @@ from src.config.validation import (
 )
 from src.engines.common import setup_experiment
 from src.engines.ignite_utils import create_trainer
-from src.factory import transform_registry
 from src.logging import log_and_print, log_header, log_system_info, setup_train_logger
 from src.utils.data import get_data_dicts
 from src.utils.seeding import (
@@ -32,6 +32,35 @@ from src.utils.seeding import (
 
 # Suppress MONAI deprecation warnings for get_mask_edges (used internally by SurfaceDiceMetric)
 warnings.filterwarnings("ignore", category=FutureWarning, module="monai")
+
+
+def build_transforms(config: dict, mode: str = "train") -> transforms.Compose:
+    """Build transform pipeline from config using getattr for MONAI transforms.
+
+    Args:
+        config: Configuration dictionary with 'transforms' section
+        mode: Transform mode ('train', 'val', or 'test')
+
+    Returns:
+        MONAI Compose object containing the transform pipeline
+    """
+    transform_list = []
+
+    # Build common transforms
+    for t_cfg in config["transforms"]["common"]:
+        t_cfg = t_cfg.copy()
+        t_type = t_cfg.pop("type")
+        t_class = getattr(transforms, t_type)
+        transform_list.append(t_class(**t_cfg))
+
+    # Append mode-specific transforms
+    for t_cfg in config["transforms"][mode]:
+        t_cfg = t_cfg.copy()
+        t_type = t_cfg.pop("type")
+        t_class = getattr(transforms, t_type)
+        transform_list.append(t_class(**t_cfg))
+
+    return transforms.Compose(transform_list)
 
 
 def find_latest_checkpoint(results_dir: str) -> str | None:
@@ -225,8 +254,8 @@ def run_training(
         val_data = train_data
 
     # Build transforms
-    train_transforms = transform_registry.build(cfg, mode="train")
-    val_transforms = transform_registry.build(cfg, mode="val")
+    train_transforms = build_transforms(cfg, mode="train")
+    val_transforms = build_transforms(cfg, mode="val")
 
     # Check if caching is enabled
     cache_config = cfg.get("dataset", {}).get("cache", {})

@@ -8,7 +8,10 @@ import warnings
 from pathlib import Path
 
 import torch
+from monai import metrics as monai_metrics
+from monai import transforms
 from monai.data.dataset import Dataset
+from monai.networks import nets as monai_nets
 from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
@@ -20,7 +23,6 @@ from src.engines.inference.handlers import (
     InferenceProgressHandler,
     InferenceResultsHandler,
 )
-from src.factory import metric_registry, model_registry, transform_registry
 from src.logging import (
     log_and_print,
     log_header,
@@ -37,6 +39,41 @@ from src.utils.seeding import (
 
 # Suppress MONAI deprecation warnings for get_mask_edges (used internally by SurfaceDiceMetric)
 warnings.filterwarnings("ignore", category=FutureWarning, module="monai")
+
+
+def build_transforms(config: dict, mode: str = "test") -> transforms.Compose:
+    """Build transform pipeline from config using getattr for MONAI transforms."""
+    transform_list = []
+    for t_cfg in config["transforms"]["common"]:
+        t_cfg = t_cfg.copy()
+        t_type = t_cfg.pop("type")
+        t_class = getattr(transforms, t_type)
+        transform_list.append(t_class(**t_cfg))
+    for t_cfg in config["transforms"][mode]:
+        t_cfg = t_cfg.copy()
+        t_type = t_cfg.pop("type")
+        t_class = getattr(transforms, t_type)
+        transform_list.append(t_class(**t_cfg))
+    return transforms.Compose(transform_list)
+
+
+def build_model(config: dict, device: torch.device) -> torch.nn.Module:
+    """Build model from config using getattr for MONAI networks."""
+    model_cfg = config["model"].copy()
+    model_type = model_cfg.pop("type")
+    model_class = getattr(monai_nets, model_type)
+    return model_class(**model_cfg).to(device)
+
+
+def build_metrics(config: dict) -> dict:
+    """Build metrics from config using getattr for MONAI metrics."""
+    metric_fns = {}
+    for m_cfg in config["metrics"]:
+        m_cfg = m_cfg.copy()
+        m_type = m_cfg.pop("type")
+        m_class = getattr(monai_metrics, m_type)
+        metric_fns[m_type] = m_class(**m_cfg)
+    return metric_fns
 
 
 def print_test_results(results: dict, metric_name: str) -> None:
@@ -143,7 +180,7 @@ def run_inference(
     )
 
     # Transforms from config
-    test_transforms = transform_registry.build(cfg, mode="test")
+    test_transforms = build_transforms(cfg, mode="test")
 
     # Dataset and loader (batch_size=1 for inference)
     test_batch_size: int = cfg.get("inference", {}).get("batch_size", 1)
@@ -158,7 +195,7 @@ def run_inference(
         log.info(f"Loading checkpoint from: {model_path}")
 
         # Build model from config
-        model = model_registry.build(cfg["model"], device)
+        model = build_model(cfg, device)
 
         # Load checkpoint
         checkpoint = torch.load(model_path, map_location=device)
@@ -207,7 +244,7 @@ def run_inference(
     else:
         log.info("Using default metrics (inference_metrics not specified)")
 
-    metric_fns = metric_registry.build(metrics_cfg)
+    metric_fns = build_metrics(metrics_cfg)
     metric_names = list(metric_fns.keys())
     log.info(f"Metrics: {', '.join(metric_names)}")
 
