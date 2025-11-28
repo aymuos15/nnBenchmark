@@ -150,6 +150,14 @@ def build_model(config: dict, device: torch.device) -> torch.nn.Module:
     """
     model_cfg = config["model"].copy()
     model_type = model_cfg.pop("type")
+    # Remove training-only parameters that shouldn't be passed to model constructor
+    model_cfg.pop("ds_weights", None)  # Used by DeepSupervisionLossWrapper, not model
+    # Remove other model type configs (e.g., UNet config when using DynUNet)
+    model_cfg.pop("DynUNet", None)
+    model_cfg.pop("UNet", None)
+    # Merge model-specific parameters if present
+    if model_type in config["model"] and isinstance(config["model"][model_type], dict):
+        model_cfg.update(config["model"][model_type])
     model_class = getattr(monai_nets, model_type)
     return model_class(**model_cfg).to(device)
 

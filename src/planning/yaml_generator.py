@@ -299,9 +299,7 @@ def _write_training_config(
     f.write("  # Metrics to plot during training\n")
     f.write("  plot_metrics:\n")
     f.write("    - DiceMetric         # Overlap-based metric\n")
-    f.write("    - SurfaceDiceMetric  # Surface distance metric\n")
-    f.write("    - CCMetric_dice      # Per-component Dice (CC-Dice)\n")
-    f.write("    - CCMetric_surface_dice # Per-component NSD (CCNSD)\n\n")
+    f.write("    - SurfaceDiceMetric  # Surface distance metric\n\n")
     f.write("  # Mixed precision training (FP16 for ~2x speedup, requires CUDA)\n")
     f.write("  # Set to true if you have a modern GPU with Tensor Cores\n")
     f.write("  # Matches nnUNet's automatic AMP usage on GPU\n")
@@ -362,39 +360,14 @@ def _write_metrics_config(f: TextIO, plan: ExperimentPlan) -> None:
     f.write(
         "# Inference metrics: Complete metrics including expensive boundary metrics\n\n"
     )
-    f.write(
-        "# NOTE: CC-based metrics (CCMetric) automatically compute binned statistics\n"
-    )
-    f.write(
-        "# by instance size in the results JSON (validation_history.json / test.json):\n"
-    )
-    f.write("#   - all: Statistics across all instances\n")
-    f.write("#   - 0-2cc: Instances with 0-2 pixels/voxels (small instances)\n")
-    f.write("#   - 2-10cc: Instances with 2-10 pixels/voxels (medium instances)\n")
-    f.write("#   - >10cc: Instances with >10 pixels/voxels (large instances)\n")
-    f.write("# Each bin contains: mean, std, min, max, count of metric scores\n\n")
 
-    # Write validation_metrics section (excludes NSD and CC-NSD)
+    # Write validation_metrics section (excludes NSD)
     f.write("validation_metrics:\n")
     f.write("  # Dice Similarity Coefficient (overlap-based)\n")
     f.write("  - type: DiceMetric\n")
     f.write("    include_background: false  # Exclude background class\n")
     f.write("    reduction: mean_batch      # Average across batch\n")
     f.write(f"    num_classes: {plan.num_classes}\n\n")
-    f.write("  # CC-Dice (per-component Dice metric with size-based binning)\n")
-    f.write("  - type: CCMetric\n")
-    f.write("    include_background: false  # Exclude background class\n")
-    f.write("    reduction: mean_batch      # Average across batch\n")
-    f.write(f"    num_classes: {plan.num_classes}\n")
-    f.write("    metric_type: dice          # Compute Dice per connected component\n")
-    f.write("    # Binned metrics by instance size (in pixels/voxels):\n")
-    f.write("    #   CCloss_all: All instances\n")
-    f.write("    #   CCloss_0-2cc: Instances with 0-2 pixels/voxels\n")
-    f.write("    #   CCloss_2-10cc: Instances with 2-10 pixels/voxels\n")
-    f.write("    #   CCloss_>10cc: Instances with >10 pixels/voxels\n")
-    f.write(
-        "    # Results include statistics (mean, std, min, max, count) for each bin\n\n"
-    )
 
     # Write inference_metrics section (includes all metrics)
     f.write("inference_metrics:\n")
@@ -411,42 +384,6 @@ def _write_metrics_config(f: TextIO, plan: ExperimentPlan) -> None:
     f.write("    class_thresholds:\n")
     for _ in range(plan.num_classes - 1):
         f.write("      - 2.0  # 2mm tolerance\n")
-    f.write("\n")
-    f.write("  # CC-Dice (per-component Dice metric with size-based binning)\n")
-    f.write("  - type: CCMetric\n")
-    f.write("    include_background: false  # Exclude background class\n")
-    f.write("    reduction: mean_batch      # Average across batch\n")
-    f.write(f"    num_classes: {plan.num_classes}\n")
-    f.write("    metric_type: dice          # Compute Dice per connected component\n")
-    f.write("    # Binned metrics by instance size (in pixels/voxels):\n")
-    f.write("    #   CCloss_all: All instances\n")
-    f.write("    #   CCloss_0-2cc: Instances with 0-2 pixels/voxels\n")
-    f.write("    #   CCloss_2-10cc: Instances with 2-10 pixels/voxels\n")
-    f.write("    #   CCloss_>10cc: Instances with >10 pixels/voxels\n")
-    f.write(
-        "    # Results include statistics (mean, std, min, max, count) for each bin\n\n"
-    )
-    f.write(
-        "  # CC-NSD (per-component Normalized Surface Dice with size-based binning) - INFERENCE ONLY\n"
-    )
-    f.write("  - type: CCMetric\n")
-    f.write("    include_background: false  # Exclude background class\n")
-    f.write("    reduction: mean_batch      # Average across batch\n")
-    f.write(f"    num_classes: {plan.num_classes}\n")
-    f.write("    metric_type: surface_dice  # Compute NSD per connected component\n")
-    f.write("    # Distance tolerance in mm for each class\n")
-    f.write("    class_thresholds:\n")
-    for _ in range(plan.num_classes - 1):
-        f.write("      - 2.0  # 2mm tolerance\n")
-    f.write("    distance_metric: euclidean\n")
-    f.write("    # Binned metrics by instance size (in pixels/voxels):\n")
-    f.write("    #   CCNSD_all: All instances\n")
-    f.write("    #   CCNSD_0-2cc: Instances with 0-2 pixels/voxels\n")
-    f.write("    #   CCNSD_2-10cc: Instances with 2-10 pixels/voxels\n")
-    f.write("    #   CCNSD_>10cc: Instances with >10 pixels/voxels\n")
-    f.write(
-        "    # Results include statistics (mean, std, min, max, count) for each bin\n"
-    )
     f.write("\n")
 
 

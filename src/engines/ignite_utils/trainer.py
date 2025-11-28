@@ -156,6 +156,14 @@ def create_trainer(
     # Build model via getattr (supports any MONAI model)
     model_cfg = cfg["model"].copy()
     model_type = model_cfg.pop("type")
+    # Remove training-only parameters that shouldn't be passed to model constructor
+    model_cfg.pop("ds_weights", None)  # Used by DeepSupervisionLossWrapper, not model
+    # Remove other model type configs (e.g., UNet config when using DynUNet)
+    model_cfg.pop("DynUNet", None)
+    model_cfg.pop("UNet", None)
+    # Merge model-specific parameters if present
+    if model_type in cfg["model"] and isinstance(cfg["model"][model_type], dict):
+        model_cfg.update(cfg["model"][model_type])
     model_class = getattr(monai_nets, model_type)
     model = model_class(**model_cfg).to(device)
 
