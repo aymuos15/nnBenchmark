@@ -158,6 +158,10 @@ def create_trainer(
     model_type = model_cfg.pop("type")
     # Remove training-only parameters that shouldn't be passed to model constructor
     model_cfg.pop("ds_weights", None)  # Used by DeepSupervisionLossWrapper, not model
+    # deep_supervision only supported by DynUNet and BasicUNetPlusPlus
+    if model_type not in ("DynUNet", "BasicUNetPlusPlus"):
+        model_cfg.pop("deep_supervision", None)
+        model_cfg.pop("deep_supr_num", None)
     # Remove other model type configs (e.g., UNet config when using DynUNet)
     model_cfg.pop("DynUNet", None)
     model_cfg.pop("UNet", None)
