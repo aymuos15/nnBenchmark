@@ -88,7 +88,7 @@ class TestRunValidationCheckpointHandling:
             patch("src.engines.common.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
             patch("src.engines.common.setup_device") as mock_device,
-            patch("src.engines.validate.run.ValidationEngine"),
+            patch("src.engines.validate.run.EvaluationEngine"),
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,
             patch("src.engines.validate.run.build_model") as mock_model,
@@ -147,7 +147,7 @@ class TestRunValidationCheckpointHandling:
             patch("src.engines.common.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
             patch("src.engines.common.setup_device") as mock_device,
-            patch("src.engines.validate.run.ValidationEngine"),
+            patch("src.engines.validate.run.EvaluationEngine"),
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,
             patch("src.engines.validate.run.build_model") as mock_model,
@@ -257,8 +257,8 @@ class TestPrintValidationResults:
     """Test validation results printing."""
 
     def test_print_validation_results_basic(self, capsys) -> None:
-        """Test that print_validation_results formats output correctly."""
-        from src.engines.validate.run import print_validation_results
+        """Test that print_results formats output correctly for validation."""
+        from src.engines.common import print_results
 
         results = {
             "mean": 0.85,
@@ -267,7 +267,7 @@ class TestPrintValidationResults:
             "max": 0.95,
         }
 
-        print_validation_results(results, "Dice")
+        print_results(results, "Dice", context="VALIDATION")
 
         captured = capsys.readouterr()
         # Check case-insensitive since the function uses .upper()
@@ -276,8 +276,8 @@ class TestPrintValidationResults:
         assert "0.0500" in captured.out
 
     def test_print_validation_results_with_per_class(self, capsys) -> None:
-        """Test that print_validation_results shows per-class results."""
-        from src.engines.validate.run import print_validation_results
+        """Test that print_results shows per-class results for validation."""
+        from src.engines.common import print_results
 
         results = {
             "mean": 0.85,
@@ -290,7 +290,7 @@ class TestPrintValidationResults:
             },
         }
 
-        print_validation_results(results, "Dice")
+        print_results(results, "Dice", context="VALIDATION")
 
         captured = capsys.readouterr()
         assert "Class1" in captured.out
@@ -332,7 +332,7 @@ class TestValidationIntegration:
             patch("src.engines.common.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
             patch("src.engines.common.setup_device") as mock_device,
-            patch("src.engines.validate.run.ValidationEngine") as mock_engine_class,
+            patch("src.engines.validate.run.EvaluationEngine") as mock_engine_class,
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,
             patch("src.engines.validate.run.build_model") as mock_model,

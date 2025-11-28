@@ -1,10 +1,10 @@
 """
 Inference module for model evaluation.
 
-Uses Ignite-based InferenceEngine for event-driven inference.
+Uses Ignite-based EvaluationEngine for event-driven inference and validation.
 """
 
-from src.engines.inference.engine import InferenceEngine
+from src.engines.inference.engine import EvaluationEngine, InferenceEngine
 from src.engines.inference.handlers import (
     InferenceMetricsHandler,
     InferenceProgressHandler,
@@ -27,7 +27,8 @@ from src.engines.inference.strategy import (
 
 __all__ = [
     "run_inference",
-    "InferenceEngine",
+    "EvaluationEngine",
+    "InferenceEngine",  # Backward compatibility alias
     "InferenceMetricsHandler",
     "InferenceProgressHandler",
     "InferenceResultsHandler",

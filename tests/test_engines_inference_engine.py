@@ -244,7 +244,7 @@ class TestInferenceEngineInferenceIteration:
     def test_inference_engine_has_inference_iteration_method(
         self, sample_config: dict
     ) -> None:
-        """Test that InferenceEngine has _inference_iteration method."""
+        """Test that InferenceEngine has _evaluation_iteration method."""
         from src.engines.inference.engine import InferenceEngine
 
         model = nn.Linear(1, 1)
@@ -261,8 +261,8 @@ class TestInferenceEngineInferenceIteration:
                 metric_fns=metric_fns,
             )
 
-            assert hasattr(engine, "_inference_iteration")
-            assert callable(engine._inference_iteration)
+            assert hasattr(engine, "_evaluation_iteration")
+            assert callable(engine._evaluation_iteration)
 
 
 class TestInferenceEngineOutputHandling:

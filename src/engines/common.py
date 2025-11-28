@@ -3,14 +3,22 @@ Common engine utilities for training and inference.
 Provides helpers for experiment setup to reduce code duplication.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
+from monai import metrics as monai_metrics
+from monai import transforms
+from monai.networks import nets as monai_nets
 
 from src.config import get_datasets_root, get_results_root
 from src.config.load import load_config
 from src.utils.files import ensure_directory
+
+if TYPE_CHECKING:
+    from loguru._logger import Logger
 
 
 def setup_device(verbose: bool = True) -> torch.device:
@@ -99,3 +107,132 @@ def setup_experiment(
     )
 
     return cfg, device, data_dir, results_dir, config_name
+
+
+def build_transforms(config: dict, mode: str = "train") -> transforms.Compose:
+    """Build transform pipeline from config using getattr for MONAI transforms.
+
+    Args:
+        config: Configuration dictionary with 'transforms' section
+        mode: Transform mode ('train', 'val', or 'test')
+
+    Returns:
+        MONAI Compose object containing the transform pipeline
+    """
+    transform_list = []
+
+    # Build common transforms
+    for t_cfg in config["transforms"]["common"]:
+        t_cfg = t_cfg.copy()
+        t_type = t_cfg.pop("type")
+        t_class = getattr(transforms, t_type)
+        transform_list.append(t_class(**t_cfg))
+
+    # Append mode-specific transforms
+    for t_cfg in config["transforms"][mode]:
+        t_cfg = t_cfg.copy()
+        t_type = t_cfg.pop("type")
+        t_class = getattr(transforms, t_type)
+        transform_list.append(t_class(**t_cfg))
+
+    return transforms.Compose(transform_list)
+
+
+def build_model(config: dict, device: torch.device) -> torch.nn.Module:
+    """Build model from config using getattr for MONAI networks.
+
+    Args:
+        config: Configuration dictionary with 'model' section
+        device: Device to place the model on
+
+    Returns:
+        PyTorch model instance
+    """
+    model_cfg = config["model"].copy()
+    model_type = model_cfg.pop("type")
+    model_class = getattr(monai_nets, model_type)
+    return model_class(**model_cfg).to(device)
+
+
+def build_metrics(config: dict) -> dict:
+    """Build metrics from config using getattr for MONAI metrics.
+
+    Args:
+        config: Configuration dictionary with 'metrics' section
+
+    Returns:
+        Dictionary of metric functions {name: metric_fn}
+    """
+    metric_fns = {}
+    for m_cfg in config["metrics"]:
+        m_cfg = m_cfg.copy()
+        m_type = m_cfg.pop("type")
+        m_class = getattr(monai_metrics, m_type)
+        metric_fns[m_type] = m_class(**m_cfg)
+    return metric_fns
+
+
+def print_results(results: dict, metric_name: str, context: str = "EVALUATION") -> None:
+    """Print evaluation results to console in a formatted way.
+
+    Args:
+        results: Results dictionary with 'mean', 'std', 'min', 'max' keys
+                and optional 'per_class'
+        metric_name: Name of the metric (e.g., "Dice")
+        context: Context string for header (e.g., "TEST", "VALIDATION")
+    """
+    print("\n" + "=" * 50)
+    print(f"{metric_name} {context} RESULTS")
+    print("=" * 50)
+    print(f"Mean {metric_name} Score: {results['mean']:.4f} ± {results['std']:.4f}")
+
+    # Print per-class results if available
+    if "per_class" in results:
+        per_class = results["per_class"]
+        if isinstance(per_class, dict):
+            for class_name, class_stats in per_class.items():
+                print(
+                    f"{class_name}: {class_stats['mean']:.4f} ± {class_stats['std']:.4f}"
+                )
+
+    print(f"\nMin {metric_name} Score: {results['min']:.4f}")
+    print(f"Max {metric_name} Score: {results['max']:.4f}")
+    print("=" * 50)
+
+
+def log_metrics_summary(
+    log: Logger,
+    all_results: dict[str, Any],
+    context: str = "RESULTS",
+) -> None:
+    """Log metrics summary to log file (not console).
+
+    Args:
+        log: Logger instance
+        all_results: Dictionary of all metric results
+        context: Context string for header (e.g., "TEST RESULTS", "VALIDATION RESULTS")
+    """
+    from src.logging import log_header
+
+    log_header(log, f"{context} SUMMARY", print_too=False)
+
+    for metric_name, results in all_results.items():
+        log.info(f"\n{metric_name}:")
+        log.info(f"  Mean: {results['mean']:.4f} ± {results['std']:.4f}")
+
+        # Log per-class results if available
+        if "per_class" in results:
+            log.info("  Per-Class Results:")
+            for class_name, class_stats in results["per_class"].items():
+                log.info(
+                    f"    {class_name}: {class_stats['mean']:.4f} ± {class_stats['std']:.4f}"
+                )
+
+        log.info(f"  Min: {results['min']:.4f}")
+        log.info(f"  Max: {results['max']:.4f}")
+
+    # Log number of cases from first metric
+    if all_results:
+        first_metric_name = next(iter(all_results.keys()))
+        num_cases = len(all_results[first_metric_name]["all_scores"])
+        log.info(f"\nNumber of cases: {num_cases}")

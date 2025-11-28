@@ -15,6 +15,7 @@ import torch
 from ignite.engine import Engine, Events
 
 from src.utils.data import get_class_labels
+from src.utils.files import save_json
 
 if TYPE_CHECKING:
     from loguru._logger import Logger
@@ -254,3 +255,141 @@ class BaseProgressHandler:
             self.logger.info("=" * 50)
             self.logger.info(completion_msg)
             self.logger.info("=" * 50)
+
+
+class BaseResultsHandler(ABC):
+    """Base class for results saving handlers.
+
+    Provides shared logic for building results summary and per-sample scores.
+    Subclasses implement context-specific history dict creation and output paths.
+    """
+
+    def __init__(
+        self,
+        results_dir: str,
+        config_name: str,
+        cfg: dict[str, Any],
+        fold: int | None,
+        data_dicts: list[dict[str, str]] | None = None,
+    ):
+        """Initialize BaseResultsHandler.
+
+        Args:
+            results_dir: Directory to save results
+            config_name: Name of configuration file
+            cfg: Configuration dictionary
+            fold: Fold number
+            data_dicts: Optional list of data dictionaries with case paths
+        """
+        self.results_dir = results_dir
+        self.config_name = config_name
+        self.cfg = cfg
+        self.fold = fold
+        self.data_dicts = data_dicts
+
+    def attach(self, engine: Engine) -> None:
+        """Attach handler to engine events."""
+        engine.add_event_handler(Events.COMPLETED, self._save_results)
+
+    def _build_results_data(
+        self, all_results: dict[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, Any], list[str]]:
+        """Build summary, per_sample_scores, and sample_names from results.
+
+        Args:
+            all_results: Dictionary of metric results from engine state
+
+        Returns:
+            Tuple of (summary dict, per_sample_scores dict, sample_names list)
+        """
+        summary: dict[str, Any] = {}
+        per_sample_scores: dict[str, Any] = {}
+
+        for metric_name, results in all_results.items():
+            metric_summary = {
+                "mean": results["mean"],
+                "std": results["std"],
+                "min": results["min"],
+                "max": results["max"],
+                "num_cases": len(results["all_scores"]),
+            }
+
+            # Add optional extended statistics
+            for key in [
+                "per_class",
+                "bins",
+                "per_sample_bins",
+                "fp_tp_fn",
+                "per_sample_fp_tp_fn",
+            ]:
+                if key in results:
+                    metric_summary[key] = results[key]
+
+            summary[metric_name] = metric_summary
+
+            # Convert per_sample_scores to JSON-serializable format
+            metric_per_sample_scores = results["all_scores"]
+            if len(metric_per_sample_scores) > 0 and isinstance(
+                metric_per_sample_scores[0], np.ndarray
+            ):
+                metric_per_sample_scores = [
+                    score.tolist() for score in metric_per_sample_scores
+                ]
+            per_sample_scores[metric_name] = metric_per_sample_scores
+
+        sample_names = (
+            [Path(d.get("image", "unknown")).name for d in self.data_dicts]
+            if self.data_dicts
+            else []
+        )
+
+        return summary, per_sample_scores, sample_names
+
+    @abstractmethod
+    def _get_history_dict(
+        self,
+        summary: dict[str, Any],
+        per_sample_scores: dict[str, Any],
+        metric_names: list[str],
+        sample_names: list[str],
+    ) -> dict[str, Any]:
+        """Build context-specific history dictionary.
+
+        Args:
+            summary: Summary statistics dict
+            per_sample_scores: Per-sample scores dict
+            metric_names: List of metric names
+            sample_names: List of sample names
+
+        Returns:
+            History dictionary to save as JSON
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def _get_output_path(self) -> str:
+        """Get context-specific output file path.
+
+        Returns:
+            Path to output JSON file
+        """
+        raise NotImplementedError
+
+    def _save_results(self, engine: Engine) -> None:
+        """Save results to JSON file."""
+        all_results = engine.state.metrics
+        metric_names = list(all_results.keys())
+
+        summary, per_sample_scores, sample_names = self._build_results_data(all_results)
+
+        history = self._get_history_dict(
+            summary, per_sample_scores, metric_names, sample_names
+        )
+
+        history_dir = Path(self.results_dir) / "history"
+        history_dir.mkdir(parents=True, exist_ok=True)
+        output_path = self._get_output_path()
+        save_json(history, output_path)
+
+        print(f"\nResults saved to: {self.results_dir}")
+        print(f"History file: {output_path}")

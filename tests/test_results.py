@@ -1,5 +1,5 @@
 """
-Tests for src.engines.inference.run module.
+Tests for src.engines.common module.
 Tests result formatting utilities including test results and metric history recording.
 """
 
@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.engines.inference.run import print_test_results
+from src.engines.common import print_results
 
 
-class TestPrintTestResults:
-    """Tests for print_test_results function."""
+class TestPrintResults:
+    """Tests for print_results function."""
 
     def test_print_basic_results(self, capsys: Any) -> None:
         """Test printing basic test results."""
@@ -22,7 +22,7 @@ class TestPrintTestResults:
             "max": 0.95,
         }
 
-        print_test_results(results, "Dice")
+        print_results(results, "Dice", context="TEST")
 
         captured = capsys.readouterr()
         assert "Dice TEST RESULTS" in captured.out
@@ -43,7 +43,7 @@ class TestPrintTestResults:
             },
         }
 
-        print_test_results(results, "IoU")
+        print_results(results, "IoU", context="TEST")
 
         captured = capsys.readouterr()
         assert "IoU TEST RESULTS" in captured.out
@@ -60,7 +60,7 @@ class TestPrintTestResults:
             "max": 0.923456,
         }
 
-        print_test_results(results, "Accuracy")
+        print_results(results, "Accuracy", context="TEST")
 
         captured = capsys.readouterr()
         # Should format to 4 decimal places
@@ -76,7 +76,7 @@ class TestPrintTestResults:
             "max": 0.95,
         }
 
-        print_test_results(results, "Dice")
+        print_results(results, "Dice", context="TEST")
 
         captured = capsys.readouterr()
         # Should have separator lines

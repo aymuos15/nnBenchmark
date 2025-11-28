@@ -4,19 +4,22 @@ Inference orchestration module for running complete inference workflows.
 Uses Ignite-based InferenceEngine for event-driven inference.
 """
 
-import warnings
 from pathlib import Path
 
 import torch
-from monai import metrics as monai_metrics
-from monai import transforms
 from monai.data.dataset import Dataset
-from monai.networks import nets as monai_nets
 from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
-from src.engines.common import setup_experiment
+from src.engines.common import (
+    build_metrics,
+    build_model,
+    build_transforms,
+    log_metrics_summary,
+    print_results,
+    setup_experiment,
+)
 from src.engines.inference.engine import InferenceEngine
 from src.engines.inference.handlers import (
     InferenceMetricsHandler,
@@ -36,71 +39,6 @@ from src.utils.seeding import (
     get_seed_from_config,
     set_random_seeds,
 )
-
-# Suppress MONAI deprecation warnings for get_mask_edges (used internally by SurfaceDiceMetric)
-warnings.filterwarnings("ignore", category=FutureWarning, module="monai")
-
-
-def build_transforms(config: dict, mode: str = "test") -> transforms.Compose:
-    """Build transform pipeline from config using getattr for MONAI transforms."""
-    transform_list = []
-    for t_cfg in config["transforms"]["common"]:
-        t_cfg = t_cfg.copy()
-        t_type = t_cfg.pop("type")
-        t_class = getattr(transforms, t_type)
-        transform_list.append(t_class(**t_cfg))
-    for t_cfg in config["transforms"][mode]:
-        t_cfg = t_cfg.copy()
-        t_type = t_cfg.pop("type")
-        t_class = getattr(transforms, t_type)
-        transform_list.append(t_class(**t_cfg))
-    return transforms.Compose(transform_list)
-
-
-def build_model(config: dict, device: torch.device) -> torch.nn.Module:
-    """Build model from config using getattr for MONAI networks."""
-    model_cfg = config["model"].copy()
-    model_type = model_cfg.pop("type")
-    model_class = getattr(monai_nets, model_type)
-    return model_class(**model_cfg).to(device)
-
-
-def build_metrics(config: dict) -> dict:
-    """Build metrics from config using getattr for MONAI metrics."""
-    metric_fns = {}
-    for m_cfg in config["metrics"]:
-        m_cfg = m_cfg.copy()
-        m_type = m_cfg.pop("type")
-        m_class = getattr(monai_metrics, m_type)
-        metric_fns[m_type] = m_class(**m_cfg)
-    return metric_fns
-
-
-def print_test_results(results: dict, metric_name: str) -> None:
-    """
-    Print test results to console in a formatted way.
-
-    Args:
-        results: Results dictionary with 'mean', 'std', 'min', 'max' keys and optional 'per_class'
-        metric_name: Name of the metric (e.g., "Dice")
-    """
-    print("\n" + "=" * 50)
-    print(f"{metric_name} TEST RESULTS")
-    print("=" * 50)
-    print(f"Mean {metric_name} Score: {results['mean']:.4f} ± {results['std']:.4f}")
-
-    # Print per-class results if available
-    if "per_class" in results:
-        per_class = results["per_class"]
-        if isinstance(per_class, dict):
-            for class_name, class_stats in per_class.items():
-                print(
-                    f"{class_name}: {class_stats['mean']:.4f} ± {class_stats['std']:.4f}"
-                )
-
-    print(f"\nMin {metric_name} Score: {results['min']:.4f}")
-    print(f"Max {metric_name} Score: {results['max']:.4f}")
-    print("=" * 50)
 
 
 def run_inference(
@@ -301,29 +239,14 @@ def run_inference(
 
     # Print results for all metrics
     for metric_name, results in all_results.items():
-        print_test_results(results, metric_name)
+        print_results(results, metric_name, context="TEST")
 
     # Log summary statistics for all metrics (log file only, not console)
-    log_header(log, "TEST RESULTS SUMMARY", print_too=False)
-    for metric_name, results in all_results.items():
-        log.info(f"\n{metric_name}:")
-        log.info(f"  Mean: {results['mean']:.4f} ± {results['std']:.4f}")
-
-        # Log per-class results if available
-        if "per_class" in results:
-            log.info("  Per-Class Results:")
-            for class_name, class_stats in results["per_class"].items():
-                log.info(
-                    f"    {class_name}: {class_stats['mean']:.4f} ± {class_stats['std']:.4f}"
-                )
-
-        log.info(f"  Min: {results['min']:.4f}")
-        log.info(f"  Max: {results['max']:.4f}")
-    log.info(f"\nNumber of cases: {len(all_results[metric_names[0]]['all_scores'])}")
+    log_metrics_summary(log, all_results, context="TEST RESULTS")
 
     # Log completion
     log_separator(log, print_too=False)
     log.info(f"Results saved to: {results_dir}")
-    log.info(f"Test history file: {Path(results_dir) / 'test_history.json'}")
+    log.info(f"Test history file: {Path(results_dir) / 'history' / 'test.json'}")
     log.info("Inference completed successfully!")
     log_separator(log, print_too=False)

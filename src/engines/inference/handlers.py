@@ -9,11 +9,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-from ignite.engine import Engine, Events
+from ignite.engine import Engine
 
-from src.engines.shared.handlers import BaseMetricsHandler, BaseProgressHandler
-from src.utils.files import save_json
+from src.engines.shared.handlers import (
+    BaseMetricsHandler,
+    BaseProgressHandler,
+    BaseResultsHandler,
+)
 
 
 class InferenceMetricsHandler(BaseMetricsHandler):
@@ -67,11 +69,11 @@ class InferenceProgressHandler(BaseProgressHandler):
     context_name = "inference"
 
 
-class InferenceResultsHandler:
-    """Saves inference results to test_history.json.
+class InferenceResultsHandler(BaseResultsHandler):
+    """Saves inference results to test.json.
 
     Creates structured results file with metrics, per-sample scores,
-    and configuration information.
+    and configuration information specific to inference/testing.
     """
 
     def __init__(
@@ -95,59 +97,19 @@ class InferenceResultsHandler:
             model_path: Path to model checkpoint
             data_dicts: Optional list of data dictionaries with case paths
         """
-        self.results_dir = results_dir
-        self.config_name = config_name
-        self.cfg = cfg
-        self.fold = fold
+        super().__init__(results_dir, config_name, cfg, fold, data_dicts)
         self.use_test_set = use_test_set
         self.model_path = model_path
-        self.data_dicts = data_dicts
 
-    def attach(self, engine: Engine) -> None:
-        """Attach handler to engine events."""
-        engine.add_event_handler(Events.COMPLETED, self._save_results)
-
-    def _save_results(self, engine: Engine) -> None:
-        """Save results to test_history.json."""
-        all_results = engine.state.metrics
-        metric_names = list(all_results.keys())
-
-        summary = {}
-        per_sample_scores = {}
-
-        for metric_name, results in all_results.items():
-            metric_summary = {
-                "mean": results["mean"],
-                "std": results["std"],
-                "min": results["min"],
-                "max": results["max"],
-                "num_cases": len(results["all_scores"]),
-            }
-
-            # Add optional extended statistics
-            for key in [
-                "per_class",
-                "bins",
-                "per_sample_bins",
-                "fp_tp_fn",
-                "per_sample_fp_tp_fn",
-            ]:
-                if key in results:
-                    metric_summary[key] = results[key]
-
-            summary[metric_name] = metric_summary
-
-            # Convert per_sample_scores to JSON-serializable format
-            metric_per_sample_scores = results["all_scores"]
-            if len(metric_per_sample_scores) > 0 and isinstance(
-                metric_per_sample_scores[0], np.ndarray
-            ):
-                metric_per_sample_scores = [
-                    score.tolist() for score in metric_per_sample_scores
-                ]
-            per_sample_scores[metric_name] = metric_per_sample_scores
-
-        test_history = {
+    def _get_history_dict(
+        self,
+        summary: dict[str, Any],
+        per_sample_scores: dict[str, Any],
+        metric_names: list[str],
+        sample_names: list[str],
+    ) -> dict[str, Any]:
+        """Build inference-specific history dictionary."""
+        return {
             "config_name": self.config_name,
             "dataset_name": self.cfg["dataset"]["name"],
             "fold": self.fold,
@@ -156,17 +118,10 @@ class InferenceResultsHandler:
             "metrics": metric_names,
             "summary": summary,
             "per_sample_scores": per_sample_scores,
-            "sample_names": (
-                [Path(d.get("image", "unknown")).name for d in self.data_dicts]
-                if self.data_dicts
-                else []
-            ),
+            "sample_names": sample_names,
         }
 
+    def _get_output_path(self) -> str:
+        """Get inference output file path."""
         history_dir = Path(self.results_dir) / "history"
-        history_dir.mkdir(parents=True, exist_ok=True)
-        test_history_path = str(history_dir / "test.json")
-        save_json(test_history, test_history_path)
-
-        print(f"\nResults saved to: {self.results_dir}")
-        print(f"Test history: {test_history_path}")
+        return str(history_dir / "test.json")

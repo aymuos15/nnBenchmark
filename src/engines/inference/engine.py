@@ -1,8 +1,8 @@
 """
-Ignite-based inference engine for nnBenchmark.
+Ignite-based evaluation engine for nnBenchmark.
 
-Uses PyTorch Ignite Engine for event-driven inference with handlers,
-matching the architecture used in training validation.
+Uses PyTorch Ignite Engine for event-driven evaluation (inference/validation)
+with handlers, matching the architecture used in training.
 """
 
 from __future__ import annotations
@@ -20,11 +20,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-class InferenceEngine:
+class EvaluationEngine:
     """
-    Ignite-based inference engine.
+    Ignite-based evaluation engine for inference and validation.
 
-    Wraps PyTorch Ignite Engine to provide event-driven inference
+    Wraps PyTorch Ignite Engine to provide event-driven evaluation
     with support for handlers, metrics, and logging.
     """
 
@@ -37,11 +37,11 @@ class InferenceEngine:
         data_dir: str | Path | None = None,
     ):
         """
-        Initialize InferenceEngine.
+        Initialize EvaluationEngine.
 
         Args:
-            model: PyTorch model for inference
-            device: Device to run inference on (cuda or cpu)
+            model: PyTorch model for evaluation
+            device: Device to run evaluation on (cuda or cpu)
             cfg: Configuration dictionary
             metric_fns: Dictionary of metric functions {name: metric_fn}
             data_dir: Optional dataset directory for loading class labels
@@ -62,7 +62,7 @@ class InferenceEngine:
         self.inferer: InferenceStrategy = create_inferer(cfg)
 
         # Create Ignite engine with custom iteration function
-        self.engine = Engine(self._inference_iteration)
+        self.engine = Engine(self._evaluation_iteration)
 
         # Initialize metrics dict in state (for handlers)
         self.engine.state.metrics = {}
@@ -71,7 +71,7 @@ class InferenceEngine:
         self, batch: dict[str, torch.Tensor], non_blocking: bool = False
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Prepare batch for inference.
+        Prepare batch for evaluation.
 
         Args:
             batch: Dictionary with 'image' and 'label' keys
@@ -84,9 +84,9 @@ class InferenceEngine:
         labels = batch["label"].to(self.device, non_blocking=non_blocking)
         return images, labels
 
-    def _inference_iteration(self, engine: Engine, batch: Any) -> dict[str, Any]:
+    def _evaluation_iteration(self, engine: Engine, batch: Any) -> dict[str, Any]:
         """
-        Single inference iteration.
+        Single evaluation iteration.
 
         This is called by Ignite Engine for each batch. Performs:
         1. Model inference (using inferer strategy)
@@ -155,9 +155,13 @@ class InferenceEngine:
 
     def run(self, data_loader: Any) -> None:
         """
-        Run inference on data loader.
+        Run evaluation on data loader.
 
         Args:
-            data_loader: DataLoader with inference data
+            data_loader: DataLoader with evaluation data
         """
         self.engine.run(data_loader)
+
+
+# Backward compatibility alias
+InferenceEngine = EvaluationEngine
