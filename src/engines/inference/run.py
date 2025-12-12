@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
-from src.engines.common import (
+from src.engines.setup import (
     build_metrics,
     build_model,
     build_transforms,

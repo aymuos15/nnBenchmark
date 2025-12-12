@@ -113,7 +113,7 @@ All nnU-Net line references point to the official repository at `https://github.
 | **Instance Norm affine** | `yaml_generator.py:94` True | [`affine: True`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L293) | ✅ |
 | **Residual Blocks** | `yaml_generator.py:100` False (plain conv) | [`PlainConvUNet`](https://github.com/MIC-DKFZ/dynamic-network-architectures) No residual connections | ✅ |
 | **Dropout** | Not used | [`dropout_op: None`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L296) | ✅ |
-| **Transpose Conv Bias** | `src/factory/models/registry.py` True (trans_bias=True) | [`conv_bias: True`](https://github.com/MIC-DKFZ/nnUNet) | ✅ |
+| **Transpose Conv Bias** | MONAI DynUNet (trans_bias=True) | [`conv_bias: True`](https://github.com/MIC-DKFZ/nnUNet) | ✅ |
 
 **Architecture Match Verification:**
 ```python
@@ -135,7 +135,7 @@ Level 3: [10, 14, 10] → [5, 7, 5]     (256 channels) # /8 bottleneck
 
 | Parameter | nnBenchmark | nnU-Net v2.4.1 | Status |
 |-----------|-------------|----------------|--------|
-| **Initialization Method** | `src/factory/models/registry.py` (Kaiming Normal) | [`InitWeights_He`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/utilities/network_initialization.py#L4-L13) (nnUNet) / [`InitWeights_He`](https://github.com/MIC-DKFZ/dynamic-network-architectures/blob/master/dynamic_network_architectures/initialization/weight_init.py#L6-L13) (dyn-net-arch) | ✅ |
+| **Initialization Method** | MONAI DynUNet (Kaiming Normal) | [`InitWeights_He`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/utilities/network_initialization.py#L4-L13) (nnUNet) / [`InitWeights_He`](https://github.com/MIC-DKFZ/dynamic-network-architectures/blob/master/dynamic_network_architectures/initialization/weight_init.py#L6-L13) (dyn-net-arch) | ✅ |
 | **Formula** | `N(0, √(2/(fan_in×(1+a²))))` | [`kaiming_normal_`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/utilities/network_initialization.py#L10) `N(0, √(2/(fan_in×(1+a²))))` | ✅ |
 | **LeakyReLU Slope (a)** | 0.01 | [`neg_slope=1e-2`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/utilities/network_initialization.py#L5) (0.01) | ✅ |
 | **Initialized Layers** | Conv2d, Conv3d, ConvTranspose | [`Conv2d, Conv3d, ConvTranspose2d, ConvTranspose3d`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/utilities/network_initialization.py#L9) | ✅ |
@@ -146,18 +146,17 @@ Level 3: [10, 14, 10] → [5, 7, 5]     (256 channels) # /8 bottleneck
 | **Implementation** | `model.apply(_initialize_weights)` | [`network.apply(network.initialize)`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/utilities/get_network_from_plans.py#L41-L42) via [`get_network_from_plans`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/utilities/get_network_from_plans.py#L9) | ✅ |
 | **Benefits** | Better gradient flow, faster convergence | Better gradient flow, faster convergence | ✅ |
 
-**Implementation Location:**
-```python
-# src/factory/models/registry.py (function)
-def _initialize_weights(module: nn.Module) -> None:
-    if isinstance(module, (nn.Conv2d, nn.Conv3d, nn.ConvTranspose2d, nn.ConvTranspose3d)):
-        nn.init.kaiming_normal_(module.weight, a=0.01, nonlinearity="leaky_relu")
-        if module.bias is not None:
-            nn.init.constant_(module.bias, 0)
+**Implementation Details:**
 
-# Applied automatically when building models via registry (line 119)
-model.apply(_initialize_weights)
+Models are instantiated dynamically using `getattr()` from MONAI/PyTorch libraries:
+
+```python
+# src/engines/common.py - Dynamic model building (v0.2.2+)
+model_class = _safe_getattr(monai_nets, model_type, "monai.networks.nets")
+model = model_class(**model_cfg).to(device)
 ```
+
+Weight initialization happens automatically when MONAI DynUNet is instantiated with the configuration parameters.
 
 **Reference:** nnU-Net v2.4.1 uses the same initialization strategy ([`InitWeights_He`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/utilities/network_initialization.py#L4-L13)) to ensure consistent training behavior across different architectures and datasets. The network architecture library ([`dynamic-network-architectures`](https://github.com/MIC-DKFZ/dynamic-network-architectures)) also provides an identical implementation.
 
@@ -541,7 +540,7 @@ These differences are due to architectural choices and are **not misalignments**
 #### ✅ Enhancements in nnBenchmark
 nnBenchmark improves upon nnUNet in these areas:
 - **Automatic Resource Detection**: GPU memory & CPU core detection (nnUNet manual)
-- **Factory Pattern**: Full registry system (nnUNet uses string-based dynamic loading)
+- **Dynamic Component Loading** (v0.2.2+): Direct `getattr()` loading from MONAI/PyTorch (nnUNet uses string-based dynamic loading)
 - **Configuration**: YAML-based (more readable than plans JSON)
 - **Logging**: Dual file+console logging with event system (nnUNet custom)
 
@@ -549,7 +548,7 @@ nnBenchmark improves upon nnUNet in these areas:
 
 **File References**:
 - ✅ All `src/lightning/` → `src/engines/ignite_utils/` migrations verified
-- ✅ All `src/utils/builders.py` → `src/factory/models/registry.py` migrations verified
+- ✅ All component building consolidated to `src/engines/common.py` using dynamic loading (v0.2.2+)
 - ✅ All `src/inference/restoration.py` → `src/engines/inference/restoration.py` migrations verified
 
 **nnU-Net References**:

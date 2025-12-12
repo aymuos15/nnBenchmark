@@ -19,7 +19,7 @@ from src.config.validation import (
     validate_deep_supervision_config,
     validate_required_field,
 )
-from src.engines.common import build_transforms, setup_experiment
+from src.engines.setup import build_transforms, setup_experiment
 from src.engines.ignite_utils import create_trainer
 from src.logging import log_and_print, log_header, log_system_info, setup_train_logger
 from src.utils.data import get_data_dicts

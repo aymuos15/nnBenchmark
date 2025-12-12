@@ -1,6 +1,6 @@
 """
-Tests for src.engines.common module.
-Tests common engine utilities including device setup, config name extraction, and experiment setup.
+Tests for src.engines.setup module.
+Tests engine setup utilities including device setup, config name extraction, and experiment setup.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 import pytest
 import torch
 
-from src.engines.common import (
+from src.engines.setup import (
     get_config_name,
     setup_device,
     setup_experiment,
@@ -299,3 +299,169 @@ class TestSetupExperiment:
         # Should return paths but may not create directory
         assert isinstance(results_dir, str)
         assert config_name in results_dir
+
+
+class TestBuildModelParameterFiltering:
+    """Tests for build_model parameter filtering functionality."""
+
+    def test_build_model_filters_deep_supervision_for_unsupported_models(self) -> None:
+        """Test that deep_supervision params are filtered for unsupported model types."""
+        from src.engines.setup import build_model
+
+        # Arrange: UNet doesn't support deep_supervision
+        config = {
+            "model": {
+                "type": "UNet",
+                "in_channels": 1,
+                "out_channels": 2,
+                "spatial_dims": 3,
+                "channels": [32, 64, 128, 256],
+                "strides": [2, 2, 2],
+                "deep_supervision": True,  # Should be filtered
+                "deep_supr_num": 2,  # Should be filtered
+            }
+        }
+        device = setup_device(verbose=False)
+
+        # Act & Assert - Should create model without error
+        model = build_model(config, device)
+        assert isinstance(model, torch.nn.Module)
+
+    def test_build_model_preserves_deep_supervision_for_dynunet(self) -> None:
+        """Test that deep_supervision params are preserved for DynUNet."""
+        from src.engines.setup import build_model
+
+        # Arrange: DynUNet supports deep_supervision
+        config = {
+            "model": {
+                "type": "DynUNet",
+                "spatial_dims": 3,
+                "in_channels": 1,
+                "out_channels": 2,
+                "deep_supervision": True,  # Should be preserved
+                "deep_supr_num": 2,  # Should be preserved
+            }
+        }
+        device = setup_device(verbose=False)
+
+        # Act & Assert - Should create model without error
+        model = build_model(config, device)
+        assert isinstance(model, torch.nn.Module)
+
+    def test_build_model_filters_ds_weights(self) -> None:
+        """Test that ds_weights parameter is filtered from model config."""
+        from src.engines.setup import build_model
+
+        # Arrange
+        config = {
+            "model": {
+                "type": "UNet",
+                "in_channels": 1,
+                "out_channels": 2,
+                "spatial_dims": 3,
+                "channels": [32, 64, 128, 256],
+                "strides": [2, 2, 2],
+                "ds_weights": [1.0, 0.5],  # Should be filtered
+            }
+        }
+        device = setup_device(verbose=False)
+
+        # Act & Assert - Should create model without error
+        model = build_model(config, device)
+        assert isinstance(model, torch.nn.Module)
+
+
+class TestDynamicComponentLoading:
+    """Tests for dynamic component loading with getattr."""
+
+    def test_build_transforms_loads_valid_transforms(self) -> None:
+        """Test that build_transforms successfully loads valid MONAI transforms."""
+        from src.engines.setup import build_transforms
+
+        # Arrange
+        config = {
+            "transforms": {
+                "common": [
+                    {"type": "Compose", "transforms": []},
+                ],
+                "train": [],
+                "val": [],
+            }
+        }
+
+        # Act
+        transforms_pipeline = build_transforms(config, mode="train")
+
+        # Assert
+        from monai import transforms as monai_transforms
+
+        assert isinstance(transforms_pipeline, monai_transforms.Compose)
+
+    def test_build_transforms_raises_for_invalid_type(self) -> None:
+        """Test that build_transforms raises ValueError for invalid transform type."""
+        from src.engines.setup import build_transforms
+
+        # Arrange
+        config = {
+            "transforms": {
+                "common": [
+                    {"type": "NonExistentTransform"},
+                ],
+                "train": [],
+                "val": [],
+            }
+        }
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="NonExistentTransform"):
+            build_transforms(config, mode="train")
+
+    def test_build_metrics_loads_valid_metrics(self) -> None:
+        """Test that build_metrics successfully loads valid MONAI metrics."""
+        from src.engines.setup import build_metrics
+
+        # Arrange
+        config = {
+            "metrics": [
+                {"type": "DiceMetric", "include_background": False, "reduction": "mean_batch", "num_classes": 2},
+            ]
+        }
+
+        # Act
+        metric_fns = build_metrics(config)
+
+        # Assert
+        assert "DiceMetric" in metric_fns
+        assert callable(metric_fns["DiceMetric"])
+
+    def test_build_metrics_raises_for_invalid_type(self) -> None:
+        """Test that build_metrics raises ValueError for invalid metric type."""
+        from src.engines.setup import build_metrics
+
+        # Arrange
+        config = {
+            "metrics": [
+                {"type": "NonExistentMetric"},
+            ]
+        }
+
+        # Act & Assert
+        with pytest.raises(ValueError, match="NonExistentMetric"):
+            build_metrics(config)
+
+    def test_safe_getattr_provides_helpful_error_message(self) -> None:
+        """Test that _safe_getattr provides helpful error message with available options."""
+        from src.engines.setup import _safe_getattr
+        from monai import transforms
+
+        # Arrange
+        invalid_type = "NonExistent"
+
+        # Act & Assert
+        with pytest.raises(ValueError) as exc_info:
+            _safe_getattr(transforms, invalid_type, "monai.transforms")
+
+        error_message = str(exc_info.value)
+        assert "NonExistent" in error_message
+        assert "monai.transforms" in error_message
+        assert "Available options:" in error_message

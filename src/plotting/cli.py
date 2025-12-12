@@ -4,14 +4,16 @@ import argparse
 from pathlib import Path
 
 from src.config import resolve_config_path
-from src.engines.common import get_config_name, setup_results_dir
-from src.plotting.generate import generate_plots
+from src.engines.setup import get_config_name, setup_results_dir
+from src.plotting.inference import plot_classwise_scores
+from src.plotting.training import plot_training_loss
+from src.plotting.validation import plot_validation_metric, save_validation_visualizations
 
 
 def main() -> None:
     """Main function for plot generation."""
     parser = argparse.ArgumentParser(
-        description="Generate all plots from training and test results using SciencePlots",
+        description="Generate plots from training and validation results using SciencePlots",
     )
     parser.add_argument(
         "--config",
@@ -44,8 +46,28 @@ def main() -> None:
             f"  python -m src.train --config {args.config}"
         )
 
-    # Generate all plots
-    generate_plots(results_dir)
+    # Generate plots from training history
+    try:
+        plot_training_loss(str(results_dir / "history" / "training_history.json"), str(results_dir / "plots"))
+    except Exception as e:
+        from loguru import logger
+        logger.warning(f"Could not generate training loss plot: {e}")
+
+    # Generate plots from validation history
+    try:
+        plot_validation_metric(str(results_dir / "history" / "validation_history.json"), str(results_dir / "plots"))
+    except Exception as e:
+        from loguru import logger
+        logger.warning(f"Could not generate validation metric plot: {e}")
+
+    # Generate classwise score plots if test results exist
+    test_json = results_dir / "history" / "test.json"
+    if test_json.exists():
+        try:
+            plot_classwise_scores(str(test_json), str(results_dir / "plots"))
+        except Exception as e:
+            from loguru import logger
+            logger.warning(f"Could not generate classwise scores plot: {e}")
 
 
 if __name__ == "__main__":

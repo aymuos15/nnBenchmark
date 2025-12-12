@@ -89,23 +89,29 @@ class BaseMetricsHandler(ABC):
         Returns:
             Tuple of (batch_scores dict, batch_scores_per_class dict)
         """
+        from loguru import logger
+
         batch_scores: dict[str, float] = {}
         batch_scores_per_class: dict[str, np.ndarray] = {}
 
         for name, metric in self.metric_fns.items():
-            result = metric.aggregate()
+            try:
+                result = metric.aggregate()
 
-            if isinstance(result, torch.Tensor) and result.numel() > 1:
-                per_class_scores = result.cpu().numpy()
-                self.all_scores[name].append(per_class_scores)
-                batch_scores[name] = float(np.mean(per_class_scores))
-                batch_scores_per_class[name] = per_class_scores
-            else:
-                score: float = result.item()
-                self.all_scores[name].append(score)
-                batch_scores[name] = score
+                if isinstance(result, torch.Tensor) and result.numel() > 1:
+                    per_class_scores = result.cpu().numpy()
+                    self.all_scores[name].append(per_class_scores)
+                    batch_scores[name] = float(np.mean(per_class_scores))
+                    batch_scores_per_class[name] = per_class_scores
+                else:
+                    score: float = float(result) if hasattr(result, '__float__') else result.item()
+                    self.all_scores[name].append(score)
+                    batch_scores[name] = score
 
-            metric.reset()
+                metric.reset()
+            except Exception as e:
+                logger.warning(f"Failed to compute metric '{name}': {e}")
+                continue
 
         return batch_scores, batch_scores_per_class
 
@@ -139,8 +145,12 @@ class BaseMetricsHandler(ABC):
                     class_scores = scores_array[:, class_idx]
                     if self.class_labels is not None:
                         sorted_class_indices = sorted(self.class_labels.keys())
-                        actual_class_idx = sorted_class_indices[class_idx]
-                        class_name = self.class_labels[actual_class_idx]
+                        # Add bounds check to prevent index out of bounds
+                        if class_idx < len(sorted_class_indices):
+                            actual_class_idx = sorted_class_indices[class_idx]
+                            class_name = self.class_labels[actual_class_idx]
+                        else:
+                            class_name = f"Class {class_idx + 1}"
                     else:
                         class_name = f"Class {class_idx + 1}"
 
@@ -170,6 +180,8 @@ class BaseMetricsHandler(ABC):
 
     def _add_extended_statistics(self, result: dict, metric: Any) -> None:
         """Add extended statistics (bins, FP/TP/FN) if metric supports them."""
+        from loguru import logger
+
         stat_methods = [
             ("get_binned_statistics", "bins"),
             ("get_per_sample_binned_statistics", "per_sample_bins"),
@@ -180,8 +192,8 @@ class BaseMetricsHandler(ABC):
             if hasattr(metric, method_name):
                 try:
                     result[key] = getattr(metric, method_name)()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Could not retrieve {key} from metric: {e}")
 
 
 class BaseProgressHandler:

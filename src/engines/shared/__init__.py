@@ -3,6 +3,7 @@
 from src.engines.shared.handlers import (
     BaseMetricsHandler,
     BaseProgressHandler,
+    BaseResultsHandler,
 )
 
-__all__ = ["BaseMetricsHandler", "BaseProgressHandler"]
+__all__ = ["BaseMetricsHandler", "BaseProgressHandler", "BaseResultsHandler"]

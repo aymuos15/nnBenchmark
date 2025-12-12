@@ -33,10 +33,13 @@ class ValidationMetricsHandler(BaseMetricsHandler):
         if self.verbose:
             case_path = self._get_case_path(batch_idx)
             scores_str = ", ".join([f"{n} = {s:.4f}" for n, s in batch_scores.items()])
-            print(f"{case_path}: {scores_str}")
             if self.logger is not None:
                 log_msg = f"Sample {batch_idx + 1}: {case_path}: {scores_str}"
                 self.logger.info(log_msg)
+            else:
+                from loguru import logger
+
+                logger.info(f"{case_path}: {scores_str}")
 
 
 class ValidationProgressHandler(BaseProgressHandler):

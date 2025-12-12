@@ -35,7 +35,7 @@ class InferenceMetricsHandler(BaseMetricsHandler):
                 len(batch_scores_per_class) > 0 and self.class_labels is not None
             )
 
-            if has_per_class and self.class_labels is not None:
+            if has_per_class:
                 for name, score in batch_scores.items():
                     if name in batch_scores_per_class:
                         per_class = batch_scores_per_class[name]
@@ -45,22 +45,29 @@ class InferenceMetricsHandler(BaseMetricsHandler):
                                 for i, idx in enumerate(
                                     sorted(self.class_labels.keys())
                                 )
+                                if i < len(per_class)
                             ]
-                        )
-                        print(
-                            f"{case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
                         )
                         if self.logger is not None:
                             log_msg = f"Sample {batch_idx + 1}: {case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
                             self.logger.info(log_msg)
+                        else:
+                            from loguru import logger
+
+                            logger.info(
+                                f"{case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"
+                            )
             else:
                 scores_str = ", ".join(
                     [f"{n} = {s:.4f}" for n, s in batch_scores.items()]
                 )
-                print(f"{case_path}: {scores_str}")
                 if self.logger is not None:
                     log_msg = f"Sample {batch_idx + 1}: {case_path}: {scores_str}"
                     self.logger.info(log_msg)
+                else:
+                    from loguru import logger
+
+                    logger.info(f"{case_path}: {scores_str}")
 
 
 class InferenceProgressHandler(BaseProgressHandler):

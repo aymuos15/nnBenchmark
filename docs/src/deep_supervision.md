@@ -30,3 +30,48 @@ if outputs.ndim == expected_ds_ndim:
 ```
 
 Result: `[B, C, spatial...]` ready for metric computation.
+
+## Automatic Parameter Filtering (v0.2.2+)
+
+nnBenchmark automatically filters out deep supervision parameters for models that don't support them. This prevents initialization errors when you specify these parameters for incompatible models.
+
+**Supported models** (support deep supervision):
+- `DynUNet`
+- `BasicUNetPlusPlus`
+
+**Unsupported models** (deep supervision params automatically removed):
+- `UNet` and all other MONAI models
+
+**Parameters filtered**:
+- `deep_supervision` - Whether to enable deep supervision
+- `deep_supr_num` - Number of deep supervision outputs
+- `ds_weights` - Loss weights for each supervision level (used by DeepSupervisionLossWrapper)
+
+**Example:**
+
+```yaml
+# Configuration specifying deep supervision
+model:
+  type: UNet  # Does NOT support deep supervision
+  in_channels: 1
+  out_channels: 3
+  deep_supervision: true  # Will be automatically removed
+  deep_supr_num: 2        # Will be automatically removed
+  ds_weights: [1.0, 0.5]  # Will be automatically removed
+```
+
+When this config is loaded, the filtering logic in `src/engines/common.py:157-159` removes the unsupported parameters before model instantiation, allowing the model to initialize without error.
+
+**When used with supported models:**
+
+```yaml
+model:
+  type: DynUNet  # Supports deep supervision
+  in_channels: 1
+  out_channels: 3
+  deep_supervision: true  # Kept and used
+  deep_supr_num: 2        # Kept and used
+  ds_weights: [1.0, 0.5]  # Kept and used by loss wrapper
+```
+
+The parameters are preserved and passed to the model, enabling deep supervision training.

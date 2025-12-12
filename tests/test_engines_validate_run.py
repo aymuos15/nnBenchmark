@@ -34,7 +34,7 @@ class TestRunValidationSetup:
             yaml.dump(sample_config, f)
 
         # Mock early to prevent actual file system operations
-        with patch("src.engines.common.setup_experiment") as mock_setup:
+        with patch("src.engines.setup.setup_experiment") as mock_setup:
             mock_setup.side_effect = Exception("Stop here for testing")
 
             with pytest.raises(Exception, match="Stop here for testing"):
@@ -85,9 +85,9 @@ class TestRunValidationCheckpointHandling:
 
         # Mock the validation engine to avoid actual validation
         with (
-            patch("src.engines.common.setup_experiment") as mock_setup,
+            patch("src.engines.setup.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
-            patch("src.engines.common.setup_device") as mock_device,
+            patch("src.engines.setup.setup_device") as mock_device,
             patch("src.engines.validate.run.EvaluationEngine"),
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,
@@ -144,9 +144,9 @@ class TestRunValidationCheckpointHandling:
 
         # Mock validation components
         with (
-            patch("src.engines.common.setup_experiment") as mock_setup,
+            patch("src.engines.setup.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
-            patch("src.engines.common.setup_device") as mock_device,
+            patch("src.engines.setup.setup_device") as mock_device,
             patch("src.engines.validate.run.EvaluationEngine"),
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,
@@ -202,7 +202,7 @@ class TestRunValidationConfigValidation:
         # Mock setup
         with (
             patch("src.engines.validate.run.setup_val_logger"),
-            patch("src.engines.common.setup_device") as mock_device,
+            patch("src.engines.setup.setup_device") as mock_device,
         ):
             mock_device.return_value = (torch.device("cpu"), False)
 
@@ -240,7 +240,7 @@ class TestRunValidationConfigValidation:
         # Mock setup
         with (
             patch("src.engines.validate.run.setup_val_logger"),
-            patch("src.engines.common.setup_device") as mock_device,
+            patch("src.engines.setup.setup_device") as mock_device,
         ):
             mock_device.return_value = (torch.device("cpu"), False)
 
@@ -258,7 +258,7 @@ class TestPrintValidationResults:
 
     def test_print_validation_results_basic(self, capsys) -> None:
         """Test that print_results formats output correctly for validation."""
-        from src.engines.common import print_results
+        from src.engines.setup import print_results
 
         results = {
             "mean": 0.85,
@@ -277,7 +277,7 @@ class TestPrintValidationResults:
 
     def test_print_validation_results_with_per_class(self, capsys) -> None:
         """Test that print_results shows per-class results for validation."""
-        from src.engines.common import print_results
+        from src.engines.setup import print_results
 
         results = {
             "mean": 0.85,
@@ -329,9 +329,9 @@ class TestValidationIntegration:
 
         # Mock components
         with (
-            patch("src.engines.common.setup_experiment") as mock_setup,
+            patch("src.engines.setup.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
-            patch("src.engines.common.setup_device") as mock_device,
+            patch("src.engines.setup.setup_device") as mock_device,
             patch("src.engines.validate.run.EvaluationEngine") as mock_engine_class,
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,

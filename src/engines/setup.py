@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import torch
+from loguru import logger
 from monai import metrics as monai_metrics
 from monai import transforms
 from monai.networks import nets as monai_nets
@@ -19,6 +20,35 @@ from src.utils.files import ensure_directory
 
 if TYPE_CHECKING:
     from loguru._logger import Logger
+
+
+def _safe_getattr(module: Any, name: str, module_name: str) -> type:
+    """Safely get an attribute from a module with helpful error messages.
+
+    Args:
+        module: The module to get the attribute from
+        name: The attribute name to retrieve
+        module_name: Human-readable module name for error messages
+
+    Returns:
+        The requested attribute (class)
+
+    Raises:
+        ValueError: If attribute not found, with list of available options
+    """
+    try:
+        return getattr(module, name)
+    except AttributeError as e:
+        # Get available public attributes
+        available = sorted([n for n in dir(module) if not n.startswith('_')])
+        # Show first 20 options
+        options_str = ", ".join(available[:20])
+        if len(available) > 20:
+            options_str += f", ... and {len(available) - 20} more"
+        raise ValueError(
+            f"'{name}' not found in {module_name}. "
+            f"Available options: {options_str}"
+        ) from e
 
 
 def setup_device(verbose: bool = True) -> torch.device:
@@ -34,7 +64,7 @@ def setup_device(verbose: bool = True) -> torch.device:
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if verbose:
-        print(f"Using device: {device}")
+        logger.info(f"Using device: {device}")
     return device
 
 
@@ -125,14 +155,14 @@ def build_transforms(config: dict, mode: str = "train") -> transforms.Compose:
     for t_cfg in config["transforms"]["common"]:
         t_cfg = t_cfg.copy()
         t_type = t_cfg.pop("type")
-        t_class = getattr(transforms, t_type)
+        t_class = _safe_getattr(transforms, t_type, "monai.transforms")
         transform_list.append(t_class(**t_cfg))
 
     # Append mode-specific transforms
     for t_cfg in config["transforms"][mode]:
         t_cfg = t_cfg.copy()
         t_type = t_cfg.pop("type")
-        t_class = getattr(transforms, t_type)
+        t_class = _safe_getattr(transforms, t_type, "monai.transforms")
         transform_list.append(t_class(**t_cfg))
 
     return transforms.Compose(transform_list)
@@ -162,7 +192,7 @@ def build_model(config: dict, device: torch.device) -> torch.nn.Module:
     # Merge model-specific parameters if present
     if model_type in config["model"] and isinstance(config["model"][model_type], dict):
         model_cfg.update(config["model"][model_type])
-    model_class = getattr(monai_nets, model_type)
+    model_class = _safe_getattr(monai_nets, model_type, "monai.networks.nets")
     return model_class(**model_cfg).to(device)
 
 
@@ -179,7 +209,7 @@ def build_metrics(config: dict) -> dict:
     for m_cfg in config["metrics"]:
         m_cfg = m_cfg.copy()
         m_type = m_cfg.pop("type")
-        m_class = getattr(monai_metrics, m_type)
+        m_class = _safe_getattr(monai_metrics, m_type, "monai.metrics")
         metric_fns[m_type] = m_class(**m_cfg)
     return metric_fns
 
@@ -193,23 +223,25 @@ def print_results(results: dict, metric_name: str, context: str = "EVALUATION") 
         metric_name: Name of the metric (e.g., "Dice")
         context: Context string for header (e.g., "TEST", "VALIDATION")
     """
-    print("\n" + "=" * 50)
-    print(f"{metric_name} {context} RESULTS")
-    print("=" * 50)
-    print(f"Mean {metric_name} Score: {results['mean']:.4f} ± {results['std']:.4f}")
+    logger.info("\\n" + "=" * 50)
+    logger.info(f"{metric_name} {context} RESULTS")
+    logger.info("=" * 50)
+    logger.info(
+        f"Mean {metric_name} Score: {results['mean']:.4f} ± {results['std']:.4f}"
+    )
 
-    # Print per-class results if available
+    # Log per-class results if available
     if "per_class" in results:
         per_class = results["per_class"]
         if isinstance(per_class, dict):
             for class_name, class_stats in per_class.items():
-                print(
+                logger.info(
                     f"{class_name}: {class_stats['mean']:.4f} ± {class_stats['std']:.4f}"
                 )
 
-    print(f"\nMin {metric_name} Score: {results['min']:.4f}")
-    print(f"Max {metric_name} Score: {results['max']:.4f}")
-    print("=" * 50)
+    logger.info(f"\\nMin {metric_name} Score: {results['min']:.4f}")
+    logger.info(f"Max {metric_name} Score: {results['max']:.4f}")
+    logger.info("=" * 50)
 
 
 def log_metrics_summary(
@@ -229,7 +261,7 @@ def log_metrics_summary(
     log_header(log, f"{context} SUMMARY", print_too=False)
 
     for metric_name, results in all_results.items():
-        log.info(f"\n{metric_name}:")
+        log.info(f"\\n{metric_name}:")
         log.info(f"  Mean: {results['mean']:.4f} ± {results['std']:.4f}")
 
         # Log per-class results if available
@@ -247,4 +279,4 @@ def log_metrics_summary(
     if all_results:
         first_metric_name = next(iter(all_results.keys()))
         num_cases = len(all_results[first_metric_name]["all_scores"])
-        log.info(f"\nNumber of cases: {num_cases}")
+        log.info(f"\\nNumber of cases: {num_cases}")

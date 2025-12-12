@@ -1,5 +1,5 @@
 """
-Tests for src.engines.common module.
+Tests for src.engines.setup module.
 Tests result formatting utilities including test results and metric history recording.
 """
 
@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.engines.common import print_results
+from src.engines.setup import print_results
 
 
 class TestPrintResults:

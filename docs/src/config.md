@@ -667,4 +667,16 @@ All MONAI transforms are supported. Common ones:
 
 See [MONAI transforms documentation](https://docs.monai.io/en/stable/transforms.html) for complete list.
 
-**Implementation**: `src/config/`, `src/factory/`
+## Component Loading Strategy (v0.2.2+)
+
+As of v0.2.2, nnBenchmark uses **dynamic loading** via `getattr()` to instantiate components directly from MONAI and PyTorch libraries. The configuration `type` field specifies the class name (e.g., "DynUNet", "DiceMetric"), and components are instantiated using:
+
+- **Models**: `getattr(monai.networks.nets, type_name)`
+- **Losses**: `getattr(monai.losses, type_name)`
+- **Metrics**: `getattr(monai.metrics, type_name)`
+- **Transforms**: `getattr(monai.transforms, type_name)`
+- **Optimizers**: `getattr(torch.optim, type_name)`
+
+This approach eliminates the need for a central registry while maintaining full flexibility and reducing code duplication.
+
+**Implementation**: `src/config/` for configuration validation, `src/engines/common.py` for dynamic component building
