@@ -39,13 +39,14 @@ class TestSetupDevice:
         else:
             assert device.type == "cpu"
 
-    def test_setup_device_verbose(self, capsys: Any) -> None:
+    def test_setup_device_verbose(self, capture_loguru: Any) -> None:
         """Test that setup_device prints when verbose=True."""
+        capture_loguru.start()
         device = setup_device(verbose=True)
+        output = capture_loguru.get_output()
 
-        captured = capsys.readouterr()
-        assert "Using device:" in captured.out
-        assert device.type in captured.out
+        assert "Using device:" in output
+        assert device.type in output
 
     def test_setup_device_quiet(self, capsys: Any) -> None:
         """Test that setup_device doesn't print when verbose=False."""
@@ -332,14 +333,19 @@ class TestBuildModelParameterFiltering:
         from src.engines.setup import build_model
 
         # Arrange: DynUNet supports deep_supervision
+        # DynUNet requires kernel_size, strides, and upsample_kernel_size
+        # deep_supr_num must be less than the number of up sample layers
         config = {
             "model": {
                 "type": "DynUNet",
                 "spatial_dims": 3,
                 "in_channels": 1,
                 "out_channels": 2,
+                "kernel_size": [[3, 3, 3], [3, 3, 3], [3, 3, 3]],
+                "strides": [[1, 1, 1], [2, 2, 2], [2, 2, 2]],
+                "upsample_kernel_size": [[2, 2, 2], [2, 2, 2]],
                 "deep_supervision": True,  # Should be preserved
-                "deep_supr_num": 2,  # Should be preserved
+                "deep_supr_num": 1,  # Must be < number of upsample layers (2)
             }
         }
         device = setup_device(verbose=False)
@@ -423,7 +429,12 @@ class TestDynamicComponentLoading:
         # Arrange
         config = {
             "metrics": [
-                {"type": "DiceMetric", "include_background": False, "reduction": "mean_batch", "num_classes": 2},
+                {
+                    "type": "DiceMetric",
+                    "include_background": False,
+                    "reduction": "mean_batch",
+                    "num_classes": 2,
+                },
             ]
         }
 
@@ -450,16 +461,17 @@ class TestDynamicComponentLoading:
             build_metrics(config)
 
     def test_safe_getattr_provides_helpful_error_message(self) -> None:
-        """Test that _safe_getattr provides helpful error message with available options."""
-        from src.engines.setup import _safe_getattr
+        """Test that safe_getattr provides helpful error message with available options."""
         from monai import transforms
+
+        from src.engines.shared import safe_getattr
 
         # Arrange
         invalid_type = "NonExistent"
 
         # Act & Assert
         with pytest.raises(ValueError) as exc_info:
-            _safe_getattr(transforms, invalid_type, "monai.transforms")
+            safe_getattr(transforms, invalid_type, "monai.transforms")
 
         error_message = str(exc_info.value)
         assert "NonExistent" in error_message

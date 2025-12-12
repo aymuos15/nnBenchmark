@@ -7,12 +7,61 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
-from typing import Any
+from typing import Any, Generator
 
 import pytest
 import torch
 import yaml
+from loguru import logger
+
+
+class LoguruCapture:
+    """Helper class to capture loguru output."""
+
+    def __init__(self) -> None:
+        from io import StringIO
+
+        self.buffer = StringIO()
+        self.handler_id: int | None = None
+
+    def start(self) -> None:
+        """Start capturing loguru output."""
+        logger.remove()
+        self.handler_id = logger.add(
+            self.buffer,
+            format="{message}",
+            level="DEBUG",
+            colorize=False,
+        )
+
+    def stop(self) -> None:
+        """Stop capturing and restore default handler."""
+        if self.handler_id is not None:
+            logger.remove(self.handler_id)
+        logger.add(sys.stderr)
+
+    def get_output(self) -> str:
+        """Get captured output."""
+        return self.buffer.getvalue()
+
+
+@pytest.fixture
+def capture_loguru() -> Generator[LoguruCapture, None, None]:
+    """
+    Fixture to capture loguru output for testing.
+
+    Usage:
+        def test_something(capture_loguru):
+            capture_loguru.start()
+            # ... code that uses logger ...
+            output = capture_loguru.get_output()
+            assert "expected text" in output
+    """
+    capture = LoguruCapture()
+    yield capture
+    capture.stop()
 
 
 def pytest_configure(config: pytest.Config) -> None:

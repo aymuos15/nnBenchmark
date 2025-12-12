@@ -34,7 +34,8 @@ class TestRunValidationSetup:
             yaml.dump(sample_config, f)
 
         # Mock early to prevent actual file system operations
-        with patch("src.engines.setup.setup_experiment") as mock_setup:
+        # Patch where it's used, not where it's defined
+        with patch("src.engines.validate.run.setup_experiment") as mock_setup:
             mock_setup.side_effect = Exception("Stop here for testing")
 
             with pytest.raises(Exception, match="Stop here for testing"):
@@ -84,10 +85,10 @@ class TestRunValidationCheckpointHandling:
             )
 
         # Mock the validation engine to avoid actual validation
+        # Patch where functions are used (in the validate.run module), not where defined
         with (
-            patch("src.engines.setup.setup_experiment") as mock_setup,
+            patch("src.engines.validate.run.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
-            patch("src.engines.setup.setup_device") as mock_device,
             patch("src.engines.validate.run.EvaluationEngine"),
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,
@@ -101,7 +102,6 @@ class TestRunValidationCheckpointHandling:
                 str(results_dir),  # Use the results_dir containing checkpoints/
                 "test_config",
             )
-            mock_device.return_value = (torch.device("cpu"), False)
             mock_data.return_value = ([], [])  # Return tuple of (train_data, val_data)
             mock_metrics.return_value = {}  # Return empty dict for metrics
             mock_model.return_value = torch.nn.Identity()
@@ -143,14 +143,15 @@ class TestRunValidationCheckpointHandling:
         )
 
         # Mock validation components
+        # Patch where functions are used (in the validate.run module), not where defined
         with (
-            patch("src.engines.setup.setup_experiment") as mock_setup,
+            patch("src.engines.validate.run.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
-            patch("src.engines.setup.setup_device") as mock_device,
             patch("src.engines.validate.run.EvaluationEngine"),
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,
             patch("src.engines.validate.run.build_model") as mock_model,
+            patch("src.engines.validate.run.log_system_info"),
         ):
             mock_setup.return_value = (
                 sample_config,
@@ -159,7 +160,6 @@ class TestRunValidationCheckpointHandling:
                 str(tmp_path),
                 "test_config",
             )
-            mock_device.return_value = (torch.device("cpu"), False)
             mock_data.return_value = ([], [])  # Return tuple of (train_data, val_data)
             mock_metrics.return_value = {}  # Return empty dict for metrics
             mock_model.return_value = torch.nn.Identity()
@@ -256,7 +256,7 @@ class TestRunValidationConfigValidation:
 class TestPrintValidationResults:
     """Test validation results printing."""
 
-    def test_print_validation_results_basic(self, capsys) -> None:
+    def test_print_validation_results_basic(self, capture_loguru) -> None:
         """Test that print_results formats output correctly for validation."""
         from src.engines.setup import print_results
 
@@ -267,15 +267,16 @@ class TestPrintValidationResults:
             "max": 0.95,
         }
 
+        capture_loguru.start()
         print_results(results, "Dice", context="VALIDATION")
+        output = capture_loguru.get_output()
 
-        captured = capsys.readouterr()
         # Check case-insensitive since the function uses .upper()
-        assert "VALIDATION RESULTS" in captured.out.upper()
-        assert "0.8500" in captured.out
-        assert "0.0500" in captured.out
+        assert "VALIDATION RESULTS" in output.upper()
+        assert "0.8500" in output
+        assert "0.0500" in output
 
-    def test_print_validation_results_with_per_class(self, capsys) -> None:
+    def test_print_validation_results_with_per_class(self, capture_loguru) -> None:
         """Test that print_results shows per-class results for validation."""
         from src.engines.setup import print_results
 
@@ -290,13 +291,14 @@ class TestPrintValidationResults:
             },
         }
 
+        capture_loguru.start()
         print_results(results, "Dice", context="VALIDATION")
+        output = capture_loguru.get_output()
 
-        captured = capsys.readouterr()
-        assert "Class1" in captured.out
-        assert "Class2" in captured.out
-        assert "0.8000" in captured.out
-        assert "0.9000" in captured.out
+        assert "Class1" in output
+        assert "Class2" in output
+        assert "0.8000" in output
+        assert "0.9000" in output
 
 
 class TestValidationIntegration:
@@ -328,14 +330,15 @@ class TestValidationIntegration:
         )
 
         # Mock components
+        # Patch where functions are used (in the validate.run module), not where defined
         with (
-            patch("src.engines.setup.setup_experiment") as mock_setup,
+            patch("src.engines.validate.run.setup_experiment") as mock_setup,
             patch("src.engines.validate.run.setup_val_logger"),
-            patch("src.engines.setup.setup_device") as mock_device,
             patch("src.engines.validate.run.EvaluationEngine") as mock_engine_class,
             patch("src.engines.validate.run.get_data_dicts") as mock_data,
             patch("src.engines.validate.run.build_metrics") as mock_metrics,
             patch("src.engines.validate.run.build_model") as mock_model,
+            patch("src.engines.validate.run.log_system_info"),
         ):
             mock_setup.return_value = (
                 sample_config,
@@ -344,7 +347,6 @@ class TestValidationIntegration:
                 str(results_dir),
                 "test_config",
             )
-            mock_device.return_value = (torch.device("cpu"), False)
             mock_data.return_value = ([], [{"image": "test.nii.gz"}])  # (train, val)
             mock_metrics.return_value = {}  # Return empty dict for metrics
             mock_model.return_value = torch.nn.Identity()
