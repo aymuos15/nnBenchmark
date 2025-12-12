@@ -206,12 +206,61 @@ Weight initialization happens automatically when MONAI DynUNet is instantiated w
 | **Feature Map Min Edge** | Calculated (typically 4) | [`default_experiment_planner.py:60`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L60) (unet_featuremap_min_edge_length: 4) | ✅ |
 | **Encoder Blocks/Stage** | 2 (num_res_units) | [`default_experiment_planner.py:61`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L61) (2) | ✅ |
 | **Decoder Blocks/Stage** | 2 (num_res_units) | [`default_experiment_planner.py:62`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L62) (2) | ✅ |
-| **Max Dataset Coverage** | Implicit (full training) | [`default_experiment_planner.py:67`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L67) (0.05) | ⚠️ Different |
+| **Max Dataset Coverage** | 0.05 (5% cap, applied to batch size) | [`default_experiment_planner.py:67`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L67) (0.05) | ✅ Same |
 | **Reference VRAM 3D** | Implicit | [`default_experiment_planner.py:54`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L54) (560M) | ✅ |
 | **Reference VRAM 2D** | Implicit | [`default_experiment_planner.py:55`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L55) (85M) | ✅ |
 | **Reference BS 3D** | Calculated | [`default_experiment_planner.py:59`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L59) (2) | ✅ |
 | **Reference BS 2D** | Calculated | [`default_experiment_planner.py:58`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L58) (12) | ✅ |
 | **Target GPU Memory** | 8 GB (implicit) | [`default_experiment_planner.py:57`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L57), [`69`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L69) (8 GB) | ✅ |
+
+**Batch Size & Dataset Coverage Strategy:**
+
+Both nnBenchmark and nnU-Net use the **5% dataset coverage cap** (`MAX_DATASET_COVERED = 0.05`) in batch size calculation:
+
+```python
+# From src/planning/planner/sizing.py:114-124
+bs_corresponding_to_5_percent = round(
+    approximate_n_voxels_dataset * 0.05 / np.prod(patch_size)
+)
+batch_size = min(calculated_bs, bs_corresponding_to_5_percent, min_bs=2)
+```
+
+**What this means:**
+- **5% cap calculation**: Maximum batch size is limited so that `batch_size × patch_size ≤ 5% of total dataset voxels`
+- **Example** (100-case dataset, 256³ patch): Total voxels ≈ 838.9M → 5% cap = 41.9M voxels → max ~258 patches → BS ≤ 1-2
+- **Purpose**: Prevents overfitting by ensuring diverse patch sampling across epochs
+
+**Key Difference: Data Sampling Strategy**
+
+While both use the 5% coverage cap for **batch size calculation**, they differ in how data is **sampled during training**:
+
+| Aspect | **nnU-Net v2.4.1** | **nnBenchmark** | Impact |
+|--------|---|---|---|
+| **Training Loop** | 1000 epochs × 250 fixed iterations/epoch | 200 epochs × variable iterations (full DataLoader) | nnBenchmark: 4× more data passes (200×100% vs 1000×5%) |
+| **Iteration Strategy** | Random patch sampling (independent) | Standard PyTorch DataLoader (sequential batches) | nnU-Net: stochastic patch order; nnBenchmark: deterministic |
+| **Data per Epoch** | ~5% of dataset (250 patches) | 100% of dataset (full DataLoader pass) | nnU-Net: same patch may appear multiple times; nnBenchmark: each sample once |
+| **Batch Composition** | Randomly selected patches with 33% foreground bias | Sequential batches from DataLoader with weighted sampler | Both aim for ~33% foreground patches |
+| **Total Training Coverage** | 1000 × 5% = **~50 complete passes** | 200 × 100% = **200 complete passes** | nnBenchmark trains through data **4× longer** |
+
+**Practical Implications:**
+
+1. **nnU-Net (fixed 250 iterations/epoch)**:
+   - Deterministic epoch length regardless of dataset size
+   - Smaller batches (BS: 1-3 for typical datasets)
+   - Lower overfitting risk (limited per-epoch coverage)
+   - Longer training horizon (1000 epochs)
+
+2. **nnBenchmark (MONAI DataLoader)**:
+   - Variable epoch length: depends on dataset size and batch size
+   - Larger batches (BS: 4-6 for typical datasets)
+   - Higher overfitting risk (full per-epoch coverage)
+   - Shorter training horizon (200 epochs)
+
+**Why the difference exists:**
+- nnU-Net: Custom trainer with explicit iteration control (research-oriented)
+- nnBenchmark: MONAI SupervisedTrainer with standard PyTorch semantics (production-oriented)
+
+Both approaches are valid: nnU-Net prioritizes controlled sampling for small datasets, while nnBenchmark prioritizes code clarity and GPU efficiency with modern frameworks.
 
 ## Resampling and Spacing
 
@@ -418,34 +467,52 @@ Most differences are intentional design choices or framework-driven adaptations 
 | Parameter | nnU-Net v2.4.1 | nnBenchmark | Impact | Reason |
 |-----------|----------------|-------------|--------|--------|
 | **Number of Epochs** | 1000 | 200 | Medium | Different frameworks |
-| **Iterations per Epoch** | 250 (fixed) | N/A | | MONAI processes entire dataset per epoch |
-| **Validation Iterations** | 50 (fixed) | N/A | | MONAI validates on full validation set per epoch |
+| **Iterations per Epoch** | 250 (fixed) | Variable (full dataset) | | MONAI DataLoader processes entire dataset per epoch |
+| **Data Sampling** | Random patches (5% per epoch) | Sequential batches (100% per epoch) | | Different training semantics |
 | **Training Framework** | Custom trainer | MONAI SupervisedTrainer with Ignite | | Architectural choice |
 
 **Details:**
-- nnU-Net uses a custom epoch-based training loop with fixed iterations per epoch
-- nnBenchmark uses MONAI SupervisedTrainer (with Ignite event system) which processes the entire dataset per epoch
-- This is a fundamental difference in framework, not a parameter mismatch
+- **nnU-Net**: Custom trainer with 1000 epochs × 250 fixed iterations = deterministic epoch length, ~5% data coverage per epoch
+- **nnBenchmark**: MONAI SupervisedTrainer with 200 epochs, processes entire dataset each epoch via standard DataLoader
+- **Key difference**: nnU-Net's fixed iteration count allows controlled sampling of patches (with repetition across epochs), while nnBenchmark's DataLoader ensures each sample appears exactly once per epoch
+- **Total data coverage**: nnU-Net ~50 complete passes (1000 × 5%), nnBenchmark ~200 complete passes (200 × 100%)
 
-**Recommendation**: Accept as framework difference. Both approaches are valid.
+**Why this matters:**
+- nnU-Net: Smaller batches (BS: 1-3), stochastic patch order, longer training horizon
+- nnBenchmark: Larger batches (BS: 4-6), deterministic sample order, shorter training horizon
+- Both valid approaches: nnU-Net prioritizes controlled small-dataset safety, nnBenchmark prioritizes modern framework integration
 
----
-
-### 4. Dataset Coverage Strategy
-| Parameter | nnU-Net v2.4.1 | nnBenchmark | Impact | Reason |
-|-----------|----------------|-------------|--------|--------|
-| **Max Dataset Coverage** | 0.05 (5%) | Implicit (100%) | Medium | Different sampling strategies |
-| **Implementation** | [`default_experiment_planner.py:67`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/experiment_planning/experiment_planners/default_experiment_planner.py#L67) (max_dataset_covered=0.05) | Full training | | nnBenchmark uses all available data |
-| **Rationale** | Limit patch sampling to 5% of dataset | No limit | | nnBenchmark assumes complete training |
-
-**Details:**
-- nnU-Net samples only 5% of the dataset per epoch to avoid overfitting on small datasets
-- nnBenchmark trains on the complete dataset every epoch
-- This improves nnBenchmark's generalization on small datasets
-
-**Recommendation**: Accept as design choice. nnBenchmark's approach may be better for small datasets.
+**Recommendation**: Accept as framework difference. Both approaches are valid for their design goals.
 
 ---
+
+### 4. Dataset Coverage Strategy (Clarification)
+| Parameter | nnU-Net v2.4.1 | nnBenchmark | Status | Note |
+|-----------|----------------|-------------|--------|------|
+| **5% Coverage Cap in Batch Sizing** | 0.05 (line 67) | 0.05 (sizing.py:116) | ✅ Identical | Both limit batch size the same way |
+| **Data Sampling per Epoch** | 5% (250 random patches) | 100% (full DataLoader) | ⚠️ Different | Different data sampling strategies |
+| **Epochs** | 1000 | 200 | ⚠️ Different | Results in ~50 vs 200 total passes |
+| **Implementation** | Random patch resampling | Standard sequential DataLoader | | Different training loop designs |
+
+**Important Clarification:**
+
+The "5% coverage cap" in batch size calculation is **identical** in both systems:
+
+```python
+# Both nnU-Net and nnBenchmark apply this cap:
+bs_max = (total_dataset_voxels * 0.05) / patch_size_voxels
+```
+
+However, **how they use batch size differs fundamentally**:
+
+- **nnU-Net**: Uses small BS over 250 fixed iterations/epoch → ~5% coverage per epoch × 1000 epochs = 50 complete passes
+- **nnBenchmark**: Uses larger BS with full DataLoader → 100% coverage per epoch × 200 epochs = 200 complete passes
+
+This is **not a configuration difference**, but rather a **framework difference** stemming from how nnU-Net's custom trainer works vs MONAI's DataLoader semantics.
+
+**Recommendation**: Accept as intentional design choice. The document previously marked this as "⚠️ Different" which was misleading—both systems implement the 5% cap identically, they just apply it in fundamentally different training loops.
+
+
 
 ## Category 3: Implementation Details (Negligible Impact)
 
@@ -492,7 +559,7 @@ Most differences are intentional design choices or framework-driven adaptations 
 | 2 | Elastic Deformation | Not Implemented | Minor | Low | ⏳ Optional |
 | 3 | Epochs (200 vs 1000) | Framework-Driven | Medium | Medium | ✅ Accepted |
 | 4 | Training Iterations | Framework-Driven | Medium | Medium | ✅ Accepted |
-| 5 | Dataset Coverage (5% vs 100%) | Framework-Driven | Medium | Medium | ✅ Accepted |
+| 5 | Data Sampling Strategy | Framework-Driven | Medium | Medium | ✅ Accepted (5% cap identical, sampling differs) |
 | 6 | Batch Size Calculation | Implementation | Negligible | Low | ✅ Equivalent |
 | 7 | Inference Configuration | Implementation | Negligible | Low | ✅ Identical |
 | 8 | Batch Size (8 vs 2) | Configuration | Medium | Medium | ⚠️ Verify |
@@ -532,10 +599,13 @@ nnBenchmark matches nnU-Net's key architectural decisions:
 
 #### ⚠️ Framework Differences (Intentional)
 These differences are due to architectural choices and are **not misalignments**:
-- **Training Framework**: MONAI SupervisedTrainer vs custom nnUNet trainer
+- **Training Framework**: MONAI SupervisedTrainer + Ignite vs custom nnUNet trainer
 - **Epochs**: 200 (nnBenchmark) vs 1000 (nnUNet) - framework-driven scheduling
-- **Iterations/Epoch**: N/A (MONAI processes full dataset) vs 250 (nnUNet)
-- **Dataset Coverage**: 100% (nnBenchmark) vs 5% per epoch (nnUNet) - sampling strategy
+- **Iterations/Epoch**: Variable (MONAI DataLoader full pass) vs 250 (nnUNet fixed)
+- **Data Sampling Strategy**: Sequential DataLoader (100% per epoch) vs random patch sampling (5% per epoch)
+  - **Important**: Both use the same 5% batch size cap; difference is in training loop design
+  - **Result**: nnBenchmark ~200 complete passes vs nnU-Net ~50 complete passes
+  - **Trade-off**: nnU-Net prioritizes small-dataset safety; nnBenchmark prioritizes modern framework integration
 
 #### ✅ Enhancements in nnBenchmark
 nnBenchmark improves upon nnUNet in these areas:
