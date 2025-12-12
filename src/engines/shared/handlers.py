@@ -104,7 +104,9 @@ class BaseMetricsHandler(ABC):
                     batch_scores[name] = float(np.mean(per_class_scores))
                     batch_scores_per_class[name] = per_class_scores
                 else:
-                    score: float = float(result) if hasattr(result, '__float__') else result.item()
+                    score: float = (
+                        float(result) if hasattr(result, "__float__") else result.item()
+                    )
                     self.all_scores[name].append(score)
                     batch_scores[name] = score
 

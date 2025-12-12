@@ -11,14 +11,15 @@ from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
+from src.engines.inference.engine import EvaluationEngine
 from src.engines.setup import (
     build_metrics,
     build_model,
     build_transforms,
     log_metrics_summary,
     print_results,
+    setup_experiment,
 )
-from src.engines.inference.engine import EvaluationEngine
 from src.engines.validate.handlers import (
     ValidationMetricsHandler,
     ValidationProgressHandler,
@@ -55,8 +56,6 @@ def run_validation(
         batch_size: Batch size for validation (overrides config)
         num_workers: Number of data loader workers (overrides config)
     """
-    from src.engines.setup import setup_experiment
-
     # Resolve config path (handles both absolute and relative paths)
     resolved_config_path = str(resolve_config_path(config_path, dataset))
 

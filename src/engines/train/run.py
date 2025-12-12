@@ -4,7 +4,6 @@ Standalone training execution function.
 
 from __future__ import annotations
 
-import glob
 import re
 import sys
 import warnings
@@ -19,8 +18,8 @@ from src.config.validation import (
     validate_deep_supervision_config,
     validate_required_field,
 )
-from src.engines.setup import build_transforms, setup_experiment
 from src.engines.ignite_utils import create_trainer
+from src.engines.setup import build_transforms, setup_experiment
 from src.logging import log_and_print, log_header, log_system_info, setup_train_logger
 from src.utils.data import get_data_dicts
 from src.utils.seeding import (
@@ -415,6 +414,8 @@ def run_training(
     log_and_print(log, f"Training history saved to: {history_path}")
 
     # Report best checkpoint if loss-based tracking was used
+    import glob
+
     best_checkpoint_pattern = str(Path(results_dir) / "checkpoints" / "best_loss*.pt")
     best_checkpoints = glob.glob(best_checkpoint_pattern)
     if best_checkpoints:

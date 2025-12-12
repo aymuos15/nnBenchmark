@@ -18,6 +18,7 @@ from monai.handlers.lr_schedule_handler import LrScheduleHandler
 from monai.networks import nets as monai_nets
 
 from src.engines.ignite_utils.progress import ConsoleProgressHandler
+from src.engines.shared import safe_getattr
 from src.engines.train.handlers import (
     ComprehensiveCheckpointHandler,
     TrainingHistoryHandler,
@@ -27,35 +28,6 @@ from src.utils.lr_scheduler import PolyLRScheduler
 
 if TYPE_CHECKING:
     from loguru._logger import Logger
-
-
-def _safe_getattr(module: Any, name: str, module_name: str) -> type:
-    """Safely get an attribute from a module with helpful error messages.
-
-    Args:
-        module: The module to get the attribute from
-        name: The attribute name to retrieve
-        module_name: Human-readable module name for error messages
-
-    Returns:
-        The requested attribute (class)
-
-    Raises:
-        ValueError: If attribute not found, with list of available options
-    """
-    try:
-        return getattr(module, name)
-    except AttributeError as e:
-        # Get available public attributes
-        available = sorted([n for n in dir(module) if not n.startswith('_')])
-        # Show first 20 options
-        options_str = ", ".join(available[:20])
-        if len(available) > 20:
-            options_str += f", ... and {len(available) - 20} more"
-        raise ValueError(
-            f"'{name}' not found in {module_name}. "
-            f"Available options: {options_str}"
-        ) from e
 
 
 def _prepare_batch(
@@ -197,20 +169,20 @@ def create_trainer(
     # Merge model-specific parameters if present
     if model_type in cfg["model"] and isinstance(cfg["model"][model_type], dict):
         model_cfg.update(cfg["model"][model_type])
-    model_class = _safe_getattr(monai_nets, model_type, "monai.networks.nets")
+    model_class = safe_getattr(monai_nets, model_type, "monai.networks.nets")
     model = model_class(**model_cfg).to(device)
 
     # Build optimizer via getattr (supports any PyTorch optimizer)
     learning_rate = cfg["training"]["learning_rate"]
     opt_cfg = cfg["optimizer"].copy()
     opt_type = opt_cfg.pop("type")
-    opt_class = _safe_getattr(torch.optim, opt_type, "torch.optim")
+    opt_class = safe_getattr(torch.optim, opt_type, "torch.optim")
     optimizer = opt_class(model.parameters(), lr=learning_rate, **opt_cfg)
 
     # Build loss function via getattr (supports any MONAI loss)
     loss_cfg = cfg["loss"].copy()
     loss_type = loss_cfg.pop("type")
-    loss_class = _safe_getattr(monai_losses, loss_type, "monai.losses")
+    loss_class = safe_getattr(monai_losses, loss_type, "monai.losses")
     loss_fn_base = loss_class(**loss_cfg)
 
     # Wrap loss function for deep supervision if enabled

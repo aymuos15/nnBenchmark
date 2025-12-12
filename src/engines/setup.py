@@ -16,39 +16,11 @@ from monai.networks import nets as monai_nets
 
 from src.config import get_datasets_root, get_results_root
 from src.config.load import load_config
+from src.engines.shared import safe_getattr
 from src.utils.files import ensure_directory
 
 if TYPE_CHECKING:
     from loguru._logger import Logger
-
-
-def _safe_getattr(module: Any, name: str, module_name: str) -> type:
-    """Safely get an attribute from a module with helpful error messages.
-
-    Args:
-        module: The module to get the attribute from
-        name: The attribute name to retrieve
-        module_name: Human-readable module name for error messages
-
-    Returns:
-        The requested attribute (class)
-
-    Raises:
-        ValueError: If attribute not found, with list of available options
-    """
-    try:
-        return getattr(module, name)
-    except AttributeError as e:
-        # Get available public attributes
-        available = sorted([n for n in dir(module) if not n.startswith('_')])
-        # Show first 20 options
-        options_str = ", ".join(available[:20])
-        if len(available) > 20:
-            options_str += f", ... and {len(available) - 20} more"
-        raise ValueError(
-            f"'{name}' not found in {module_name}. "
-            f"Available options: {options_str}"
-        ) from e
 
 
 def setup_device(verbose: bool = True) -> torch.device:
@@ -155,14 +127,14 @@ def build_transforms(config: dict, mode: str = "train") -> transforms.Compose:
     for t_cfg in config["transforms"]["common"]:
         t_cfg = t_cfg.copy()
         t_type = t_cfg.pop("type")
-        t_class = _safe_getattr(transforms, t_type, "monai.transforms")
+        t_class = safe_getattr(transforms, t_type, "monai.transforms")
         transform_list.append(t_class(**t_cfg))
 
     # Append mode-specific transforms
     for t_cfg in config["transforms"][mode]:
         t_cfg = t_cfg.copy()
         t_type = t_cfg.pop("type")
-        t_class = _safe_getattr(transforms, t_type, "monai.transforms")
+        t_class = safe_getattr(transforms, t_type, "monai.transforms")
         transform_list.append(t_class(**t_cfg))
 
     return transforms.Compose(transform_list)
@@ -192,7 +164,7 @@ def build_model(config: dict, device: torch.device) -> torch.nn.Module:
     # Merge model-specific parameters if present
     if model_type in config["model"] and isinstance(config["model"][model_type], dict):
         model_cfg.update(config["model"][model_type])
-    model_class = _safe_getattr(monai_nets, model_type, "monai.networks.nets")
+    model_class = safe_getattr(monai_nets, model_type, "monai.networks.nets")
     return model_class(**model_cfg).to(device)
 
 
@@ -209,7 +181,7 @@ def build_metrics(config: dict) -> dict:
     for m_cfg in config["metrics"]:
         m_cfg = m_cfg.copy()
         m_type = m_cfg.pop("type")
-        m_class = _safe_getattr(monai_metrics, m_type, "monai.metrics")
+        m_class = safe_getattr(monai_metrics, m_type, "monai.metrics")
         metric_fns[m_type] = m_class(**m_cfg)
     return metric_fns
 

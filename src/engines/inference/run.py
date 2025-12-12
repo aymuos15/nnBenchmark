@@ -12,6 +12,12 @@ from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
+from src.engines.inference.engine import InferenceEngine
+from src.engines.inference.handlers import (
+    InferenceMetricsHandler,
+    InferenceProgressHandler,
+    InferenceResultsHandler,
+)
 from src.engines.setup import (
     build_metrics,
     build_model,
@@ -19,12 +25,6 @@ from src.engines.setup import (
     log_metrics_summary,
     print_results,
     setup_experiment,
-)
-from src.engines.inference.engine import InferenceEngine
-from src.engines.inference.handlers import (
-    InferenceMetricsHandler,
-    InferenceProgressHandler,
-    InferenceResultsHandler,
 )
 from src.logging import (
     log_and_print,

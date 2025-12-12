@@ -74,12 +74,43 @@ All nnU-Net line references point to the official repository at `https://github.
 | **Contrast Probability** | `yaml_generator.py:432` (prob: 0.15) | [`nnUNetTrainer.py:735`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L735) (p_per_sample=0.15) | ✅ |
 | **Low-Res Scale** | `yaml_generator.py:439-445` (RandZoomd, scale: 0.5-1.0) | [`nnUNetTrainer.py:736`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L736) (zoom_range=(0.5, 1)) | ✅ |
 | **Low-Res Probability** | `yaml_generator.py:442` (prob: 0.25) | [`nnUNetTrainer.py:738`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L738) (p_per_sample=0.25) | ✅ |
-| **Low-Res Implementation** | RandZoomd (MONAI equivalent) | SimulateLowResolutionTransform | ✅ Functionally equivalent |
+| | **Low-Res Implementation** | RandZoomd (MONAI): bilinear single-phase | SimulateLowResolutionTransform (batchgenerators): NN→Cubic two-phase | ⚠️ Different algorithms |
 | **Gamma Transform (Inverted)** | `yaml_generator.py:450-453` (HistogramShift, prob: 0.1) | [`nnUNetTrainer.py:740`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L740) (GammaTransform, invert_image=True) | ✅ |
 | **Gamma Probability (Inverted)** | `yaml_generator.py:438` (prob: 0.1) | [`nnUNetTrainer.py:740`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L740) (p_per_sample=0.1) | ✅ |
 | **Gamma Transform (Regular)** | `yaml_generator.py:442-445` (HistogramShift, prob: 0.3) | [`nnUNetTrainer.py:741`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L741) (GammaTransform, invert_image=False) | ✅ |
 | **Gamma Probability (Regular)** | `yaml_generator.py:444` (prob: 0.3) | [`nnUNetTrainer.py:741`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L741) (p_per_sample=0.3) | ✅ |
 | **Elastic Deform** | Not implemented (intentional) | [`nnUNetTrainer.py:718`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L718), [`724`](https://github.com/MIC-DKFZ/nnUNet/blob/v2.4.1/nnunetv2/training/nnUNetTrainer/nnUNetTrainer.py#L724) (p_elastic_deform=0, disabled) | ✅ Correctly disabled |
+
+### Low-Resolution Augmentation Algorithm Differences
+
+**⚠️ Important**: While both implementations use the same zoom range (0.5-1.0) and probability (0.25), they use **fundamentally different algorithms**:
+
+| Aspect | nnBenchmark (RandZoomd) | nnU-Net (SimulateLowResolutionTransform) |
+|--------|-------------------------|-------------------------------------------|
+| **Algorithm** | Single-phase zoom | Two-phase downsample→upsample |
+| **Downsample Interpolation** | Bilinear | Nearest Neighbor (order=0) |
+| **Upsample Interpolation** | Bilinear | Cubic (order=3) |
+| **Library** | MONAI/PyTorch | batchgenerators/scipy.ndimage |
+| **Per-channel Support** | No | Yes (p_per_channel=0.5) |
+| **Ignore Axes** | Not supported | Supported (for anisotropic data) |
+
+**Algorithm Explanation**:
+
+- **nnBenchmark**: Direct bilinear resampling to zoom factor and back
+  - Creates smooth artifacts
+  - No sharp frequency cutoff
+  
+- **nnU-Net**: Two-phase scipy.ndimage.zoom
+  1. Downsample with nearest-neighbor (creates blocky patterns, loses high-freq)
+  2. Upsample with cubic (smooths but preserves aliasing artifacts)
+  3. Result: Realistic low-resolution imaging artifacts with aliasing
+
+**Training Implications**:
+- Models trained with nnU-Net learn to handle realistic sensor degradation (aliasing)
+- Models trained with nnBenchmark may see smoother, less realistic artifacts
+- **Recommendation**: If exact nnU-Net compatibility is required, see `LOWRES_AUGMENTATION_DIFFERENCES.md` for implementation options
+
+See also: `LOWRES_AUGMENTATION_DIFFERENCES.md` for detailed analysis and implementation options.
 
 ## Validation Transforms
 
@@ -555,7 +586,7 @@ This is **not a configuration difference**, but rather a **framework difference*
 
 | # | Difference | Category | Impact | Priority | Status |
 |---|-----------|----------|--------|----------|--------|
-| 1 | Low-Res Augmentation | Not Implemented | Minor | Low | ⏳ Optional |
+| 1 | Low-Res Augmentation | Different Algorithm | Minor | Medium | ⚠️ Different (RandZoomd vs SimulateLowResolutionTransform) |
 | 2 | Elastic Deformation | Not Implemented | Minor | Low | ⏳ Optional |
 | 3 | Epochs (200 vs 1000) | Framework-Driven | Medium | Medium | ✅ Accepted |
 | 4 | Training Iterations | Framework-Driven | Medium | Medium | ✅ Accepted |
@@ -584,9 +615,11 @@ nnBenchmark implements the core nnU-Net v2.4.1 hyperparameters **with high fidel
 - **Optimizer**: SGD with momentum=0.99, nesterov=True, weight_decay=3e-5
 - **Learning Rate**: 0.01 with polynomial decay (exponent=0.9)
 - **Gradient Clipping**: max_norm=12
-- **Data Augmentation**: All spatial and intensity transforms with correct probabilities
+- **Data Augmentation**: All spatial and intensity transforms with correct probabilities (with 1 caveat below)
 - **Loss Function**: Dice + Cross-Entropy with deep supervision
 - **Random Seed**: 12345 for reproducibility
+
+**⚠️ Caveat**: Low-resolution augmentation uses different algorithms (RandZoomd vs SimulateLowResolutionTransform). Both are 0.25 probability with 0.5-1.0 zoom, but nnU-Net's two-phase approach (NN downsample → Cubic upsample) creates different artifacts than nnBenchmark's single-phase bilinear zoom. See section "Low-Resolution Augmentation Algorithm Differences" above.
 
 #### ✅ Architectural Alignment
 nnBenchmark matches nnU-Net's key architectural decisions:

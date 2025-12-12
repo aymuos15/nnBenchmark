@@ -36,6 +36,7 @@ class InferenceMetricsHandler(BaseMetricsHandler):
             )
 
             if has_per_class:
+                assert self.class_labels is not None  # Checked in has_per_class
                 for name, score in batch_scores.items():
                     if name in batch_scores_per_class:
                         per_class = batch_scores_per_class[name]

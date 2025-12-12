@@ -186,4 +186,3 @@ def plot_classwise_scores(
     plt.close(fig)
 
     return save_path
-
