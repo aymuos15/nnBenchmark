@@ -92,7 +92,6 @@ For an extended workflow, refer to: **[Workflow](docs/src/workflow.md)**
 ## Important Documentation
 
 - **[Configuration Reference](docs/src/config.md)** - Complete guide to all config options
-  - Includes [Connected Components Metric (CCMetric)](docs/src/config.md#connected-components-metric-ccmetric) for multi-instance segmentation
 - **[Terminology](docs/src/terminology.md)** - Key terms and concepts
 - **[Contributing](CONTRIBUTING.md)** - Development setup and contribution guidelines
 
