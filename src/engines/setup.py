@@ -14,6 +14,10 @@ from monai import metrics as monai_metrics
 from monai import transforms
 from monai.networks import nets as monai_nets
 
+from src.transforms.contrast import RandContrastd
+
+transforms.RandContrastd = RandContrastd  # type: ignore[attr-defined]
+
 from src.config import get_datasets_root, get_results_root
 from src.config.load import load_config
 from src.engines.shared import safe_getattr

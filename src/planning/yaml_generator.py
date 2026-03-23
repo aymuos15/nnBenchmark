@@ -528,11 +528,12 @@ def _write_transforms_config(f: TextIO, plan: ExperimentPlan) -> None:
     f.write("      factors: [0.75, 1.25]\n")
     f.write("      prob: 0.15\n\n")
 
-    f.write("    # Contrast (nnU-Net: range (0.75, 1.25), p=0.15)\n")
-    f.write("    - type: RandAdjustContrastd\n")
+    f.write("    # Contrast (nnU-Net: mean-centered multiplicative, range (0.75, 1.25), p=0.15)\n")
+    f.write("    - type: RandContrastd\n")
     f.write("      keys: [image]\n")
     f.write("      prob: 0.15\n")
-    f.write("      gamma: [0.75, 1.25]\n\n")
+    f.write("      contrast_range: [0.75, 1.25]\n")
+    f.write("      preserve_range: true\n\n")
 
     f.write("    # Low-Resolution Scale (nnU-Net: scale (0.5, 1.0), p=0.25)\n")
     f.write("    # Simulates low resolution images to improve robustness\n")
