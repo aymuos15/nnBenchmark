@@ -82,8 +82,9 @@ def run_inference(
     log = setup_test_logger(results_dir)
     log_header(log, f"Inference started for config: {config_name}")
 
-    seed: int = get_seed_from_config(cfg)
-    set_random_seeds(seed)
+    seed = get_seed_from_config(cfg)
+    if seed is not None:
+        set_random_seeds(seed)
     enable_cuda_determinism(deterministic=False)
     log.info(f"Random seed: {seed}")
 

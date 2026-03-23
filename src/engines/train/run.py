@@ -157,8 +157,9 @@ def run_training(
         resolved_config_path
     )
 
-    seed: int = get_seed_from_config(cfg)
-    set_random_seeds(seed)
+    seed = get_seed_from_config(cfg)
+    if seed is not None:
+        set_random_seeds(seed)
     enable_cuda_determinism(deterministic=False)
 
     # Setup logger for training (always appends to existing logs)
