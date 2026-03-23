@@ -284,6 +284,8 @@ def _write_training_config(
     f.write("training:\n")
     f.write("  # Total training epochs (standard for medical segmentation)\n")
     f.write(f"  epochs: {PLANNING_CONSTANTS.EPOCHS}\n\n")
+    f.write("  # Iterations per epoch (nnU-Net default: 250, with random sampling)\n")
+    f.write(f"  num_iterations_per_epoch: {PLANNING_CONSTANTS.NUM_ITERATIONS_PER_EPOCH}\n\n")
     f.write(
         "  # Batch size (auto-optimized based on patch size and available memory)\n"
     )

@@ -72,6 +72,7 @@ class PlanningConstants:
     # Training Hyperparameters
     # ========================================================================
     EPOCHS: int = 1000
+    NUM_ITERATIONS_PER_EPOCH: int = 250  # nnU-Net default
     LEARNING_RATE: float = 0.01
     VAL_INTERVAL: int = 1
     WEIGHT_DECAY: float = 0.00003
