@@ -256,33 +256,21 @@ def run_training(
         persistent_workers = num_workers > 0
 
     # Create data loaders
+    # nnU-Net style: fixed iterations per epoch with random sampling (replacement)
     # pin_memory=False to reduce GPU memory pressure and avoid CUDA transfer issues
-    # This is particularly important for small GPUs (e.g., 4GB RTX A1000)
+    from torch.utils.data import RandomSampler
+
     batch_size = cfg["training"]["batch_size"]
-    num_iterations = cfg["training"].get("num_iterations_per_epoch", None)
-
-    if num_iterations is not None:
-        # nnU-Net style: fixed iterations per epoch with random sampling (replacement)
-        from torch.utils.data import RandomSampler
-
-        sampler = RandomSampler(train_ds, replacement=True, num_samples=num_iterations * batch_size)
-        train_loader = DataLoader(
-            train_ds,
-            batch_size=batch_size,
-            sampler=sampler,
-            num_workers=num_workers,
-            persistent_workers=persistent_workers,
-            pin_memory=False,
-        )
-    else:
-        train_loader = DataLoader(
-            train_ds,
-            batch_size=batch_size,
-            shuffle=True,
-            num_workers=num_workers,
-            persistent_workers=persistent_workers,
-            pin_memory=False,
-        )
+    num_iterations = cfg["training"]["num_iterations_per_epoch"]
+    sampler = RandomSampler(train_ds, replacement=True, num_samples=num_iterations * batch_size)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        sampler=sampler,
+        num_workers=num_workers,
+        persistent_workers=persistent_workers,
+        pin_memory=False,
+    )
 
     log.info(f"Training samples: {len(train_ds)}")
 
