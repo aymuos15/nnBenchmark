@@ -41,15 +41,15 @@ from src.utils.seeding import (
 )
 
 
-def _build_data_dicts_from_folder(input_folder: str) -> list[dict[str, str]]:
+def _build_data_dicts_from_folder(input_folder: str, file_ending: str) -> list[dict[str, str]]:
     """Build data dicts from an input image folder, pairing with labels if available."""
     from src.utils.data import extract_base_name_for_label
 
     input_path = Path(input_folder)
-    label_dir = input_path.parent / "labelsTr"
+    label_dir = input_path.parent / input_path.name.replace("images", "labels")
 
     data_dicts: list[dict[str, str]] = []
-    for img in sorted(input_path.glob("*.nii.gz")):
+    for img in sorted(input_path.glob(f"*{file_ending}")):
         if img.name.startswith("._"):
             continue
         entry: dict[str, str] = {"image": str(img)}
@@ -133,7 +133,11 @@ def run_inference(
 
     # Data
     if input_folder is not None:
-        test_data = _build_data_dicts_from_folder(input_folder)
+        import json as _json
+        dataset_json_path = Path(data_dir) / "dataset.json"
+        with open(dataset_json_path) as _f:
+            file_ending = _json.load(_f).get("file_ending", ".nii.gz")
+        test_data = _build_data_dicts_from_folder(input_folder, file_ending)
         log.info(f"Test cases: {len(test_data)} (from -i {input_folder})")
     else:
         test_data = get_test_data_dicts(data_dir, fold, use_test_set)
