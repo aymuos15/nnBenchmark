@@ -41,11 +41,34 @@ from src.utils.seeding import (
 )
 
 
+def _build_data_dicts_from_folder(input_folder: str) -> list[dict[str, str]]:
+    """Build data dicts from an input image folder, pairing with labels if available."""
+    from src.utils.data import extract_base_name_for_label
+
+    input_path = Path(input_folder)
+    label_dir = input_path.parent / "labelsTr"
+
+    data_dicts: list[dict[str, str]] = []
+    for img in sorted(input_path.glob("*.nii.gz")):
+        if img.name.startswith("._"):
+            continue
+        entry: dict[str, str] = {"image": str(img)}
+        if label_dir.exists():
+            base_name, label_ext = extract_base_name_for_label(img.name)
+            label_path = label_dir / f"{base_name}{label_ext}"
+            if label_path.exists():
+                entry["label"] = str(label_path)
+        data_dicts.append(entry)
+    return data_dicts
+
+
 def run_inference(
     config_path: str,
     model_path: str | None = None,
     use_test_set: bool = False,
     dataset: str | None = None,
+    input_folder: str | None = None,
+    output_folder: str | None = None,
 ) -> None:
     # Resolve config path (handles both absolute and relative paths)
     resolved_config_path = str(resolve_config_path(config_path, dataset))
@@ -111,11 +134,15 @@ def run_inference(
         log.info("Mixed precision (FP16) inference disabled")
 
     # Data
-    test_data = get_test_data_dicts(data_dir, fold, use_test_set)
-    log.info(f"Test cases: {len(test_data)}")
-    log.info(
-        f"Test mode: {'Dedicated test set' if use_test_set else 'Validation split'}"
-    )
+    if input_folder is not None:
+        test_data = _build_data_dicts_from_folder(input_folder)
+        log.info(f"Test cases: {len(test_data)} (from -i {input_folder})")
+    else:
+        test_data = get_test_data_dicts(data_dir, fold, use_test_set)
+        log.info(f"Test cases: {len(test_data)}")
+        log.info(
+            f"Test mode: {'Dedicated test set' if use_test_set else 'Validation split'}"
+        )
 
     # Transforms from config
     test_transforms = build_transforms(cfg, mode="test")

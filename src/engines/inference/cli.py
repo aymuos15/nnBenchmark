@@ -25,10 +25,19 @@ def main() -> None:
         action="store_true",
         help="Use validation split instead of dedicated test set (imagesTs/labelsTs)",
     )
+    parser.add_argument(
+        "-i", "--input", type=str, default=None, help="Input image folder"
+    )
+    parser.add_argument(
+        "-o", "--output", type=str, default=None, help="Output prediction folder"
+    )
     args = parser.parse_args()
     # Default is to use test set (use_test_set=True), unless --use-val-split is specified
     use_test_set = not args.use_val_split
-    run_inference(args.config, args.model, use_test_set, dataset=args.dataset)
+    run_inference(
+        args.config, args.model, use_test_set,
+        dataset=args.dataset, input_folder=args.input, output_folder=args.output,
+    )
 
 
 if __name__ == "__main__":
