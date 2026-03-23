@@ -149,15 +149,16 @@ def run_inference(
     # Transforms from config
     test_transforms = build_transforms(cfg, mode="test")
 
-    # When loading raw data via -i, add EnsureChannelFirstd after LoadImaged
+    # When loading raw 3D data via -i, add EnsureChannelFirstd after LoadImaged
+    # Skip if LoadImaged already has ensure_channel_first=True (2D datasets)
     if input_folder is not None:
         from monai.transforms import Compose, EnsureChannelFirstd
 
         transform_list = list(test_transforms.transforms)
-        # Insert EnsureChannelFirstd after LoadImaged (index 1)
         for i, t in enumerate(transform_list):
             if type(t).__name__ == "LoadImaged":
-                transform_list.insert(i + 1, EnsureChannelFirstd(keys=["image", "label"]))
+                if not getattr(t, "ensure_channel_first", False):
+                    transform_list.insert(i + 1, EnsureChannelFirstd(keys=["image", "label"]))
                 break
         test_transforms = Compose(transform_list)
 
