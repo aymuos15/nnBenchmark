@@ -342,9 +342,8 @@ def _write_loss_config(f: TextIO, plan: ExperimentPlan) -> None:
     f.write("  to_onehot_y: true\n\n")
     f.write("  # Apply softmax to model outputs\n")
     f.write("  softmax: true\n\n")
-    f.write("  # Batch dice: compute dice across entire batch for stable gradients\n")
-    f.write("  # Matches nnUNet's batch_dice=True for more stable early training\n")
-    f.write("  batch: true\n\n")
+    f.write("  # Batch dice: nnU-Net uses batch=true for 2D, batch=false for 3D\n")
+    f.write(f"  batch: {str(plan.batch_dice).lower()}\n\n")
 
 
 def _write_metrics_config(f: TextIO, plan: ExperimentPlan) -> None:

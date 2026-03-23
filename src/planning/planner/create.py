@@ -63,6 +63,9 @@ class ExperimentPlan:
     deep_supr_num: int  # Number of extra DS outputs beyond final (num_stages - 2)
     ds_weights: list[float]  # Decreasing weights per decoder stage
 
+    # Loss configuration
+    batch_dice: bool  # nnU-Net: True for 2D, False for 3D
+
     # Intensity normalization
     normalization_scheme: str
     intensity_clip_min: float
@@ -233,6 +236,7 @@ def create_experiment_plan(
         deep_supervision=True,  # Always enabled following nnU-Net approach
         deep_supr_num=deep_supr_num,  # Match nnU-Net: all decoder stages
         ds_weights=ds_weights,  # Exponential decay weights
+        batch_dice=fingerprint.is_2d,  # nnU-Net: True for 2D, False for 3D
         normalization_scheme=fingerprint.normalization_scheme,
         intensity_clip_min=clip_min,
         intensity_clip_max=clip_max,
