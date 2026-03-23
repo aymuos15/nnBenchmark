@@ -103,25 +103,23 @@ class DeepSupervisionLossWrapper(nn.Module):
                 f"number of weights ({len(self.ds_weights)})"
             )
 
-        target_size = labels.shape[2:]  # Get spatial dimensions
+        import torch.nn.functional as F
+
         total_loss = torch.tensor(0.0, device=labels.device, dtype=labels.dtype)
 
         for output, weight in zip(outputs_list, self.ds_weights):
-            # Upsample output to match target size if needed
-            if output.shape[2:] != target_size:
-                import torch.nn.functional as F
-
-                output_up = F.interpolate(
-                    output,
-                    size=target_size,
-                    mode="trilinear" if len(target_size) == 3 else "bilinear",
-                    align_corners=False,
-                )
+            # Downsample labels to match output resolution (nnU-Net style)
+            # This preserves gradient flow at native decoder resolution
+            if output.shape[2:] != labels.shape[2:]:
+                labels_down = F.interpolate(
+                    labels.float(),
+                    size=output.shape[2:],
+                    mode="nearest",
+                ).to(labels.dtype)
             else:
-                output_up = output
+                labels_down = labels
 
-            # Compute loss for this level and add weighted to total
-            level_loss = self.loss_fn(output_up, labels)
+            level_loss = self.loss_fn(output, labels_down)
             total_loss = total_loss + weight * level_loss
 
         return total_loss
