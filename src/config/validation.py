@@ -71,7 +71,7 @@ def validate_model_config(config: dict[str, Any]) -> None:
         )
 
     model_type = model_cfg["type"]
-    valid_types = ["DynUNet", "UNet", "KiUNet2D", "KiUNet3D"]
+    valid_types = ["DynUNet", "NativeDSDynUNet", "UNet", "KiUNet2D", "KiUNet3D"]
     if model_type not in valid_types:
         raise ValueError(
             f"Invalid model type '{model_type}'. " f"Must be one of: {valid_types}"
@@ -118,6 +118,10 @@ def validate_model_config(config: dict[str, Any]) -> None:
 # Model-specific required parameters
 _MODEL_REQUIRED_PARAMS: dict[str, tuple[list[str], str]] = {
     "DynUNet": (
+        ["filters", "kernel_size", "strides", "upsample_kernel_size"],
+        "DynUNet",
+    ),
+    "NativeDSDynUNet": (
         ["filters", "kernel_size", "strides", "upsample_kernel_size"],
         "DynUNet",
     ),

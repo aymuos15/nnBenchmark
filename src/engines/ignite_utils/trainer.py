@@ -17,6 +17,10 @@ from monai.engines import SupervisedTrainer
 from monai.handlers.lr_schedule_handler import LrScheduleHandler
 from monai.networks import nets as monai_nets
 
+from src.models.dynunet import NativeDSDynUNet
+
+monai_nets.NativeDSDynUNet = NativeDSDynUNet  # type: ignore[attr-defined]
+
 from src.engines.ignite_utils.progress import ConsoleProgressHandler
 from src.engines.shared import safe_getattr
 from src.engines.train.handlers import (
@@ -158,15 +162,18 @@ def create_trainer(
     # Remove training-only parameters that shouldn't be passed to model constructor
     model_cfg.pop("ds_weights", None)  # Used by DeepSupervisionLossWrapper, not model
     # deep_supervision only supported by DynUNet and BasicUNetPlusPlus
-    if model_type not in ("DynUNet", "BasicUNetPlusPlus"):
+    if model_type not in ("DynUNet", "NativeDSDynUNet", "BasicUNetPlusPlus"):
         model_cfg.pop("deep_supervision", None)
         model_cfg.pop("deep_supr_num", None)
-    # Remove other model type configs (e.g., UNet config when using DynUNet)
-    model_cfg.pop("DynUNet", None)
+    # Merge model-specific parameters
+    # NativeDSDynUNet uses DynUNet params from the config
+    params_key = "DynUNet" if model_type == "NativeDSDynUNet" else model_type
+    dynunet_params = model_cfg.pop("DynUNet", None)
     model_cfg.pop("UNet", None)
-    # Merge model-specific parameters if present
-    if model_type in cfg["model"] and isinstance(cfg["model"][model_type], dict):
-        model_cfg.update(cfg["model"][model_type])
+    if params_key == "DynUNet" and dynunet_params:
+        model_cfg.update(dynunet_params)
+    elif params_key in cfg["model"] and isinstance(cfg["model"][params_key], dict):
+        model_cfg.update(cfg["model"][params_key])
     model_class = safe_getattr(monai_nets, model_type, "monai.networks.nets")
     model = model_class(**model_cfg).to(device)
 

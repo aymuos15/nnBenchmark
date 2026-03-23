@@ -188,7 +188,7 @@ def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> N
     f.write("model:\n")
     f.write("  # Model selection: DynUNet (default) or UNet\n")
     f.write(
-        "  type: DynUNet  # monai.networks.nets.DynUNet (change to 'UNet' for monai.networks.nets.UNet)\n\n"
+        "  type: NativeDSDynUNet  # DynUNet with native-resolution DS outputs (change to 'UNet' for monai.networks.nets.UNet)\n\n"
     )
 
     # Shared parameters
