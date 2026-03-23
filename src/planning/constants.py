@@ -71,7 +71,7 @@ class PlanningConstants:
     # ========================================================================
     # Training Hyperparameters
     # ========================================================================
-    EPOCHS: int = 5
+    EPOCHS: int = 1000
     LEARNING_RATE: float = 0.01
     VAL_INTERVAL: int = 1
     WEIGHT_DECAY: float = 0.00003

@@ -206,7 +206,7 @@ def create_trainer(
 
     # Create learning rate scheduler
     lr_config = cfg.get("lr_scheduler", {})
-    mode = lr_config.get("mode", "linear")
+    mode = lr_config.get("mode", "poly")
     decay_rate = lr_config.get("decay_rate", 0.00001)
     exponent = lr_config.get("exponent", 0.9)
 
