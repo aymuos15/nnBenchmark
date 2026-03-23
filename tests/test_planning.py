@@ -303,7 +303,9 @@ class TestYAMLGenerator:
             strides=[(2, 2), (2, 2)],  # Now list of tuples
             upsample_kernel_size=[(2, 2), (2, 2)],
             deep_supervision=True,
+            deep_supr_num=0,
             ds_weights=[1.0, 0.5],
+            batch_dice=True,
             normalization_scheme="ZScoreNormalization",
             intensity_clip_min=0.0,
             intensity_clip_max=255.0,
@@ -329,7 +331,7 @@ class TestYAMLGenerator:
 
         # Verify training augmentations
         train_types = [t["type"] for t in config["transforms"]["train"]]
-        assert "RandSpatialCropd" in train_types
+        assert "RandCropByPosNegLabeld" in train_types
         assert "RandFlipd" in train_types
 
     def test_ct_clipping_in_yaml(self, temp_dir):
@@ -349,7 +351,9 @@ class TestYAMLGenerator:
             strides=[(2, 2, 2), (2, 2, 2), (2, 2, 2)],
             upsample_kernel_size=[(2, 2, 2), (2, 2, 2), (2, 2, 2)],
             deep_supervision=True,
+            deep_supr_num=1,
             ds_weights=[1.0, 0.5, 0.25],
+            batch_dice=False,
             normalization_scheme="CTNormalization",
             intensity_clip_min=-200.0,
             intensity_clip_max=300.0,
@@ -405,7 +409,9 @@ class TestYAMLGenerator:
             strides=[(2, 2, 2), (2, 2, 2), (2, 2, 2)],
             upsample_kernel_size=[(2, 2, 2), (2, 2, 2), (2, 2, 2)],
             deep_supervision=True,
+            deep_supr_num=1,
             ds_weights=[1.0, 0.5, 0.25],
+            batch_dice=False,
             normalization_scheme="ZScoreNormalization",
             intensity_clip_min=0.0,
             intensity_clip_max=255.0,
@@ -455,7 +461,9 @@ class TestYAMLGenerator:
             strides=[(2, 2, 2), (2, 2, 2)],
             upsample_kernel_size=[(2, 2, 2), (2, 2, 2)],
             deep_supervision=True,
+            deep_supr_num=0,
             ds_weights=[1.0, 0.5],
+            batch_dice=False,
             normalization_scheme="CTNormalization",
             intensity_clip_min=-500.5,
             intensity_clip_max=2500.25,
@@ -553,7 +561,9 @@ class TestCTClippingApplication:
             strides=[(2, 2), (2, 2)],
             upsample_kernel_size=[(2, 2), (2, 2)],
             deep_supervision=True,
+            deep_supr_num=0,
             ds_weights=[1.0, 0.5],
+            batch_dice=True,
             normalization_scheme="CTNormalization",
             intensity_clip_min=-200.0,
             intensity_clip_max=300.0,
@@ -614,7 +624,9 @@ class TestPlanningWorkflowIntegration:
             strides=[(2, 2, 2), (2, 2, 2)],
             upsample_kernel_size=[(2, 2, 2), (2, 2, 2)],
             deep_supervision=False,
+            deep_supr_num=0,
             ds_weights=[1.0],
+            batch_dice=False,
             normalization_scheme="ZScoreNormalization",
             intensity_clip_min=0.0,
             intensity_clip_max=100.0,
@@ -649,7 +661,7 @@ class TestPlanningWorkflowIntegration:
 
         # Verify model has required structure
         assert "type" in config["model"]
-        assert config["model"]["type"] in ["DynUNet", "UNet"]
+        assert config["model"]["type"] in ["DynUNet", "NativeDSDynUNet", "UNet"]
 
         # Verify training config has required fields
         assert "batch_size" in config["training"]
@@ -679,7 +691,9 @@ class TestPlanningWorkflowIntegration:
             strides=[(2, 2, 2), (2, 2, 2)],
             upsample_kernel_size=[(2, 2, 2), (2, 2, 2)],
             deep_supervision=False,
+            deep_supr_num=0,
             ds_weights=[1.0],
+            batch_dice=False,
             normalization_scheme="ZScoreNormalization",
             intensity_clip_min=0.0,
             intensity_clip_max=100.0,
@@ -700,7 +714,9 @@ class TestPlanningWorkflowIntegration:
             strides=[(2, 2, 2), (2, 2, 2)],
             upsample_kernel_size=[(2, 2, 2), (2, 2, 2)],
             deep_supervision=False,
+            deep_supr_num=0,
             ds_weights=[1.0],
+            batch_dice=False,
             normalization_scheme="ZScoreNormalization",
             intensity_clip_min=0.0,
             intensity_clip_max=100.0,

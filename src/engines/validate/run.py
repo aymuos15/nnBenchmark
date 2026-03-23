@@ -316,7 +316,7 @@ def _validate_single_checkpoint(
     log_separator(log, print_too=False)
     log.info(f"Results saved to: {results_dir}")
     val_history_file = (
-        f"validation_epoch_{epoch:03d}.json" if epoch else "validation.json"
+        f"validation_epoch_{epoch:03d}.json" if epoch is not None else "validation.json"
     )
     log.info(f"Validation history: {Path(results_dir) / 'history' / val_history_file}")
     log.info("Validation completed successfully!")

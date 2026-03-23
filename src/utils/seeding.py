@@ -55,7 +55,7 @@ def enable_cuda_determinism(deterministic: bool = False) -> None:
         torch.backends.cudnn.benchmark = not deterministic
 
 
-def get_seed_from_config(cfg: dict[str, Any]) -> int | None:
+def get_seed_from_config(cfg: dict[str, Any]) -> int:
     """
     Extract seed from config with consistent priority order.
 
@@ -63,16 +63,17 @@ def get_seed_from_config(cfg: dict[str, Any]) -> int | None:
     1. Top-level 'seed' key
     2. 'training.seed' key
     3. 'inference.seed' key
-    4. None (no seeding, matches nnU-Net behavior)
+    4. Default: 12345
 
     Args:
         cfg: Configuration dictionary
 
     Returns:
-        The seed value (int) or None if no seed configured
+        The seed value (int), defaults to 12345 if no seed configured
     """
     return (
         cfg.get("seed")
         or cfg.get("training", {}).get("seed")
         or cfg.get("inference", {}).get("seed")
+        or 12345
     )
