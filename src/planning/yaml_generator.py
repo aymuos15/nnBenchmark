@@ -467,11 +467,14 @@ def _write_transforms_config(f: TextIO, plan: ExperimentPlan) -> None:
         "  # --------------------------------------------------------------------------\n"
     )
     f.write("  train:\n")
-    f.write("    # Random spatial crop to patch size\n")
-    f.write("    - type: RandSpatialCropd\n")
+    f.write("    # Random crop with foreground oversampling (nnU-Net: 33% foreground)\n")
+    f.write("    - type: RandCropByPosNegLabeld\n")
     f.write("      keys: [image, label]\n")
-    f.write(f"      roi_size: {list(plan.patch_size)}\n")
-    f.write("      random_size: false\n\n")
+    f.write("      label_key: label\n")
+    f.write(f"      spatial_size: {list(plan.patch_size)}\n")
+    f.write("      pos: 1\n")
+    f.write("      neg: 2\n")
+    f.write("      num_samples: 1\n\n")
 
     # Spatial augmentations (nnU-Net exact)
     f.write("    # Rotation (nnU-Net: ±30° for isotropic 3D, p=0.2)\n")
