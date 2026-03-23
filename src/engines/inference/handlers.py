@@ -116,7 +116,7 @@ class InferenceResultsHandler(BaseResultsHandler):
             "dataset_name": self.cfg["dataset"]["name"],
             "fold": self.fold,
             "use_test_set": self.use_test_set,
-            "model_path": self.model_path,
+            "model_path": str(self.model_path),
             "metrics": metric_names,
             "summary": summary,
             "per_sample_scores": per_sample_scores,
