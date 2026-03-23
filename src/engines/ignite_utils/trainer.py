@@ -3,7 +3,6 @@ MONAI SupervisedTrainer wrapper for nnBenchmark.
 Handles training loop, validation, checkpointing, and metric computation.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -134,7 +133,7 @@ def create_trainer(
     device: torch.device,
     train_loader: DataLoader,
     results_dir: str,
-    logger: Logger,
+    logger: "Logger",
 ) -> tuple[
     SupervisedTrainer,
     torch.optim.Optimizer,

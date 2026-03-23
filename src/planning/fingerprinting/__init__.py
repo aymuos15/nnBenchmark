@@ -2,7 +2,6 @@
 Dataset fingerprinting and system resource detection module.
 """
 
-from __future__ import annotations
 
 from src.planning.fingerprinting.fingerprint import (
     DatasetFingerprint,

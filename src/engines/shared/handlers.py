@@ -4,7 +4,6 @@ Provides common functionality to eliminate code duplication between
 inference and validation handler implementations.
 """
 
-from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -51,7 +50,7 @@ class BaseMetricsHandler(ABC):
     def __init__(
         self,
         metric_fns: dict[str, Any],
-        logger: Logger | None = None,
+        logger: "Logger | None" = None,
         data_dir: str | None = None,
         include_background: bool = False,
         verbose: bool = True,
@@ -220,7 +219,7 @@ class BaseProgressHandler:
 
     def __init__(
         self,
-        logger: Logger | None = None,
+        logger: "Logger | None" = None,
         total_samples: int | None = None,
         data_dicts: list[dict[str, str]] | None = None,
     ):

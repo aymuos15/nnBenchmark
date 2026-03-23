@@ -6,7 +6,6 @@ For end-to-end reproducibility, ensure set_random_seeds() from src.utils.seeding
 is called before using this module in training/evaluation workflows.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 from typing import Any

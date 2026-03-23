@@ -3,7 +3,6 @@ Spacing analysis for dataset fingerprinting.
 Detects anisotropy following nnU-Net heuristics.
 """
 
-from __future__ import annotations
 
 import numpy as np
 

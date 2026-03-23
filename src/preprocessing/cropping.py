@@ -8,7 +8,6 @@ Based on nnU-Net v2.4.1 implementation from:
 https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/preprocessing/cropping/cropping.py
 """
 
-from __future__ import annotations
 
 from typing import Optional
 

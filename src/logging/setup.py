@@ -3,7 +3,6 @@ Logger setup utilities for nnBenchmark.
 Provides functions to configure loguru loggers for different use cases.
 """
 
-from __future__ import annotations
 
 import sys
 from pathlib import Path

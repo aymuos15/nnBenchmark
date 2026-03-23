@@ -3,7 +3,6 @@ Tests for src.engines.setup module.
 Tests result formatting utilities including test results and metric history recording.
 """
 
-from __future__ import annotations
 
 from typing import TYPE_CHECKING
 

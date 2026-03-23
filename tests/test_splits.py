@@ -3,7 +3,6 @@ Tests for src.splits module.
 Tests k-fold cross-validation split generation for datasets.
 """
 
-from __future__ import annotations
 
 import os
 

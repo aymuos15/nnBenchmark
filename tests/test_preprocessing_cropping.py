@@ -5,7 +5,6 @@ Tests the cropping module functions that remove zero background regions
 and prepare datasets for training.
 """
 
-from __future__ import annotations
 
 import numpy as np
 import pytest

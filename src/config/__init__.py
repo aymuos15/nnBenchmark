@@ -1,6 +1,5 @@
 """Configuration module for nnBenchmark."""
 
-from __future__ import annotations
 
 from src.config.paths import (
     get_datasets_root,

@@ -5,7 +5,6 @@ Automatically detects CPU, RAM, and GPU resources and recommends
 optimal configuration parameters for training and data loading.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 

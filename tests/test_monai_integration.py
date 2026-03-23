@@ -3,7 +3,6 @@ Tests for MONAI integration in src.utils.files and src.planning.fingerprint.
 Tests MONAI LoadImaged usage for robust NIfTI loading and fingerprinting.
 """
 
-from __future__ import annotations
 
 import os
 

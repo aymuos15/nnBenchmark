@@ -3,7 +3,6 @@ Tests for src.engines.setup module.
 Tests engine setup utilities including device setup, config name extraction, and experiment setup.
 """
 
-from __future__ import annotations
 
 import os
 from typing import Any

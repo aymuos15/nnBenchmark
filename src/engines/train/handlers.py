@@ -3,7 +3,6 @@ Custom MONAI handlers for nnBenchmark.
 Maintains exact output formats (training_history.json, visualizations, logs).
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -81,7 +80,7 @@ class TrainingHistoryHandler:
 class TrainingLogger:
     """Logs training progress with loss and learning rate."""
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: "Logger"):
         """
         Args:
             logger: Loguru logger instance

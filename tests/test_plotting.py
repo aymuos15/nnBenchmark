@@ -3,7 +3,6 @@ Unit tests for plotting functions.
 Tests plot generation for training, validation, and inference modules.
 """
 
-from __future__ import annotations
 
 import json
 import os

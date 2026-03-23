@@ -3,7 +3,6 @@ Common engine utilities for training and inference.
 Provides helpers for experiment setup to reduce code duplication.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -226,7 +225,7 @@ def print_results(results: dict, metric_name: str, context: str = "EVALUATION") 
 
 
 def log_metrics_summary(
-    log: Logger,
+    log: "Logger",
     all_results: dict[str, Any],
     context: str = "RESULTS",
 ) -> None:

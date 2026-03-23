@@ -3,7 +3,6 @@ Dataset fingerprinting for automatic configuration generation.
 Analyzes training images to extract shape, spacing, and intensity statistics.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from multiprocessing import Pool

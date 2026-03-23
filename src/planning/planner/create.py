@@ -6,7 +6,6 @@ This module contains:
 - create_experiment_plan(): Main orchestrator using nnU-Net EXACT heuristics
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 

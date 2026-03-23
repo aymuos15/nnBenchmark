@@ -5,7 +5,6 @@ Uses PyTorch Ignite Engine for event-driven evaluation (inference/validation)
 with handlers, matching the architecture used in training.
 """
 
-from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
@@ -34,7 +33,7 @@ class EvaluationEngine:
         device: torch.device,
         cfg: dict[str, Any],
         metric_fns: dict[str, Any],
-        data_dir: str | Path | None = None,
+        data_dir: "str | Path | None" = None,
     ):
         """
         Initialize EvaluationEngine.

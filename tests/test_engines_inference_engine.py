@@ -2,7 +2,6 @@
 Tests for src/engines/inference/engine.py - Ignite-based inference engine.
 """
 
-from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 

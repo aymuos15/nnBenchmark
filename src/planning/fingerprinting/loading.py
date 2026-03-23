@@ -3,7 +3,6 @@ Image loading and property extraction for dataset fingerprinting.
 Handles NIfTI, PNG, and JPEG formats with automatic format detection.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path

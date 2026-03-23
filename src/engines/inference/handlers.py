@@ -4,7 +4,6 @@ Provides event-driven handlers for metrics computation, progress tracking,
 logging, and results saving during inference.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 from typing import Any

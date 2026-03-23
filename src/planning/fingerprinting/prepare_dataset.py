@@ -11,7 +11,6 @@ This script should be run after setting up a dataset with proper directory struc
     └── labelsTs/          (optional test labels)
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

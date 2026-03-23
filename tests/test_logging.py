@@ -3,7 +3,6 @@ Tests for src.logging module.
 Tests logger setup, helpers, and system info logging.
 """
 
-from __future__ import annotations
 
 import os
 import time

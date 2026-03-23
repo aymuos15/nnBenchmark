@@ -11,7 +11,6 @@ Reference:
     batchgeneratorsv2/transforms/intensity/contrast.py
 """
 
-from __future__ import annotations
 
 from collections.abc import Hashable, Mapping
 from typing import Any
@@ -87,7 +86,7 @@ class RandContrastd(RandomizableTransform, MapTransform):
 
     def set_random_state(
         self, seed: int | None = None, state: np.random.RandomState | None = None
-    ) -> RandContrastd:
+    ) -> "RandContrastd":
         super().set_random_state(seed, state)
         return self
 

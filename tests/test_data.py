@@ -3,7 +3,6 @@ Tests for src.utils.data module.
 Tests data loading utilities including creating data dictionaries from dataset.json and splits.
 """
 
-from __future__ import annotations
 
 import os
 

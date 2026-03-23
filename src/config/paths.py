@@ -14,7 +14,6 @@ but deprecated. If both are set, nnBench_* takes precedence.
 Add these to your ~/.bashrc or ~/.zshrc for persistence.
 """
 
-from __future__ import annotations
 
 import os
 import warnings

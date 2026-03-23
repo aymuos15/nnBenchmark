@@ -3,7 +3,6 @@ Shared pytest fixtures for nnBenchmark tests.
 Provides mock configs, dataset files, and temporary directories.
 """
 
-from __future__ import annotations
 
 import json
 import os

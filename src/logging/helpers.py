@@ -3,7 +3,6 @@ Output formatting helpers for nnBenchmark logging.
 Provides functions for dual-output (file+console) and formatting utilities.
 """
 
-from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
@@ -14,7 +13,7 @@ if TYPE_CHECKING:
 _VALID_LEVELS = {"INFO", "WARNING", "ERROR", "DEBUG"}
 
 
-def log_and_print(logger: Logger, message: str, level: str = "INFO") -> None:
+def log_and_print(logger: "Logger", message: str, level: str = "INFO") -> None:
     """
     Write a message to both the log file and console output.
 
@@ -28,7 +27,7 @@ def log_and_print(logger: Logger, message: str, level: str = "INFO") -> None:
     print(message)
 
 
-def log_only(logger: Logger, message: str, level: str = "INFO") -> None:
+def log_only(logger: "Logger", message: str, level: str = "INFO") -> None:
     """
     Write a message to the log file only (no console output).
 
@@ -42,7 +41,7 @@ def log_only(logger: Logger, message: str, level: str = "INFO") -> None:
 
 
 def log_separator(
-    logger: Logger, char: str = "=", width: int = 70, print_too: bool = True
+    logger: "Logger", char: str = "=", width: int = 70, print_too: bool = True
 ) -> None:
     """
     Write a separator line to log file and optionally to console.
@@ -60,7 +59,7 @@ def log_separator(
 
 
 def log_header(
-    logger: Logger,
+    logger: "Logger",
     message: str,
     char: str = "=",
     width: int = 70,

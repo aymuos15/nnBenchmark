@@ -5,7 +5,6 @@ Tests the dataset analysis functions used in the planning workflow,
 including shape analysis, spacing detection, and metadata extraction.
 """
 
-from __future__ import annotations
 
 import tempfile
 from collections.abc import Generator

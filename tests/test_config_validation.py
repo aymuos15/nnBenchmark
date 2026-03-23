@@ -3,7 +3,6 @@ Tests for src.config.validation module.
 Tests configuration validation utilities including required field checks and metric validation.
 """
 
-from __future__ import annotations
 
 from typing import Any
 

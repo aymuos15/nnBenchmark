@@ -2,7 +2,6 @@
 Automatic experiment planning following nnU-Net heuristics.
 """
 
-from __future__ import annotations
 
 from src.planning.cli import main
 from src.planning.fingerprinting.fingerprint import (

@@ -3,7 +3,6 @@ File system utilities for nnBenchmark.
 Provides helpers for directory creation, case ID extraction, file path handling, JSON I/O, and image loading.
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

@@ -2,7 +2,6 @@
 nnU-Net heuristics for spacing, feature channels, and deep supervision.
 """
 
-from __future__ import annotations
 
 from src.planning.constants import PLANNING_CONSTANTS
 from src.planning.fingerprinting.fingerprint import DatasetFingerprint

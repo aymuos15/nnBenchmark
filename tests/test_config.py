@@ -3,7 +3,6 @@ Tests for src.config.load module.
 Tests configuration loading utilities including YAML configs, training history, and splits.
 """
 
-from __future__ import annotations
 
 import os
 from typing import Any

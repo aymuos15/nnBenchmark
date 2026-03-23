@@ -2,7 +2,6 @@
 Tests for src/engines/ignite_utils/trainer.py - Trainer factory and deep supervision.
 """
 
-from __future__ import annotations
 
 import torch
 import torch.nn as nn

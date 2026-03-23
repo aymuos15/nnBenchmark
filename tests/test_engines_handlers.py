@@ -2,7 +2,6 @@
 Tests for training and inference handlers in src/engines/train/handlers.py and src/engines/inference/handlers.py.
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path

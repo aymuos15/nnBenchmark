@@ -2,7 +2,6 @@
 Tests for src/engines/train/run.py - Training pipeline execution.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch

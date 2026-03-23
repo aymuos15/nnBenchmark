@@ -3,7 +3,6 @@ Tests for config merge functionality and inheritance.
 Tests the merge utilities and load_config with base_config support.
 """
 
-from __future__ import annotations
 
 import os
 import tempfile

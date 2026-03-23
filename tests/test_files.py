@@ -3,7 +3,6 @@ Tests for src.utils.files module.
 Tests file system utilities including case ID extraction, JSON I/O, and directory creation.
 """
 
-from __future__ import annotations
 
 import json
 import os

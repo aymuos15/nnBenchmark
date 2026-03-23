@@ -2,7 +2,6 @@
 Standalone training execution function.
 """
 
-from __future__ import annotations
 
 import re
 import sys

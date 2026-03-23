@@ -3,7 +3,6 @@ Console progress handler for training visualization.
 Provides real-time feedback similar to PyTorch Lightning's progress bar.
 """
 
-from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
@@ -20,7 +19,7 @@ class ConsoleProgressHandler:
     Shows epoch progress, loss, and learning rate.
     """
 
-    def __init__(self, logger: Logger, max_epochs: int):
+    def __init__(self, logger: "Logger", max_epochs: int):
         """
         Args:
             logger: Logger instance

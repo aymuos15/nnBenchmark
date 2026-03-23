@@ -9,7 +9,6 @@ Verifies that:
 5. Different seeds produce different results
 """
 
-from __future__ import annotations
 
 from typing import Any
 

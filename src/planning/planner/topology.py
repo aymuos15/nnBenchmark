@@ -3,7 +3,6 @@ Model topology determination following nnU-Net heuristics.
 Calculates pooling operations and convolution kernel sizes.
 """
 
-from __future__ import annotations
 
 import numpy as np
 

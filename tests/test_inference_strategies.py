@@ -9,7 +9,6 @@ but test models in this file all return torch.Tensor. Type narrowing via isinsta
 or explicit casting is used where needed.
 """  # noqa: PYI
 
-from __future__ import annotations
 
 from typing import cast
 

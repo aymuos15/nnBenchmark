@@ -3,7 +3,6 @@ Metadata extraction for dataset fingerprinting.
 Determines normalization schemes and scans label values.
 """
 
-from __future__ import annotations
 
 import random
 

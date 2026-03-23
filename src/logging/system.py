@@ -3,7 +3,6 @@ System and hardware logging utilities for nnBenchmark.
 Provides functions for logging GPU memory, system info, and training configuration.
 """
 
-from __future__ import annotations
 
 import platform
 import sys
@@ -15,7 +14,7 @@ if TYPE_CHECKING:
     from loguru._logger import Logger
 
 
-def log_system_info(logger: Logger, device: torch.device) -> None:
+def log_system_info(logger: "Logger", device: torch.device) -> None:
     """
     Log system and hardware information to the provided logger.
 
