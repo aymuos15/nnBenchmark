@@ -145,6 +145,12 @@ def run_planning(
                 output_dir=str(preprocessed_dir),
                 force=False,
             )
+            # Copy raw dataset.json to preprocessed dir if it exists
+            import shutil
+            raw_json = dataset_path / "dataset.json"
+            prep_json = preprocessed_dir / "dataset.json"
+            if raw_json.exists():
+                shutil.copy2(raw_json, prep_json)
             logger.debug("Preprocessing complete")
         else:
             logger.debug("Dataset already preprocessed")
