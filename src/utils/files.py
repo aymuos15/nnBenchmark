@@ -13,6 +13,15 @@ from monai.transforms.io.dictionary import LoadImaged
 from numpy.typing import NDArray
 
 
+_FILE_TYPE_MAP = {
+    ".nii.gz": "nifti",
+    ".nii": "nifti",
+    ".png": "png",
+    ".jpg": "jpeg",
+    ".jpeg": "jpeg",
+}
+
+
 def detect_file_type(filepath: str) -> str:
     """
     Detect file type from filepath extension.
@@ -24,15 +33,10 @@ def detect_file_type(filepath: str) -> str:
         File type: 'nifti', 'png', 'jpeg', or 'unknown'
     """
     filepath_lower = filepath.lower()
-
-    if filepath_lower.endswith(".nii.gz") or filepath_lower.endswith(".nii"):
-        return "nifti"
-    elif filepath_lower.endswith(".png"):
-        return "png"
-    elif filepath_lower.endswith(".jpg") or filepath_lower.endswith(".jpeg"):
-        return "jpeg"
-    else:
-        return "unknown"
+    for suffix, file_type in _FILE_TYPE_MAP.items():
+        if filepath_lower.endswith(suffix):
+            return file_type
+    return "unknown"
 
 
 def extract_case_id(filepath: str, remove_channel_suffix: bool = True) -> str:
@@ -80,20 +84,12 @@ def extract_base_name_for_label(img_name: str) -> tuple[str, str]:
 
     if file_type == "nifti":
         base_name = img_name.replace(".nii.gz", "").rsplit("_", 1)[0]
-        label_ext = ".nii.gz"
-    elif file_type == "jpeg":
-        # JPG/JPEG images typically have PNG labels
-        name_parts = img_name.rsplit(".", 1)
-        name_no_ext = name_parts[0]
-        base_name = name_no_ext.rsplit("_", 1)[0] if "_" in name_no_ext else name_no_ext
-        label_ext = ".png"
-    else:
-        # PNG and other formats
-        name_parts = img_name.rsplit(".", 1)
-        name_no_ext = name_parts[0]
-        base_name = name_no_ext.rsplit("_", 1)[0] if "_" in name_no_ext else name_no_ext
-        label_ext = f".{name_parts[1]}" if len(name_parts) > 1 else ".png"
+        return base_name, ".nii.gz"
 
+    # PNG, JPEG, and other image formats (JPEG labels are typically PNG)
+    name_no_ext, ext = img_name.rsplit(".", 1) if "." in img_name else (img_name, "")
+    base_name = name_no_ext.rsplit("_", 1)[0] if "_" in name_no_ext else name_no_ext
+    label_ext = ".png" if file_type == "jpeg" else (f".{ext}" if ext else ".png")
     return base_name, label_ext
 
 
@@ -149,8 +145,6 @@ def load_nifti_data(image_path: str) -> NDArray:
     """
     Load NIfTI image data using MONAI's LoadImaged transform.
 
-    Uses MONAI's robust image loading with proper metadata handling and error handling.
-
     Args:
         image_path: Path to NIfTI file (.nii or .nii.gz)
 
@@ -161,17 +155,8 @@ def load_nifti_data(image_path: str) -> NDArray:
         FileNotFoundError: If the file doesn't exist
         ValueError: If the file is not a valid NIfTI image
     """
-    if not Path(image_path).exists():
-        raise FileNotFoundError(f"Image file not found: {image_path}")
-
-    # Use MONAI's LoadImaged for consistent, robust image loading
-    # ensure_channel_first=False to preserve NIfTI's native channel-first format
-    # (NIfTI files in preprocessed format already have channel dimension)
-    loader = LoadImaged(keys=["image"], ensure_channel_first=False)
-    data_dict = loader({"image": image_path})
-    image_data = data_dict["image"].numpy()
-
-    return image_data
+    data, _ = load_nifti_with_metadata(image_path)
+    return data
 
 
 def load_nifti_with_metadata(image_path: str) -> tuple[NDArray, tuple[float, ...]]:
@@ -197,33 +182,15 @@ def load_nifti_with_metadata(image_path: str) -> tuple[NDArray, tuple[float, ...
     if not Path(image_path).exists():
         raise FileNotFoundError(f"Image file not found: {image_path}")
 
-    # Use MONAI's LoadImaged for consistent, robust image loading
-    # ensure_channel_first=False to preserve NIfTI's native channel-first format
-    # PNG/JPEG files need manual channel dimension handling (done in fingerprint.py)
     loader = LoadImaged(keys=["image"], ensure_channel_first=False)
-    data_dict = loader({"image": image_path})
-    image_tensor = data_dict["image"]
-
-    # Convert to numpy after extracting metadata
+    image_tensor = loader({"image": image_path})["image"]
     image_data = image_tensor.numpy()
 
-    # Extract spacing from MONAI MetaTensor's affine matrix
-    # MetaTensor stores affine as an attribute
+    # Extract spacing from affine matrix, or fall back to isotropic (1.0) for PNG/JPEG
     if hasattr(image_tensor, "affine"):
-        affine = (
-            image_tensor.affine.numpy()
-            if hasattr(image_tensor.affine, "numpy")
-            else np.array(image_tensor.affine)
-        )
-        # Compute spacing from affine matrix (norm of each column vector)
+        affine = np.asarray(image_tensor.affine)
         spacing = tuple(float(np.linalg.norm(affine[:3, i])) for i in range(3))
     else:
-        # Fallback for images without affine (PNG/JPEG): standard isotropic spacing
-        # Use spatial dimensions (excluding channel dimension at index 0)
-        ndim_spatial = image_data.ndim - 1  # Subtract 1 for channel dimension
-        if ndim_spatial == 2:
-            spacing = (1.0, 1.0)
-        else:
-            spacing = (1.0, 1.0, 1.0)
+        spacing = (1.0,) * (image_data.ndim - 1)
 
     return image_data, spacing
