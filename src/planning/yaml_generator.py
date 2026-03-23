@@ -209,7 +209,7 @@ def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> N
         "  # Note: DynUNet supports exposed deep supervision, UNet has internal DS\n"
     )
     f.write(f"  deep_supervision: {str(plan.deep_supervision).lower()}\n")
-    f.write("  deep_supr_num: 1  # Number of deep supervision outputs\n")
+    f.write(f"  deep_supr_num: {plan.deep_supr_num}  # Number of deep supervision outputs\n")
     f.write(f"  ds_weights: {plan.ds_weights}  # Loss weights for DS levels\n\n")
 
     # DynUNet-specific parameters

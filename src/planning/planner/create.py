@@ -60,6 +60,7 @@ class ExperimentPlan:
 
     # Deep supervision (nnU-Net style, always enabled)
     deep_supervision: bool  # Always True following nnU-Net approach
+    deep_supr_num: int  # Number of extra DS outputs beyond final (num_stages - 2)
     ds_weights: list[float]  # Decreasing weights per decoder stage
 
     # Intensity normalization
@@ -151,9 +152,10 @@ def create_experiment_plan(
     logger.debug(f"Upsample kernel sizes: {upsample_kernel_sizes}")
 
     # Step 5: Calculate deep supervision weights (nnU-Net style)
-    # For DynUNet, deep_supr_num=1 means we get 2 outputs (final + 1 intermediate)
-    # So we need ds_weights for 2 outputs, not all decoder stages
-    deep_supr_num = 1  # DynUNet default for nnU-Net compatibility
+    # nnU-Net uses all decoder stages for deep supervision (num_stages - 1 outputs)
+    # DynUNet: deep_supr_num = num extra outputs beyond the final output
+    # So deep_supr_num = num_stages - 2 gives num_stages - 1 total outputs
+    deep_supr_num = num_stages - 2
     num_ds_outputs = deep_supr_num + 1  # final + intermediate outputs
     ds_weights = calculate_deep_supervision_weights(num_ds_outputs)
     logger.debug(
@@ -229,6 +231,7 @@ def create_experiment_plan(
         strides=strides_py,
         upsample_kernel_size=upsample_kernel_sizes_py,
         deep_supervision=True,  # Always enabled following nnU-Net approach
+        deep_supr_num=deep_supr_num,  # Match nnU-Net: all decoder stages
         ds_weights=ds_weights,  # Exponential decay weights
         normalization_scheme=fingerprint.normalization_scheme,
         intensity_clip_min=clip_min,
