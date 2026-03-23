@@ -131,10 +131,10 @@ def crop_to_nonzero(
     Raises:
         ValueError: If data and seg shapes don't match (when seg is provided)
     """
-    # Validate inputs
-    if seg is not None and data.shape != seg.shape:
+    # Validate spatial dimensions match (channel count can differ)
+    if seg is not None and data.shape[1:] != seg.shape[1:]:
         raise ValueError(
-            f"data and seg must have same shape. Got data: {data.shape}, seg: {seg.shape}"
+            f"data and seg must have same spatial shape. Got data: {data.shape}, seg: {seg.shape}"
         )
 
     # Create mask if not provided
