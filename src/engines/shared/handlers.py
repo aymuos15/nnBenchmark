@@ -140,6 +140,8 @@ class BaseMetricsHandler(ABC):
         """Extract case path from data_dicts if available."""
         if self.data_dicts is not None and batch_idx < len(self.data_dicts):
             image_path = self.data_dicts[batch_idx].get("image", "unknown")
+            if isinstance(image_path, list):
+                image_path = image_path[0]
             return Path(image_path).name
         return "unknown"
 
@@ -256,6 +258,8 @@ class BaseProgressHandler:
         case_path = "unknown"
         if self.data_dicts is not None and batch_idx < len(self.data_dicts):
             image_path = self.data_dicts[batch_idx].get("image", "unknown")
+            if isinstance(image_path, list):
+                image_path = image_path[0]
             case_path = Path(image_path).name
 
         if self.total_samples is not None:
@@ -361,8 +365,14 @@ class BaseResultsHandler(ABC):
                 ]
             per_sample_scores[metric_name] = metric_per_sample_scores
 
+        def _get_image_name(d: dict) -> str:
+            img = d.get("image", "unknown")
+            if isinstance(img, list):
+                img = img[0]
+            return Path(img).name
+
         sample_names = (
-            [Path(d.get("image", "unknown")).name for d in self.data_dicts]
+            [_get_image_name(d) for d in self.data_dicts]
             if self.data_dicts
             else []
         )
