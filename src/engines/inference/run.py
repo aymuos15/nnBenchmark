@@ -147,6 +147,18 @@ def run_inference(
     # Transforms from config
     test_transforms = build_transforms(cfg, mode="test")
 
+    # When loading raw data via -i, add EnsureChannelFirstd after LoadImaged
+    if input_folder is not None:
+        from monai.transforms import Compose, EnsureChannelFirstd
+
+        transform_list = list(test_transforms.transforms)
+        # Insert EnsureChannelFirstd after LoadImaged (index 1)
+        for i, t in enumerate(transform_list):
+            if type(t).__name__ == "LoadImaged":
+                transform_list.insert(i + 1, EnsureChannelFirstd(keys=["image", "label"]))
+                break
+        test_transforms = Compose(transform_list)
+
     # Dataset and loader (batch_size=1 for inference)
     test_batch_size: int = cfg.get("inference", {}).get("batch_size", 1)
     test_ds = Dataset(data=test_data, transform=test_transforms)

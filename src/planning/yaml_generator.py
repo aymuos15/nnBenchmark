@@ -418,12 +418,10 @@ def _write_transforms_config(f: TextIO, plan: ExperimentPlan) -> None:
         f.write("      keys: [image, label]\n")
         f.write("      ensure_channel_first: true\n\n")
     else:
-        # For 3D datasets (NIfTI), load then ensure channel dimension exists
-        # Raw data may lack channel dim; EnsureChannelFirstd handles both cases
-        f.write("    # For 3D data: load and ensure channel dimension\n")
+        # For 3D datasets (NIfTI), load without channel manipulation
+        # Preprocessed data already has correct format
+        f.write("    # For 3D data: NIfTI files loaded as (C, D, H, W)\n")
         f.write("    - type: LoadImaged\n")
-        f.write("      keys: [image, label]\n\n")
-        f.write("    - type: EnsureChannelFirstd\n")
         f.write("      keys: [image, label]\n\n")
 
     # CT-specific intensity clipping (nnU-Net style)
