@@ -70,7 +70,7 @@ class PolyLRScheduler(LRScheduler):
         # Calculate new learning rate based on mode
         if self.mode == "polynomial":
             # Polynomial decay: lr = initial_lr * (1 - epoch / max_epochs) ^ exponent
-            new_lr = self.initial_lr * (1 - epoch / self.max_epochs) ** self.exponent
+            new_lr = self.initial_lr * max(0, 1 - epoch / self.max_epochs) ** self.exponent
         else:
             # Linear decay: lr = initial_lr - (epoch * decay_rate)
             new_lr = max(0.0, self.initial_lr - (epoch * self.decay_rate))
