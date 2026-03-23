@@ -59,7 +59,7 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
     case_to_paths: dict[str, dict[str, str]] = {}
     skipped_cases: list[str] = []
 
-    # Scan all training images
+    # Scan all training images (use _0000 files as case anchors)
     image_files = sorted(images_dir.glob("*_0000.*"))
     for img_file in image_files:
         if img_file.name.startswith("._"):  # Skip macOS metadata files
@@ -67,6 +67,11 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
 
         # Extract base case name (e.g., "Hippo_001_0000.nii.gz" -> "Hippo_001")
         base_name = extract_case_id(img_file.name, remove_channel_suffix=True)
+
+        # Find all channel files for this case
+        ext = "".join(img_file.suffixes)  # e.g. ".nii.gz" or ".png"
+        channel_files = sorted(images_dir.glob(f"{base_name}_*{ext}"))
+        channel_files = [f for f in channel_files if not f.name.startswith("._")]
 
         # Find matching label file
         label_file = None
@@ -77,12 +82,16 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
                 break
 
         if label_file:
+            # Single channel: return path string. Multi-channel: return list of paths.
+            if len(channel_files) == 1:
+                image_value: str | list[str] = str(channel_files[0])
+            else:
+                image_value = [str(f) for f in channel_files]
             case_to_paths[img_file.name] = {
-                "image": str(img_file),
+                "image": image_value,
                 "label": str(label_file),
             }
         else:
-            # Log cases that are skipped due to missing labels
             skipped_cases.append(base_name)
 
     if skipped_cases:

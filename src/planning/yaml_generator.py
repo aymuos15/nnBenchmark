@@ -200,7 +200,7 @@ def _write_model_config(f: TextIO, spatial_dims: int, plan: ExperimentPlan) -> N
         "  # ========================================================================\n"
     )
     f.write(f"  spatial_dims: {spatial_dims}  # {spatial_dims}D architecture\n")
-    f.write("  in_channels: 1  # Single channel (grayscale)\n")
+    f.write(f"  in_channels: {plan.num_input_channels}\n")
     f.write(f"  out_channels: {plan.num_classes}  # One channel per class\n\n")
 
     # Deep supervision (shared)

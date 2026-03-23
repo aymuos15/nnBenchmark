@@ -59,6 +59,9 @@ class DatasetFingerprint:
     intensity_percentile_00_5: float
     intensity_percentile_99_5: float
 
+    # Channel info
+    num_channels: int  # Number of input channels (e.g., 1 for grayscale, 3 for RGB)
+
     # Normalization scheme determined from channel
     normalization_scheme: str  # 'CTNormalization', 'ZScoreNormalization', etc.
 
@@ -111,9 +114,10 @@ def fingerprint_dataset(
     dataset_name = dataset_info.get("name", "Unknown")
     # num_classes will be determined by scanning actual label files
 
-    # Get channel (first channel if multiple)
-    channel_dict = dataset_info.get("modality", {"0": "Unknown"})
+    # Get channel info from dataset.json
+    channel_dict = dataset_info.get("channel_names", dataset_info.get("modality", {"0": "Unknown"}))
     channel = list(channel_dict.values())[0]
+    num_channels = len(channel_dict)
 
     # Find all training images
     # NOTE: Fingerprinting is done on preprocessed (cropped) images in nnBench_preprocessed
@@ -294,6 +298,7 @@ def fingerprint_dataset(
         intensity_std=intensity_std,
         intensity_percentile_00_5=intensity_percentile_00_5,
         intensity_percentile_99_5=intensity_percentile_99_5,
+        num_channels=num_channels,
         normalization_scheme=normalization_scheme,
     )
 

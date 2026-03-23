@@ -38,6 +38,7 @@ class ExperimentPlan:
     # Dataset info
     dataset_name: str
     num_classes: int
+    num_input_channels: int
     is_2d: bool
 
     # Dataset fingerprint properties (for tracking)
@@ -170,7 +171,7 @@ def create_experiment_plan(
     logger.debug(f"Approximate dataset voxels: {approximate_n_voxels_dataset:.0f}")
 
     # Step 7: Calculate batch size (nnU-Net exact formula)
-    num_input_channels = 1  # Assume single channel for now
+    num_input_channels = fingerprint.num_channels
     batch_size = calculate_batch_size(
         patch_size=patch_size,
         num_pool_per_axis=num_pool_per_axis,
@@ -222,6 +223,7 @@ def create_experiment_plan(
     plan = ExperimentPlan(
         dataset_name=fingerprint.dataset_name,
         num_classes=fingerprint.num_classes,
+        num_input_channels=num_input_channels,
         is_2d=fingerprint.is_2d,
         median_shape=median_shape_py,
         median_spacing=median_spacing_py,
