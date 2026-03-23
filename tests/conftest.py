@@ -141,7 +141,7 @@ def mock_dataset_json() -> dict[str, Any]:
     return {
         "name": "Dataset001_Hippo",
         "description": "Hippocampus segmentation test dataset",
-        "labels": {"0": "background", "1": "Anterior", "2": "Posterior"},
+        "labels": {"background": 0, "Anterior": 1, "Posterior": 2},
         "numTraining": 4,
         "file_ending": ".nii.gz",
         "training": [

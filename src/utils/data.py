@@ -108,22 +108,10 @@ def get_data_dicts(
         Tuple of (train_data_dicts, val_data_dicts)
     """
     train_cases, val_cases = load_splits(data_dir, fold)
-
-    # Build mapping from case IDs to paths (eliminates redundancy!)
     case_to_paths = _build_case_to_paths_mapping(data_dir)
 
-    # Build train data dictionaries
-    train_data: list[dict[str, str]] = []
-    for case_id in train_cases:
-        if case_id in case_to_paths:
-            train_data.append(case_to_paths[case_id])
-
-    # Build val data dictionaries
-    val_data: list[dict[str, str]] = []
-    for case_id in val_cases:
-        if case_id in case_to_paths:
-            val_data.append(case_to_paths[case_id])
-
+    train_data = [case_to_paths[c] for c in train_cases if c in case_to_paths]
+    val_data = [case_to_paths[c] for c in val_cases if c in case_to_paths]
     return train_data, val_data
 
 
@@ -145,63 +133,50 @@ def get_test_data_dicts(
     Raises:
         ValueError: If use_test_set=False and fold is None
     """
-    if use_test_set:
-        # Use dedicated test set if available
-        # Find all images in test directory (support multiple formats)
-        images_dir = str(Path(data_dir) / "imagesTs")
-
-        # Check if test set directory exists
-        if not Path(images_dir).exists():
-            raise FileNotFoundError(
-                f"Test set directory not found: {images_dir}\n"
-                f"This dataset does not have a dedicated test set (imagesTs/labelsTs).\n"
-                f"Use '--use-val-split' flag to test on the validation split instead:\n"
-                f"  nnBench.inference --config <config.yaml> --use-val-split"
-            )
-
-        images = sorted(Path(images_dir).glob("*"))
-
-        # Check if any images were found
-        if len(images) == 0:
-            raise ValueError(
-                f"No images found in test set directory: {images_dir}\n"
-                f"The directory exists but contains no files.\n"
-                f"Use '--use-val-split' flag to test on the validation split instead."
-            )
-
-        label_dir = "labelsTs"
-
-        data_dicts: list[dict[str, str]] = []
-        for img_path in images:
-            img_name = img_path.name
-
-            # Extract base case name and label extension
-            base_name, label_ext = extract_base_name_for_label(img_name)
-            label_path = str(Path(data_dir) / label_dir / f"{base_name}{label_ext}")
-
-            if Path(label_path).exists():
-                data_dicts.append({"image": str(img_path), "label": label_path})
-
-        # Ensure we found at least some valid image-label pairs
-        if len(data_dicts) == 0:
-            raise ValueError(
-                f"No valid image-label pairs found in test set.\n"
-                f"Images directory: {images_dir} (found {len(images)} images)\n"
-                f"Labels directory: {Path(data_dir) / label_dir}\n"
-                f"This dataset may not have a dedicated test set (imagesTs/labelsTs).\n"
-                f"Use '--use-val-split' flag to test on the validation split instead:\n"
-                f"  nnBench.inference --config <config.yaml> --use-val-split"
-            )
-
-        return data_dicts
-    else:
-        # Use validation split from fold-based splits
+    if not use_test_set:
         if fold is None:
             raise ValueError("fold parameter is required when use_test_set=False")
-
-        # Reuse get_data_dicts to avoid duplicate case_to_paths mapping
         _, val_data = get_data_dicts(data_dir, fold)
         return val_data
+
+    # Use dedicated test set (imagesTs/labelsTs)
+    images_dir = Path(data_dir) / "imagesTs"
+    labels_dir = Path(data_dir) / "labelsTs"
+
+    if not images_dir.exists():
+        raise FileNotFoundError(
+            f"Test set directory not found: {images_dir}\n"
+            f"This dataset does not have a dedicated test set (imagesTs/labelsTs).\n"
+            f"Use '--use-val-split' flag to test on the validation split instead:\n"
+            f"  nnBench.inference --config <config.yaml> --use-val-split"
+        )
+
+    images = sorted(images_dir.glob("*"))
+    if not images:
+        raise ValueError(
+            f"No images found in test set directory: {images_dir}\n"
+            f"The directory exists but contains no files.\n"
+            f"Use '--use-val-split' flag to test on the validation split instead."
+        )
+
+    data_dicts: list[dict[str, str]] = []
+    for img_path in images:
+        base_name, label_ext = extract_base_name_for_label(img_path.name)
+        label_path = labels_dir / f"{base_name}{label_ext}"
+        if label_path.exists():
+            data_dicts.append({"image": str(img_path), "label": str(label_path)})
+
+    if not data_dicts:
+        raise ValueError(
+            f"No valid image-label pairs found in test set.\n"
+            f"Images directory: {images_dir} (found {len(images)} images)\n"
+            f"Labels directory: {labels_dir}\n"
+            f"This dataset may not have a dedicated test set (imagesTs/labelsTs).\n"
+            f"Use '--use-val-split' flag to test on the validation split instead:\n"
+            f"  nnBench.inference --config <config.yaml> --use-val-split"
+        )
+
+    return data_dicts
 
 
 def get_class_labels(data_dir: str, include_background: bool = False) -> dict[int, str]:
@@ -218,26 +193,11 @@ def get_class_labels(data_dir: str, include_background: bool = False) -> dict[in
     dataset_json_path = str(Path(data_dir) / "dataset.json")
     dataset_info: dict[str, Any] = load_json(dataset_json_path, "dataset.json")
 
+    # nnU-Net format: {"background": 0, "class1": 1, ...} (name -> index)
     labels_dict = dataset_info.get("labels", {})
+    class_labels = {idx: name for name, idx in labels_dict.items()}
 
-    # Handle both formats:
-    # - nnU-Net format: {"background": 0, "class1": 1, ...} (name -> index)
-    # - Our format: {"0": "background", "1": "class1", ...} (index -> name)
-    class_labels: dict[int, str] = {}
-
-    # Check format by looking at first key
-    first_key = next(iter(labels_dict.keys()))
-
-    if first_key.isdigit():
-        # Our format: index -> name
-        for key, value in labels_dict.items():
-            class_idx = int(key)
-            if include_background or class_idx != 0:
-                class_labels[class_idx] = value
-    else:
-        # nnU-Net format: name -> index
-        for name, idx in labels_dict.items():
-            if include_background or idx != 0:
-                class_labels[idx] = name
+    if not include_background:
+        class_labels.pop(0, None)
 
     return class_labels
