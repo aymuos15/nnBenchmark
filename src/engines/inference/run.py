@@ -43,21 +43,35 @@ from src.utils.seeding import (
 
 def _build_data_dicts_from_folder(input_folder: str, file_ending: str) -> list[dict[str, str]]:
     """Build data dicts from an input image folder, pairing with labels if available."""
-    from src.utils.data import extract_base_name_for_label
+    from src.utils.data import extract_case_id
 
     input_path = Path(input_folder)
     label_dir = input_path.parent / input_path.name.replace("images", "labels")
 
-    data_dicts: list[dict[str, str]] = []
-    for img in sorted(input_path.glob(f"*{file_ending}")):
-        if img.name.startswith("._"):
+    # Group files by case using _0000 as anchor
+    data_dicts: list[dict[str, Any]] = []
+    for anchor in sorted(input_path.glob(f"*_0000{file_ending}")):
+        if anchor.name.startswith("._"):
             continue
-        entry: dict[str, str] = {"image": str(img)}
+
+        base_name = extract_case_id(anchor.name, remove_channel_suffix=True)
+
+        # Find all channel files for this case
+        channel_files = sorted(input_path.glob(f"{base_name}_*{file_ending}"))
+        channel_files = [f for f in channel_files if not f.name.startswith("._")]
+
+        if len(channel_files) == 1:
+            image_value: str | list[str] = str(channel_files[0])
+        else:
+            image_value = [str(f) for f in channel_files]
+
+        entry: dict[str, Any] = {"image": image_value}
         if label_dir.exists():
-            base_name, label_ext = extract_base_name_for_label(img.name)
-            label_path = label_dir / f"{base_name}{label_ext}"
-            if label_path.exists():
-                entry["label"] = str(label_path)
+            for label_ext in [file_ending, ".nii.gz", ".nii", ".png"]:
+                label_path = label_dir / f"{base_name}{label_ext}"
+                if label_path.exists():
+                    entry["label"] = str(label_path)
+                    break
         data_dicts.append(entry)
     return data_dicts
 
