@@ -161,7 +161,3 @@ class EvaluationEngine:
             data_loader: DataLoader with evaluation data
         """
         self.engine.run(data_loader)
-
-
-# Backward compatibility alias
-InferenceEngine = EvaluationEngine

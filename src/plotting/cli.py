@@ -1,10 +1,10 @@
 """CLI entry point for plot generation."""
 
 import argparse
-import json
 from pathlib import Path
 
 from src.config import resolve_config_path
+from src.config.load import load_training_history, load_validation_histories
 from src.engines.setup import get_config_name, setup_results_dir
 from src.plotting.inference import plot_classwise_scores
 from src.plotting.training import plot_training_loss
@@ -53,49 +53,40 @@ def main() -> None:
     plots_dir = ensure_directory(str(results_dir / "plots"))
 
     # Generate plots from training history
-    training_json = results_dir / "history" / "training.json"
     try:
-        if training_json.exists():
-            with open(training_json) as f:
-                training_data = json.load(f)
-            epochs = training_data.get("epochs", [])
-            train_loss = training_data.get("train_loss", [])
-            if epochs and train_loss:
-                save_path = str(Path(plots_dir) / "training_loss.png")
-                plot_training_loss(epochs, train_loss, save_path)
+        training_data = load_training_history(results_dir_str)
+        epochs = training_data.get("epochs", [])
+        train_loss = training_data.get("train_loss", [])
+        if epochs and train_loss:
+            save_path = str(Path(plots_dir) / "training_loss.png")
+            plot_training_loss(epochs, train_loss, save_path)
+    except FileNotFoundError:
+        pass  # No training history yet
     except Exception as e:
         from loguru import logger
 
         logger.warning(f"Could not generate training loss plot: {e}")
 
     # Generate plots from validation history (aggregate from epoch files)
-    history_dir = results_dir / "history"
     try:
-        val_files = sorted(history_dir.glob("validation_epoch_*.json"))
-        if val_files:
-            epochs: list[int] = []
+        val_data = load_validation_histories(results_dir_str)
+        if val_data:
+            val_epochs = val_data.get("val_epochs", [])
+            # Find the first metric key (skip "val_epochs" and per-class keys)
+            metric_name = "Dice"
             metric_values: list[float] = []
-            metric_name = "Dice"  # Default metric name
+            for key in val_data:
+                if key == "val_epochs" or key.count("_") > 1:
+                    continue
+                metric_name = key.removeprefix("val_")
+                metric_values = val_data[key]
+                break
 
-            for val_file in val_files:
-                with open(val_file) as f:
-                    val_data = json.load(f)
-                epoch = val_data.get("epoch")
-                summary = val_data.get("summary", {})
-                # Get first metric's mean value
-                if summary and epoch is not None:
-                    for name, stats in summary.items():
-                        metric_name = name
-                        if isinstance(stats, dict) and "mean" in stats:
-                            epochs.append(epoch)
-                            metric_values.append(stats["mean"])
-                        break
-
-            if epochs and metric_values:
+            if val_epochs and metric_values:
                 save_path = str(
                     Path(plots_dir) / f"validation_{metric_name.lower()}.png"
                 )
-                plot_validation_metric(epochs, metric_values, metric_name, save_path)
+                plot_validation_metric(val_epochs, metric_values, metric_name, save_path)
     except Exception as e:
         from loguru import logger
 

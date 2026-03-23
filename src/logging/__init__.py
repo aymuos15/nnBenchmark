@@ -7,7 +7,6 @@ from src.logging.setup import (
     setup_test_logger,
     setup_train_logger,
     setup_val_logger,
-    setup_verbose_logger,
 )
 from src.logging.system import (
     log_system_info,
@@ -19,7 +18,6 @@ __all__ = [
     "setup_train_logger",
     "setup_test_logger",
     "setup_val_logger",
-    "setup_verbose_logger",
     "setup_dual_logging",
     # Helper functions
     "log_and_print",

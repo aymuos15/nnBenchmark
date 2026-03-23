@@ -239,7 +239,7 @@ def preprocess_and_crop_dataset(
                     affine = (
                         orig_nib.affine if hasattr(orig_nib, "affine") else np.eye(4)  # type: ignore[attr-defined]
                     )
-                except Exception:
+                except (ValueError, OSError, AttributeError):
                     affine = None
 
                 if affine is None:

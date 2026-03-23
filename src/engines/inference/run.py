@@ -1,7 +1,7 @@
 """
 Inference orchestration module for running complete inference workflows.
 
-Uses Ignite-based InferenceEngine for event-driven inference.
+Uses Ignite-based EvaluationEngine for event-driven inference.
 """
 
 from pathlib import Path
@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from src.config import resolve_config_path
 from src.config.validation import validate_sliding_window_config
-from src.engines.inference.engine import InferenceEngine
+from src.engines.inference.engine import EvaluationEngine
 from src.engines.inference.handlers import (
     InferenceMetricsHandler,
     InferenceProgressHandler,
@@ -93,13 +93,10 @@ def run_inference(
 
     if model_path is None:
         # Try to find the best model checkpoint in checkpoints/ subdirectory
-        import glob
-
         checkpoints_dir = Path(results_dir) / "checkpoints"
 
         # Look for best model checkpoint
-        best_model_pattern = str(checkpoints_dir / "best_loss*.pt")
-        checkpoints = glob.glob(best_model_pattern)
+        checkpoints = list(checkpoints_dir.glob("best_loss*.pt"))
 
         if checkpoints:
             # Sort by modification time, use most recent
@@ -231,9 +228,9 @@ def run_inference(
     if "metrics" in metrics_cfg and len(metrics_cfg["metrics"]) > 0:
         include_background = metrics_cfg["metrics"][0].get("include_background", False)
 
-    # Create InferenceEngine
+    # Create EvaluationEngine
     log_header(log, "Running inference on test set...")
-    inference_engine = InferenceEngine(
+    inference_engine = EvaluationEngine(
         model=model,
         device=device,
         cfg=cfg,

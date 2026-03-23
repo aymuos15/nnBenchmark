@@ -21,6 +21,26 @@ if TYPE_CHECKING:
     from loguru._logger import Logger
 
 
+def get_class_display_name(class_idx: int, class_labels: dict[int, str] | None) -> str:
+    """Get display name for a class by its 0-based index.
+
+    Maps a 0-based array index to the corresponding class name using sorted
+    class label keys. Falls back to 'Class N' if labels are unavailable.
+
+    Args:
+        class_idx: 0-based index into the sorted class labels
+        class_labels: Optional dict mapping class indices to names
+
+    Returns:
+        Class display name string
+    """
+    if class_labels is not None:
+        sorted_indices = sorted(class_labels.keys())
+        if class_idx < len(sorted_indices):
+            return class_labels[sorted_indices[class_idx]]
+    return f"Class {class_idx + 1}"
+
+
 class BaseMetricsHandler(ABC):
     """Base class for metrics computation handlers.
 
@@ -111,7 +131,7 @@ class BaseMetricsHandler(ABC):
                     batch_scores[name] = score
 
                 metric.reset()
-            except Exception as e:
+            except (RuntimeError, TypeError, AttributeError) as e:
                 logger.warning(f"Failed to compute metric '{name}': {e}")
                 continue
 
@@ -145,16 +165,7 @@ class BaseMetricsHandler(ABC):
                 num_classes = scores_array.shape[1]
                 for class_idx in range(num_classes):
                     class_scores = scores_array[:, class_idx]
-                    if self.class_labels is not None:
-                        sorted_class_indices = sorted(self.class_labels.keys())
-                        # Add bounds check to prevent index out of bounds
-                        if class_idx < len(sorted_class_indices):
-                            actual_class_idx = sorted_class_indices[class_idx]
-                            class_name = self.class_labels[actual_class_idx]
-                        else:
-                            class_name = f"Class {class_idx + 1}"
-                    else:
-                        class_name = f"Class {class_idx + 1}"
+                    class_name = get_class_display_name(class_idx, self.class_labels)
 
                     per_class_stats[class_name] = {
                         "mean": float(np.mean(class_scores)),

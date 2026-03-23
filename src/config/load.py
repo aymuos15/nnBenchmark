@@ -102,11 +102,8 @@ def load_validation_histories(results_dir: str) -> dict[str, list[float]]:
         }
         Returns empty dict if no validation files found.
     """
-    import glob
-
     results_path = Path(results_dir) / "history"
-    val_pattern = str(results_path / "validation_epoch_*.json")
-    val_files = sorted(glob.glob(val_pattern))
+    val_files = sorted(results_path.glob("validation_epoch_*.json"))
 
     if not val_files:
         return {}

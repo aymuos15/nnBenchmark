@@ -84,26 +84,6 @@ def setup_val_logger(results_dir: str) -> Any:
     return setup_logger(results_dir, "val")
 
 
-def setup_verbose_logger(
-    level: str = "DEBUG", format_string: str | None = None
-) -> None:
-    """
-    Configure loguru logger for verbose console output.
-
-    Useful for scripts that want detailed console logging (e.g., plan.py with --verbose).
-    Removes default handler and adds a new one with specified verbosity level.
-
-    Args:
-        level: Logging level (DEBUG, INFO, WARNING, ERROR). Default: DEBUG
-        format_string: Optional custom format string. If None, uses default loguru format.
-    """
-    logger.remove()  # Remove default handler
-    if format_string is not None:
-        _ = logger.add(sys.stderr, level=level.upper(), format=format_string)
-    else:
-        _ = logger.add(sys.stderr, level=level.upper())
-
-
 def setup_dual_logging(log_file: str) -> str:
     """
     Setup dual logging: verbose to file, minimal to console.

@@ -15,6 +15,7 @@ from src.engines.shared.handlers import (
     BaseMetricsHandler,
     BaseProgressHandler,
     BaseResultsHandler,
+    get_class_display_name,
 )
 
 
@@ -36,18 +37,12 @@ class InferenceMetricsHandler(BaseMetricsHandler):
             )
 
             if has_per_class:
-                assert self.class_labels is not None  # Checked in has_per_class
                 for name, score in batch_scores.items():
                     if name in batch_scores_per_class:
                         per_class = batch_scores_per_class[name]
                         class_scores_str = ", ".join(
-                            [
-                                f"{self.class_labels[idx]}: {per_class[i]:.4f}"
-                                for i, idx in enumerate(
-                                    sorted(self.class_labels.keys())
-                                )
-                                if i < len(per_class)
-                            ]
+                            f"{get_class_display_name(i, self.class_labels)}: {per_class[i]:.4f}"
+                            for i in range(len(per_class))
                         )
                         if self.logger is not None:
                             log_msg = f"Sample {batch_idx + 1}: {case_path} [{name}]: {class_scores_str}, Mean: {score:.4f}"

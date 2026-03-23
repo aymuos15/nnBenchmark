@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import os
 import time
-from io import StringIO
-
 from loguru import logger
 
 from src.logging.helpers import log_and_print, log_header, log_separator
@@ -16,7 +14,6 @@ from src.logging.setup import (
     setup_logger,
     setup_test_logger,
     setup_train_logger,
-    setup_verbose_logger,
 )
 from src.logging.system import (
     log_system_info,
@@ -173,68 +170,6 @@ class TestSetupTestLogger:
 
         log_path = os.path.join(temp_dir, "logs", "test.log")
         assert _wait_for_log_message(log_path, "Testing started")
-
-
-class TestSetupVerboseLogger:
-    """Tests for setup_verbose_logger function."""
-
-    def test_setup_verbose_logger_default(self) -> None:
-        """Test setup_verbose_logger with default level."""
-        import sys
-
-        old_stderr = sys.stderr
-        sys.stderr = StringIO()
-
-        try:
-            setup_verbose_logger(level="DEBUG")
-            logger.debug("Debug message")
-            logger.info("Info message")
-
-            output = sys.stderr.getvalue()
-            # Both messages should be captured
-            assert "Debug message" in output
-            assert "Info message" in output
-        finally:
-            sys.stderr = old_stderr
-            logger.remove()
-
-    def test_setup_verbose_logger_warning_level(self) -> None:
-        """Test setup_verbose_logger with WARNING level."""
-        import sys
-
-        old_stderr = sys.stderr
-        sys.stderr = StringIO()
-
-        try:
-            setup_verbose_logger(level="WARNING")
-            logger.info("Info message")
-            logger.warning("Warning message")
-
-            output = sys.stderr.getvalue()
-            # Only warning and above should be captured
-            assert "Warning message" in output
-            assert "Info message" not in output
-        finally:
-            sys.stderr = old_stderr
-            logger.remove()
-
-    def test_setup_verbose_logger_custom_format(self) -> None:
-        """Test setup_verbose_logger with custom format string."""
-        import sys
-
-        old_stderr = sys.stderr
-        sys.stderr = StringIO()
-
-        try:
-            custom_format = "{level} - {message}"
-            setup_verbose_logger(level="INFO", format_string=custom_format)
-            logger.info("Test message")
-
-            output = sys.stderr.getvalue()
-            assert "Test message" in output
-        finally:
-            sys.stderr = old_stderr
-            logger.remove()
 
 
 class TestLogAndPrint:

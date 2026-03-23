@@ -130,14 +130,3 @@ def get_results_root() -> Path:
     )
 
 
-def get_dataset_path(dataset_name: str) -> Path:
-    """
-    Get the full path to a specific dataset.
-
-    Args:
-        dataset_name: Dataset directory name (e.g., 'Dataset001_Hippo')
-
-    Returns:
-        Full path to the dataset directory
-    """
-    return get_datasets_root() / dataset_name
