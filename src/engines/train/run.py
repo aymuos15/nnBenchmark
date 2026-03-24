@@ -9,7 +9,7 @@ import warnings
 from pathlib import Path
 
 import torch
-from monai.data.dataloader import DataLoader
+from monai.data import ThreadDataLoader
 from monai.data.dataset import CacheDataset, Dataset
 
 from src.config import resolve_config_path
@@ -257,19 +257,17 @@ def run_training(
 
     # Create data loaders
     # nnU-Net style: fixed iterations per epoch with random sampling (replacement)
-    # pin_memory=False to reduce GPU memory pressure and avoid CUDA transfer issues
+    # ThreadDataLoader uses threads instead of processes — required for GPU-cached data
     from torch.utils.data import RandomSampler
 
     batch_size = cfg["training"]["batch_size"]
     num_iterations = cfg["training"]["num_iterations_per_epoch"]
     sampler = RandomSampler(train_ds, replacement=True, num_samples=num_iterations * batch_size)
-    train_loader = DataLoader(
+    train_loader = ThreadDataLoader(
         train_ds,
         batch_size=batch_size,
         sampler=sampler,
-        num_workers=num_workers,
-        persistent_workers=persistent_workers,
-        pin_memory=False,
+        num_workers=0,
     )
 
     log.info(f"Training samples: {len(train_ds)}")
