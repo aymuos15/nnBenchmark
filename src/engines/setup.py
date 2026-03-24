@@ -124,15 +124,16 @@ def build_transforms(config: ConfigParser, mode: str = "train") -> transforms.Co
     Returns:
         MONAI Compose object containing the transform pipeline
     """
-    transform_list: list = []
+    from src.transforms.tensor_loading import LoadPreprocessedTensord
 
-    if mode in ("train", "val"):
-        from src.transforms.tensor_loading import LoadPreprocessedTensord
-        transform_list.append(LoadPreprocessedTensord(keys=("image", "label")))
-    else:
-        for t_cfg in config["transforms"]["common"]:
-            transform_list.append(_instantiate_component(dict(t_cfg)))
+    # Build common transforms as fallback for raw NIfTI input (e.g., -i inference)
+    common_list = [_instantiate_component(dict(t)) for t in config["transforms"]["common"]]
+    common_pipeline = transforms.Compose(common_list)
 
+    loader = LoadPreprocessedTensord(keys=("image", "label"))
+    loader.set_fallback(common_pipeline)
+
+    transform_list: list = [loader]
     for t_cfg in config["transforms"][mode]:
         transform_list.append(_instantiate_component(dict(t_cfg)))
 
