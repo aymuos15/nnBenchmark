@@ -29,7 +29,7 @@ class LoadPreprocessedTensord(MapTransform):
     def __call__(self, data: dict) -> dict:
         d = dict(data)
         tensor_path = d["tensor_cache"]
-        cached = torch.load(tensor_path, map_location="cpu", weights_only=False, mmap=True)
+        cached = torch.load(tensor_path, weights_only=False, mmap=True)
         for key in self.keys:
             d[key] = cached[key]
         return d
