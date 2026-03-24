@@ -267,7 +267,7 @@ def run_training(
         train_ds,
         batch_size=batch_size,
         sampler=sampler,
-        num_workers=0,
+        num_workers=2,
     )
 
     log.info(f"Training samples: {len(train_ds)}")
