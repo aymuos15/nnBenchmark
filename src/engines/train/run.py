@@ -190,35 +190,11 @@ def run_training(
     train_transforms = build_transforms(cfg, mode="train")
     val_transforms = build_transforms(cfg, mode="val")
 
-    # Check caching
-    cache_config = cfg.get("dataset", {}).get("cache", {})
-    use_cache = cache_config.get("enabled", False) if cache_config else False
-    cache_rate = cache_config.get("cache_rate", 1.0) if cache_config else 1.0
     num_workers = cfg["training"]["num_workers"]
 
-    if use_cache:
-        log_and_print(log, f"Caching {int(cache_rate * 100)}% of training data...")
-        train_ds = CacheDataset(
-            data=train_data,
-            transform=train_transforms,
-            cache_rate=cache_rate,
-            num_workers=num_workers,
-        )
-        if val_data:
-            log_and_print(
-                log, f"Caching {int(cache_rate * 100)}% of validation data..."
-            )
-            _ = CacheDataset(
-                data=val_data,
-                transform=val_transforms,
-                cache_rate=cache_rate,
-                num_workers=num_workers,
-            )
-        persistent_workers = False
-        log_and_print(log, "Data caching completed!")
-    else:
-        train_ds = Dataset(data=train_data, transform=train_transforms)
-        persistent_workers = num_workers > 0
+    # Preprocessed tensors are loaded via mmap — no CacheDataset needed
+    train_ds = Dataset(data=train_data, transform=train_transforms)
+    persistent_workers = num_workers > 0
 
     # Create data loaders
     from torch.utils.data import RandomSampler

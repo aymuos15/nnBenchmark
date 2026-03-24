@@ -217,6 +217,11 @@ def run_planning(
             cache_rate=system_resources.cache_rate,
         )
 
+        # Step 3b: Preprocess training data to tensor cache
+        from src.preprocessing.tensor_cache import preprocess_to_tensors
+
+        preprocess_to_tensors(config_path=output_path, data_dir=dataset_dir)
+
         # Log resource optimization decisions (debug level, goes to file only)
         logger.debug("Resource Optimization Applied:")
         logger.debug(

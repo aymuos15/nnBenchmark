@@ -103,6 +103,37 @@ def _build_case_to_paths_mapping(data_dir: str) -> dict[str, dict[str, str]]:
     return case_to_paths
 
 
+def _enrich_with_tensor_cache(
+    case_to_paths: dict[str, dict[str, str]], data_dir: str
+) -> dict[str, dict[str, str]]:
+    """Add tensor_cache paths to data dicts when tensorsTr/ exists.
+
+    Args:
+        case_to_paths: Mapping from case filename to {"image": ..., "label": ...}
+        data_dir: Raw dataset directory (used to resolve preprocessed paths)
+
+    Returns:
+        Same mapping with "tensor_cache" key added where .pt files exist
+    """
+    from src.config.paths import get_preprocessed_root
+
+    dataset_name = Path(data_dir).name
+    tensors_dir = get_preprocessed_root() / dataset_name / "tensorsTr"
+
+    if not tensors_dir.exists():
+        return case_to_paths
+
+    enriched = {}
+    for case_name, paths in case_to_paths.items():
+        case_id = extract_case_id(case_name, remove_channel_suffix=True)
+        tensor_path = tensors_dir / f"{case_id}.pt"
+        entry = dict(paths)
+        if tensor_path.exists():
+            entry["tensor_cache"] = str(tensor_path)
+        enriched[case_name] = entry
+    return enriched
+
+
 def get_data_dicts(
     data_dir: str, fold: int
 ) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
@@ -118,6 +149,7 @@ def get_data_dicts(
     """
     train_cases, val_cases = load_splits(data_dir, fold)
     case_to_paths = _build_case_to_paths_mapping(data_dir)
+    case_to_paths = _enrich_with_tensor_cache(case_to_paths, data_dir)
 
     train_data = [case_to_paths[c] for c in train_cases if c in case_to_paths]
     val_data = [case_to_paths[c] for c in val_cases if c in case_to_paths]

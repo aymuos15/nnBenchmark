@@ -10,9 +10,11 @@ from src.preprocessing.cropping import (
     crop_to_nonzero,
     get_bbox_from_mask,
 )
+from src.preprocessing.tensor_cache import preprocess_to_tensors
 
 __all__ = [
     "create_nonzero_mask",
     "get_bbox_from_mask",
     "crop_to_nonzero",
+    "preprocess_to_tensors",
 ]
