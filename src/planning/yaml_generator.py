@@ -413,7 +413,10 @@ def _write_transforms_config(f: TextIO, plan: ExperimentPlan) -> None:
 
     f.write("    - type: LoadImaged\n")
     f.write("      keys: [image, label]\n")
-    f.write("      ensure_channel_first: true\n\n")
+    if plan.is_2d:
+        # 2D PNGs need ensure_channel_first to add channel dim
+        f.write("      ensure_channel_first: true\n")
+    f.write("\n")
 
     # CT-specific intensity clipping (nnU-Net style)
     if plan.normalization_scheme == "CTNormalization":

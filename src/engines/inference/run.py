@@ -163,6 +163,23 @@ def run_inference(
     # Transforms from config
     test_transforms = build_transforms(cfg, mode="test")
 
+    # For -i with raw 3D data: inject EnsureChannelFirstd if LoadImaged doesn't have it
+    if input_folder is not None:
+        common_transforms = cfg.get("transforms", {}).get("common", [])
+        has_ensure_channel = any(
+            t.get("ensure_channel_first", False)
+            for t in common_transforms
+            if t.get("type") == "LoadImaged"
+        )
+        if not has_ensure_channel:
+            from monai.transforms import Compose, EnsureChannelFirstd
+            transform_list = list(test_transforms.transforms)
+            for i, t in enumerate(transform_list):
+                if type(t).__name__ == "LoadImaged":
+                    transform_list.insert(i + 1, EnsureChannelFirstd(keys=["image", "label"]))
+                    break
+            test_transforms = Compose(transform_list)
+
     # Dataset and loader (batch_size=1 for inference)
     test_batch_size: int = cfg.get("inference", {}).get("batch_size", 1)
     test_ds = Dataset(data=test_data, transform=test_transforms)
