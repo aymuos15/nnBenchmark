@@ -66,10 +66,9 @@ def preprocess_to_tensors(config_path: str, data_dir: str) -> None:
         data_dict = {"image": paths["image"], "label": paths["label"]}
         result = common_transforms(data_dict)
 
-        # Convert to plain tensors (strip MONAI MetaTensor/numpy backing)
-        # so torch.load(weights_only=True, mmap=True) works safely
-        img = torch.as_tensor(result["image"].data).contiguous()
-        lbl = torch.as_tensor(result["label"].data).contiguous()
-        torch.save({"image": img, "label": lbl}, output_path)
+        torch.save(
+            {"image": result["image"].contiguous(), "label": result["label"].contiguous()},
+            output_path,
+        )
 
     logger.info(f"Tensor cache saved to {tensors_dir}")
