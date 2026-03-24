@@ -171,23 +171,13 @@ def run_training(
         log.info("Deep supervision: Enabled")
         log.info(f"Deep supervision weights: {ds_weights}")
 
-    # Configure TF32 precision and cuDNN
+    # Configure TF32 precision
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
             message=".*Please use the new API settings to control TF32 behavior.*",
         )
         torch.set_float32_matmul_precision("high")
-
-    # Disable cuDNN if it fails to initialize (driver/library version mismatch)
-    if torch.cuda.is_available():
-        try:
-            torch.backends.cudnn.enabled = True
-            x = torch.randn(1, 1, 4, 4, 4, device="cuda")
-            torch.nn.functional.conv3d(x, torch.randn(1, 1, 3, 3, 3, device="cuda"), padding=1)
-        except RuntimeError:
-            torch.backends.cudnn.enabled = False
-            log.warning("cuDNN disabled (initialization failed — driver/library mismatch)")
 
     # Create data loaders
     log.info("Creating data loaders...")
