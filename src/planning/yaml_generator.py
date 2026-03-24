@@ -447,10 +447,10 @@ def _write_transforms_config(f: TextIO, plan: ExperimentPlan) -> None:
     f.write(f"      spatial_size: {list(plan.patch_size)}\n")
     f.write("      mode: constant  # Zero-padding\n\n")
 
-    f.write("    # Convert to tensors and move to GPU for accelerated augmentation\n")
-    f.write("    - type: EnsureTyped\n")
-    f.write("      keys: [image, label]\n")
-    f.write("      device: cuda:0\n\n")
+    f.write("    # Convert to PyTorch tensors\n")
+    f.write("    # For GPU augmentation, replace with: EnsureTyped + device: cuda:0\n")
+    f.write("    - type: ToTensord\n")
+    f.write("      keys: [image, label]\n\n")
 
     f.write(
         "  # --------------------------------------------------------------------------\n"

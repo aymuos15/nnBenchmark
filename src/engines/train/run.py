@@ -9,7 +9,7 @@ import warnings
 from pathlib import Path
 
 import torch
-from monai.data import ThreadDataLoader
+from monai.data.dataloader import DataLoader
 from monai.data.dataset import CacheDataset, Dataset
 
 from src.config import resolve_config_path
@@ -263,11 +263,12 @@ def run_training(
     batch_size = cfg["training"]["batch_size"]
     num_iterations = cfg["training"]["num_iterations_per_epoch"]
     sampler = RandomSampler(train_ds, replacement=True, num_samples=num_iterations * batch_size)
-    train_loader = ThreadDataLoader(
+    train_loader = DataLoader(
         train_ds,
         batch_size=batch_size,
         sampler=sampler,
-        num_workers=0,
+        num_workers=num_workers,
+        pin_memory=True,
     )
 
     log.info(f"Training samples: {len(train_ds)}")
