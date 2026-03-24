@@ -222,9 +222,9 @@ def create_trainer(
         amp=use_amp,
     )
 
-    # Add learning rate scheduler handler
+    # Add learning rate scheduler handler — step at epoch START to match nnU-Net
     trainer.add_event_handler(
-        Events.EPOCH_COMPLETED,
+        Events.EPOCH_STARTED,
         LrScheduleHandler(lr_scheduler=lr_scheduler),  # type: ignore[arg-type]
     )
 
