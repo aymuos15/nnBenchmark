@@ -113,8 +113,9 @@ def _instantiate_component(cfg_item: dict[str, Any]) -> Any:
 def build_transforms(config: ConfigParser, mode: str = "train") -> transforms.Compose:
     """Build transform pipeline from config using _target_ instantiation.
 
-    Common transforms are replaced by LoadPreprocessedTensord which loads
-    pre-normalized .pt files directly via memory-mapped access.
+    For train/val: uses LoadPreprocessedTensord to load pre-normalized .pt
+    files directly via memory-mapped access, skipping common transforms.
+    For test/inference: uses full common transforms (NIfTI loading).
 
     Args:
         config: ConfigParser with 'transforms' section
@@ -123,9 +124,14 @@ def build_transforms(config: ConfigParser, mode: str = "train") -> transforms.Co
     Returns:
         MONAI Compose object containing the transform pipeline
     """
-    from src.transforms.tensor_loading import LoadPreprocessedTensord
+    transform_list: list = []
 
-    transform_list: list = [LoadPreprocessedTensord(keys=("image", "label"))]
+    if mode in ("train", "val"):
+        from src.transforms.tensor_loading import LoadPreprocessedTensord
+        transform_list.append(LoadPreprocessedTensord(keys=("image", "label")))
+    else:
+        for t_cfg in config["transforms"]["common"]:
+            transform_list.append(_instantiate_component(dict(t_cfg)))
 
     for t_cfg in config["transforms"][mode]:
         transform_list.append(_instantiate_component(dict(t_cfg)))
