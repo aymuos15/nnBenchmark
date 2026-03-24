@@ -5,11 +5,9 @@ from src.engines.shared.handlers import (
     BaseProgressHandler,
     BaseResultsHandler,
 )
-from src.engines.shared.utils import safe_getattr
 
 __all__ = [
     "BaseMetricsHandler",
     "BaseProgressHandler",
     "BaseResultsHandler",
-    "safe_getattr",
 ]

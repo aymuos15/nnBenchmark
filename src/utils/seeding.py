@@ -54,7 +54,7 @@ def enable_cuda_determinism(deterministic: bool = False) -> None:
         torch.backends.cudnn.benchmark = not deterministic
 
 
-def get_seed_from_config(cfg: dict[str, Any]) -> int:
+def get_seed_from_config(cfg: Any) -> int:
     """
     Extract seed from config with consistent priority order.
 

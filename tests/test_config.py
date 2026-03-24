@@ -8,6 +8,7 @@ import os
 from typing import Any
 
 import pytest
+import yaml
 
 from src.config.load import load_config, load_splits, load_training_history
 
@@ -21,9 +22,9 @@ class TestLoadConfig:
         """Test loading valid YAML configuration file."""
         result = load_config(mock_config_file)
 
-        assert result == sample_config
+        # ConfigParser supports dict-style access
         assert result["dataset"]["name"] == "Dataset001_Hippo"
-        assert result["model"]["type"] == "DynUNet"
+        assert result["model"]["_target_"] == "monai.networks.nets.DynUNet"
         assert result["training"]["epochs"] == 5
 
     def test_load_missing_config_file(self, temp_dir: str) -> None:
@@ -37,12 +38,61 @@ class TestLoadConfig:
         """Test loading invalid YAML raises appropriate error."""
         invalid_config = os.path.join(temp_dir, "invalid.yaml")
 
-        # Write invalid YAML
         with open(invalid_config, "w") as f:
             f.write("invalid: yaml: content:\n  - malformed\n  - [")
 
-        with pytest.raises(Exception):  # yaml.YAMLError or similar
+        with pytest.raises(Exception):
             load_config(invalid_config)
+
+    def test_load_config_with_base_and_overrides(self, temp_dir: str) -> None:
+        """Test loading config with base_config and overrides."""
+        base_config_path = os.path.join(temp_dir, "base_fold_0.yaml")
+        base_config = {
+            "dataset": {"name": "Dataset001", "fold": 0, "batch_size": 2},
+            "training": {"epochs": 100, "learning_rate": 0.001},
+        }
+        with open(base_config_path, "w") as f:
+            yaml.dump(base_config, f)
+
+        override_config_path = os.path.join(temp_dir, "quick_test.yaml")
+        override_config = {
+            "base_config": "base_fold_0.yaml",
+            "overrides": {
+                "training": {"epochs": 10},
+            },
+        }
+        with open(override_config_path, "w") as f:
+            yaml.dump(override_config, f)
+
+        result = load_config(override_config_path)
+
+        assert result["dataset"]["name"] == "Dataset001"
+        assert result["dataset"]["fold"] == 0
+        assert result["training"]["epochs"] == 10
+        assert result["training"]["learning_rate"] == 0.001
+
+    def test_load_config_with_relative_base_path(self, temp_dir: str) -> None:
+        """Test loading config with relative base_config path."""
+        docs_dir = os.path.join(temp_dir, "docs", "datasets", "Dataset001")
+        os.makedirs(docs_dir, exist_ok=True)
+
+        base_config_path = os.path.join(docs_dir, "fold_0.yaml")
+        base_config = {"training": {"epochs": 200}}
+        with open(base_config_path, "w") as f:
+            yaml.dump(base_config, f)
+
+        experiments_dir = os.path.join(temp_dir, "experiments")
+        os.makedirs(experiments_dir, exist_ok=True)
+        override_config_path = os.path.join(experiments_dir, "test.yaml")
+        override_config = {
+            "base_config": "../docs/datasets/Dataset001/fold_0.yaml",
+            "overrides": {"training": {"epochs": 400}},
+        }
+        with open(override_config_path, "w") as f:
+            yaml.dump(override_config, f)
+
+        result = load_config(override_config_path)
+        assert result["training"]["epochs"] == 400
 
 
 class TestLoadTrainingHistory:
@@ -98,13 +148,7 @@ class TestLoadSplits:
         expected_train: list[str],
         expected_val: list[str],
     ) -> None:
-        """Test loading valid splits for different folds.
-
-        Parameters:
-        - fold: Fold number to load
-        - expected_train: Expected training cases
-        - expected_val: Expected validation cases
-        """
+        """Test loading valid splits for different folds."""
         train_cases, val_cases = load_splits(mock_dataset_dir, fold=fold)
 
         assert len(train_cases) == 2
@@ -137,11 +181,8 @@ class TestLoadSplits:
         """Test loading fold=-1 (all data split) if available."""
         import json
         import os
-
-        # First, we need to add fold_-1 to the splits.json
         from pathlib import Path
 
-        # splits.json is now in the preprocessed directory
         preprocessed_root = os.environ.get("nnBench_preprocessed")
         if preprocessed_root is None:
             pytest.skip("nnBench_preprocessed environment variable not set")
@@ -150,27 +191,22 @@ class TestLoadSplits:
         with open(splits_path, "r") as f:
             splits = json.load(f)
 
-        # Add fold_-1 with all cases in training
         all_cases = []
         for fold_data in splits.values():
             all_cases.extend(fold_data["train"])
             all_cases.extend(fold_data["val"])
 
-        all_cases = list(set(all_cases))  # Remove duplicates
+        all_cases = list(set(all_cases))
 
         splits["fold_-1"] = {"train": all_cases, "val": []}
 
         with open(splits_path, "w") as f:
             json.dump(splits, f)
 
-        # Now load fold=-1
         train_cases, val_cases = load_splits(mock_dataset_dir, fold=-1)
 
-        # Training should have all 4 cases
         assert len(train_cases) == 4
-        # Validation should be empty
         assert len(val_cases) == 0
-        # All cases should be in training
         assert all(
             case in train_cases
             for case in [

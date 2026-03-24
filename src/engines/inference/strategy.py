@@ -192,7 +192,7 @@ class SlidingWindowInferer(InferenceStrategy):
         return outputs
 
 
-def create_inferer(config: dict[str, Any]) -> InferenceStrategy:
+def create_inferer(config: Any) -> InferenceStrategy:
     """
     Factory function to create appropriate inferer based on config.
 

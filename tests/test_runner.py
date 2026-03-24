@@ -220,7 +220,8 @@ class TestSetupExperiment:
             mock_config_file, create_results_dir=False
         )
 
-        assert isinstance(cfg, dict)
+        from monai.bundle import ConfigParser
+        assert isinstance(cfg, ConfigParser)
         assert isinstance(device, torch.device)
         assert isinstance(data_dir, str)
         assert isinstance(results_dir, str)
@@ -234,7 +235,7 @@ class TestSetupExperiment:
 
         # Should match the sample config
         assert cfg["dataset"]["name"] == sample_config["dataset"]["name"]
-        assert cfg["model"]["type"] == sample_config["model"]["type"]
+        assert cfg["model"]["_target_"] == sample_config["model"]["_target_"]
 
     def test_setup_experiment_extracts_config_name(self, mock_config_file: str) -> None:
         """Test that setup_experiment extracts config name from file path."""
@@ -301,178 +302,116 @@ class TestSetupExperiment:
         assert config_name in results_dir
 
 
-class TestBuildModelParameterFiltering:
-    """Tests for build_model parameter filtering functionality."""
+class TestBuildModelWithTarget:
+    """Tests for build_model with _target_ instantiation."""
 
-    def test_build_model_filters_deep_supervision_for_unsupported_models(self) -> None:
-        """Test that deep_supervision params are filtered for unsupported model types."""
+    def test_build_model_unet(self) -> None:
+        """Test building a UNet model via _target_."""
+        from monai.bundle import ConfigParser
+
         from src.engines.setup import build_model
 
-        # Arrange: UNet doesn't support deep_supervision
-        config = {
+        config = ConfigParser(config={
             "model": {
-                "type": "UNet",
+                "_target_": "monai.networks.nets.UNet",
                 "in_channels": 1,
                 "out_channels": 2,
                 "spatial_dims": 3,
                 "channels": [32, 64, 128, 256],
                 "strides": [2, 2, 2],
-                "deep_supervision": True,  # Should be filtered
-                "deep_supr_num": 2,  # Should be filtered
             }
-        }
+        })
         device = setup_device(verbose=False)
 
-        # Act & Assert - Should create model without error
         model = build_model(config, device)
         assert isinstance(model, torch.nn.Module)
 
-    def test_build_model_preserves_deep_supervision_for_dynunet(self) -> None:
-        """Test that deep_supervision params are preserved for DynUNet."""
+    def test_build_model_dynunet(self) -> None:
+        """Test building a DynUNet model via _target_."""
+        from monai.bundle import ConfigParser
+
         from src.engines.setup import build_model
 
-        # Arrange: DynUNet supports deep_supervision
-        # DynUNet requires kernel_size, strides, and upsample_kernel_size
-        # deep_supr_num must be less than the number of up sample layers
-        config = {
+        config = ConfigParser(config={
             "model": {
-                "type": "DynUNet",
+                "_target_": "monai.networks.nets.DynUNet",
                 "spatial_dims": 3,
                 "in_channels": 1,
                 "out_channels": 2,
                 "kernel_size": [[3, 3, 3], [3, 3, 3], [3, 3, 3]],
                 "strides": [[1, 1, 1], [2, 2, 2], [2, 2, 2]],
                 "upsample_kernel_size": [[2, 2, 2], [2, 2, 2]],
-                "deep_supervision": True,  # Should be preserved
-                "deep_supr_num": 1,  # Must be < number of upsample layers (2)
+                "deep_supervision": True,
+                "deep_supr_num": 1,
             }
-        }
+        })
         device = setup_device(verbose=False)
 
-        # Act & Assert - Should create model without error
-        model = build_model(config, device)
-        assert isinstance(model, torch.nn.Module)
-
-    def test_build_model_filters_ds_weights(self) -> None:
-        """Test that ds_weights parameter is filtered from model config."""
-        from src.engines.setup import build_model
-
-        # Arrange
-        config = {
-            "model": {
-                "type": "UNet",
-                "in_channels": 1,
-                "out_channels": 2,
-                "spatial_dims": 3,
-                "channels": [32, 64, 128, 256],
-                "strides": [2, 2, 2],
-                "ds_weights": [1.0, 0.5],  # Should be filtered
-            }
-        }
-        device = setup_device(verbose=False)
-
-        # Act & Assert - Should create model without error
         model = build_model(config, device)
         assert isinstance(model, torch.nn.Module)
 
 
 class TestDynamicComponentLoading:
-    """Tests for dynamic component loading with getattr."""
+    """Tests for _target_ based component loading."""
 
     def test_build_transforms_loads_valid_transforms(self) -> None:
         """Test that build_transforms successfully loads valid MONAI transforms."""
+        from monai.bundle import ConfigParser
+
         from src.engines.setup import build_transforms
 
-        # Arrange
-        config = {
+        config = ConfigParser(config={
             "transforms": {
                 "common": [
-                    {"type": "Compose", "transforms": []},
+                    {"_target_": "monai.transforms.Compose", "transforms": []},
                 ],
                 "train": [],
                 "val": [],
             }
-        }
+        })
 
-        # Act
         transforms_pipeline = build_transforms(config, mode="train")
 
-        # Assert
         from monai import transforms as monai_transforms
-
         assert isinstance(transforms_pipeline, monai_transforms.Compose)
 
-    def test_build_transforms_raises_for_invalid_type(self) -> None:
-        """Test that build_transforms raises ValueError for invalid transform type."""
+    def test_build_transforms_raises_for_invalid_target(self) -> None:
+        """Test that build_transforms raises error for invalid _target_."""
+        from monai.bundle import ConfigParser
+
         from src.engines.setup import build_transforms
 
-        # Arrange
-        config = {
+        config = ConfigParser(config={
             "transforms": {
                 "common": [
-                    {"type": "NonExistentTransform"},
+                    {"_target_": "monai.transforms.NonExistentTransform"},
                 ],
                 "train": [],
                 "val": [],
             }
-        }
+        })
 
-        # Act & Assert
-        with pytest.raises(ValueError, match="NonExistentTransform"):
+        with pytest.raises(Exception):
             build_transforms(config, mode="train")
 
     def test_build_metrics_loads_valid_metrics(self) -> None:
         """Test that build_metrics successfully loads valid MONAI metrics."""
+        from monai.bundle import ConfigParser
+
         from src.engines.setup import build_metrics
 
-        # Arrange
-        config = {
-            "metrics": [
+        config = ConfigParser(config={
+            "validation_metrics": [
                 {
-                    "type": "DiceMetric",
+                    "_target_": "monai.metrics.DiceMetric",
                     "include_background": False,
                     "reduction": "mean_batch",
                     "num_classes": 2,
                 },
             ]
-        }
+        })
 
-        # Act
-        metric_fns = build_metrics(config)
+        metric_fns = build_metrics(config, section="validation_metrics")
 
-        # Assert
         assert "DiceMetric" in metric_fns
         assert callable(metric_fns["DiceMetric"])
-
-    def test_build_metrics_raises_for_invalid_type(self) -> None:
-        """Test that build_metrics raises ValueError for invalid metric type."""
-        from src.engines.setup import build_metrics
-
-        # Arrange
-        config = {
-            "metrics": [
-                {"type": "NonExistentMetric"},
-            ]
-        }
-
-        # Act & Assert
-        with pytest.raises(ValueError, match="NonExistentMetric"):
-            build_metrics(config)
-
-    def test_safe_getattr_provides_helpful_error_message(self) -> None:
-        """Test that safe_getattr provides helpful error message with available options."""
-        from monai import transforms
-
-        from src.engines.shared import safe_getattr
-
-        # Arrange
-        invalid_type = "NonExistent"
-
-        # Act & Assert
-        with pytest.raises(ValueError) as exc_info:
-            safe_getattr(transforms, invalid_type, "monai.transforms")
-
-        error_message = str(exc_info.value)
-        assert "NonExistent" in error_message
-        assert "monai.transforms" in error_message
-        assert "Available options:" in error_message

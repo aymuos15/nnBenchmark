@@ -38,7 +38,7 @@ class TestRunValidationSetup:
             mock_setup.side_effect = Exception("Stop here for testing")
 
             with pytest.raises(Exception, match="Stop here for testing"):
-                run_validation(str(config_file), dataset="Dataset001_Hippo")
+                run_validation(str(config_file))
 
     def test_run_validation_imports_required_modules(self) -> None:
         """Test that run_validation imports required modules."""
@@ -109,7 +109,6 @@ class TestRunValidationCheckpointHandling:
             try:
                 run_validation(
                     str(config_file),
-                    dataset="Dataset001_Hippo",
                     checkpoint_path=None,
                 )
             except Exception as e:
@@ -167,7 +166,6 @@ class TestRunValidationCheckpointHandling:
             try:
                 run_validation(
                     str(config_file),
-                    dataset="Dataset001_Hippo",
                     checkpoint_path=checkpoint_path,
                 )
             except Exception as e:
@@ -209,7 +207,6 @@ class TestRunValidationConfigValidation:
             with pytest.raises(Exception):  # ValueError or KeyError
                 run_validation(
                     str(config_file),
-                    dataset="Dataset001_Hippo",
                     checkpoint_path=checkpoint_path,
                 )
 
@@ -247,7 +244,6 @@ class TestRunValidationConfigValidation:
             with pytest.raises((ValueError, Exception)):
                 run_validation(
                     str(config_file),
-                    dataset="Dataset001_Hippo",
                     checkpoint_path=checkpoint_path,
                 )
 
@@ -359,7 +355,6 @@ class TestValidationIntegration:
             try:
                 run_validation(
                     str(config_file),
-                    dataset="Dataset001_Hippo",
                     checkpoint_path=checkpoint_path,
                 )
             except Exception:

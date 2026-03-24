@@ -296,7 +296,7 @@ class BaseResultsHandler(ABC):
         self,
         results_dir: str,
         config_name: str,
-        cfg: dict[str, Any],
+        cfg: Any,
         fold: int | None,
         data_dicts: list[dict[str, str]] | None = None,
     ):
@@ -305,7 +305,7 @@ class BaseResultsHandler(ABC):
         Args:
             results_dir: Directory to save results
             config_name: Name of configuration file
-            cfg: Configuration dictionary
+            cfg: ConfigParser or dict with config data
             fold: Fold number
             data_dicts: Optional list of data dictionaries with case paths
         """

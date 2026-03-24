@@ -242,6 +242,7 @@ class TestExperimentPlanner:
         fingerprint.intensity_std = 20.0
         fingerprint.intensity_percentile_00_5 = -200.0
         fingerprint.intensity_percentile_99_5 = 300.0
+        fingerprint.num_channels = 1
 
         plan = create_experiment_plan(fingerprint, gpu_memory_gb=8.0)
 
@@ -273,6 +274,7 @@ class TestExperimentPlanner:
         fingerprint.intensity_std = 20.0
         fingerprint.intensity_percentile_00_5 = 0.0
         fingerprint.intensity_percentile_99_5 = 255.0
+        fingerprint.num_channels = 1
 
         plan = create_experiment_plan(fingerprint, gpu_memory_gb=8.0)
 
@@ -292,6 +294,7 @@ class TestYAMLGenerator:
         plan = ExperimentPlan(
             dataset_name="TestDataset",
             num_classes=2,
+            num_input_channels=1,
             is_2d=True,
             median_shape=(256, 256),
             median_spacing=(1.0, 1.0),
@@ -324,13 +327,13 @@ class TestYAMLGenerator:
         assert "val" in config["transforms"]
 
         # Verify some common transforms
-        common_types = [t["type"] for t in config["transforms"]["common"]]
+        common_types = [t["_target_"].rsplit(".", 1)[-1] for t in config["transforms"]["common"]]
         assert "LoadImaged" in common_types
         # EnsureChannelFirstd not needed - LoadImaged handles channel-first by default
         assert "NormalizeIntensityd" in common_types
 
         # Verify training augmentations
-        train_types = [t["type"] for t in config["transforms"]["train"]]
+        train_types = [t["_target_"].rsplit(".", 1)[-1] for t in config["transforms"]["train"]]
         assert "RandCropByPosNegLabeld" in train_types
         assert "RandFlipd" in train_types
 
@@ -340,6 +343,7 @@ class TestYAMLGenerator:
         ct_plan = ExperimentPlan(
             dataset_name="KiTS23_CT",
             num_classes=4,
+            num_input_channels=1,
             is_2d=False,
             median_shape=(96, 96, 96),
             median_spacing=(1.0, 1.0, 1.0),
@@ -368,7 +372,7 @@ class TestYAMLGenerator:
 
         # Verify CT clipping is present
         common_transforms = config["transforms"]["common"]
-        common_types = [t["type"] for t in common_transforms]
+        common_types = [t["_target_"].rsplit(".", 1)[-1] for t in common_transforms]
 
         # CT should have ScaleIntensityRanged with clipping
         assert (
@@ -377,7 +381,7 @@ class TestYAMLGenerator:
 
         # Find the clipping transform and verify values
         clip_transform = next(
-            (t for t in common_transforms if t["type"] == "ScaleIntensityRanged"), None
+            (t for t in common_transforms if t["_target_"].endswith("ScaleIntensityRanged")), None
         )
         assert clip_transform is not None, "ScaleIntensityRanged transform should exist"
         assert clip_transform["a_min"] == -200.0, "clip_min should be -200.0"
@@ -398,6 +402,7 @@ class TestYAMLGenerator:
         mri_plan = ExperimentPlan(
             dataset_name="BraTS_MRI",
             num_classes=5,
+            num_input_channels=1,
             is_2d=False,
             median_shape=(128, 128, 128),
             median_spacing=(1.0, 1.0, 1.0),
@@ -426,14 +431,14 @@ class TestYAMLGenerator:
 
         # Verify NO clipping for MRI
         common_transforms = config["transforms"]["common"]
-        common_types = [t["type"] for t in common_transforms]
+        common_types = [t["_target_"].rsplit(".", 1)[-1] for t in common_transforms]
 
         # Non-CT should NOT have the clipping ScaleIntensityRanged transform
         # (there might be other ScaleIntensityRanged transforms, but not for CT clipping)
         scale_transforms = [
             t
             for t in common_transforms
-            if t["type"] == "ScaleIntensityRanged" and t.get("clip") is True
+            if t["_target_"].endswith("ScaleIntensityRanged") and t.get("clip") is True
         ]
         assert (
             len(scale_transforms) == 0
@@ -450,6 +455,7 @@ class TestYAMLGenerator:
         ct_plan = ExperimentPlan(
             dataset_name="CustomCT",
             num_classes=2,
+            num_input_channels=1,
             is_2d=False,
             median_shape=(64, 64, 64),
             median_spacing=(1.5, 1.5, 3.0),
@@ -481,7 +487,7 @@ class TestYAMLGenerator:
             (
                 t
                 for t in common_transforms
-                if t["type"] == "ScaleIntensityRanged" and t.get("clip") is True
+                if t["_target_"].endswith("ScaleIntensityRanged") and t.get("clip") is True
             ),
             None,
         )
@@ -550,6 +556,7 @@ class TestCTClippingApplication:
         ct_plan = ExperimentPlan(
             dataset_name="CTTest",
             num_classes=2,
+            num_input_channels=1,
             is_2d=True,
             median_shape=(64, 64),
             median_spacing=(1.0, 1.0),
@@ -579,7 +586,7 @@ class TestCTClippingApplication:
 
         # Verify transform order in YAML
         common_transforms = config["transforms"]["common"]
-        transform_types = [t["type"] for t in common_transforms]
+        transform_types = [t["_target_"].rsplit(".", 1)[-1] for t in common_transforms]
 
         scale_idx = transform_types.index("ScaleIntensityRanged")
         normalize_idx = transform_types.index("NormalizeIntensityd")
@@ -613,6 +620,7 @@ class TestPlanningWorkflowIntegration:
         plan = ExperimentPlan(
             dataset_name="TestDataset",
             num_classes=2,
+            num_input_channels=1,
             is_2d=False,
             median_shape=(64, 64, 64),
             median_spacing=(1.0, 1.0, 1.0),
@@ -660,8 +668,11 @@ class TestPlanningWorkflowIntegration:
         assert config["dataset"]["fold"] == 0
 
         # Verify model has required structure
-        assert "type" in config["model"]
-        assert config["model"]["type"] in ["DynUNet", "NativeDSDynUNet", "UNet"]
+        assert "_target_" in config["model"]
+        assert any(
+            name in config["model"]["_target_"]
+            for name in ["DynUNet", "NativeDSDynUNet", "UNet"]
+        )
 
         # Verify training config has required fields
         assert "batch_size" in config["training"]
@@ -680,6 +691,7 @@ class TestPlanningWorkflowIntegration:
         plan1 = ExperimentPlan(
             dataset_name="TestDataset",
             num_classes=3,
+            num_input_channels=1,
             is_2d=False,
             median_shape=(96, 96, 96),
             median_spacing=(1.5, 1.5, 1.5),
@@ -703,6 +715,7 @@ class TestPlanningWorkflowIntegration:
         plan2 = ExperimentPlan(
             dataset_name="TestDataset",
             num_classes=3,
+            num_input_channels=1,
             is_2d=False,
             median_shape=(96, 96, 96),
             median_spacing=(1.5, 1.5, 1.5),

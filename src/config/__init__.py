@@ -1,16 +1,18 @@
 """Configuration module for nnBenchmark."""
 
 
+from src.config.load import instantiate, instantiate_list, load_config
 from src.config.paths import (
     get_datasets_root,
     get_preprocessed_root,
     get_results_root,
 )
-from src.config.resolution import resolve_config_path
 
 __all__ = [
     "get_datasets_root",
     "get_preprocessed_root",
     "get_results_root",
-    "resolve_config_path",
+    "instantiate",
+    "instantiate_list",
+    "load_config",
 ]

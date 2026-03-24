@@ -130,9 +130,7 @@ class TestRunTrainingDataLoading:
                     ) as mock_logger:
                         with patch("src.engines.train.run.log_header"):
                             with patch("src.engines.train.run.log_system_info"):
-                                with patch(
-                                    "src.engines.train.run.validate_required_field"
-                                ):
+                                if True:
                                     mock_log = MagicMock()
                                     mock_logger.return_value = mock_log
                                     mock_get_seed.return_value = 42
@@ -201,9 +199,7 @@ class TestRunTrainingCheckpointHandling:
                     ) as mock_logger:
                         with patch("src.engines.train.run.log_header"):
                             with patch("src.engines.train.run.log_system_info"):
-                                with patch(
-                                    "src.engines.train.run.validate_required_field"
-                                ):
+                                if True:
                                     with patch(
                                         "src.engines.train.run.create_trainer"
                                     ) as mock_trainer:

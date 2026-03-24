@@ -1,6 +1,8 @@
 """
-Configuration and split management utilities for nnBenchmark.
-Provides helpers for loading YAML configs, training history, and CV splits.
+Configuration loading via MONAI ConfigParser.
+
+Provides helpers for loading YAML configs with _target_ instantiation,
+config inheritance, training history, and CV splits.
 """
 
 import json
@@ -8,13 +10,14 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from monai.bundle import ConfigParser
 
 
-def load_config(config_path: str) -> dict[str, Any]:
+def load_config(config_path: str) -> ConfigParser:
     """
-    Load YAML configuration file with optional base_config inheritance.
+    Load YAML configuration file via MONAI ConfigParser.
 
-    Supports minimal override configs that reference a base config:
+    Supports config inheritance via base_config + overrides:
         base_config: path/to/base_fold_0.yaml
         overrides:
           training:
@@ -24,35 +27,76 @@ def load_config(config_path: str) -> dict[str, Any]:
         config_path: Path to YAML config file
 
     Returns:
-        Dictionary containing configuration (merged if base_config specified)
-
-    Raises:
-        ConfigValidationError: If override keys don't exist in base config
+        ConfigParser instance with parsed config
     """
     with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
+        raw = yaml.safe_load(f)
 
-    # Check if this config uses inheritance
-    if "base_config" not in config:
-        return config
-
-    # Import here to avoid circular dependency
-    from src.config.merge import load_config_with_inheritance
+    if "base_config" not in raw:
+        parser = ConfigParser(config=raw)
+        return parser
 
     # Resolve base_config path relative to current config file
-    base_config_path = config["base_config"]
+    base_config_path = raw["base_config"]
     config_dir = Path(config_path).parent
 
-    # If base_config is relative, resolve it relative to current config
     if not Path(base_config_path).is_absolute():
         base_config_path = str(config_dir / base_config_path)
 
-    # Use load_config_with_inheritance, passing this function as loader
-    # (creates a proper config dict for the merge function)
-    config_with_resolved_path = config.copy()
-    config_with_resolved_path["base_config"] = base_config_path
+    # Load base config, then merge overrides on top
+    with open(base_config_path, "r") as f:
+        base = yaml.safe_load(f)
 
-    return load_config_with_inheritance(config_with_resolved_path, load_config)
+    overrides = raw.get("overrides", {})
+    merged = _deep_merge(base, overrides)
+
+    parser = ConfigParser(config=merged)
+    return parser
+
+
+def _deep_merge(base: dict, overrides: dict) -> dict:
+    """Recursively merge overrides into base dict."""
+    result = base.copy()
+    for key, value in overrides.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def instantiate(parser: ConfigParser, key: str) -> Any:
+    """
+    Instantiate a component from config via _target_.
+
+    Args:
+        parser: ConfigParser instance
+        key: Config key to instantiate (e.g., "loss", "model")
+
+    Returns:
+        Instantiated object
+    """
+    return parser.get_parsed_content(key)
+
+
+def instantiate_list(parser: ConfigParser, key: str) -> list[Any]:
+    """
+    Instantiate a list of components from config.
+
+    Each item in the list should have a _target_ key.
+
+    Args:
+        parser: ConfigParser instance
+        key: Config key pointing to a list (e.g., "validation_metrics")
+
+    Returns:
+        List of instantiated objects
+    """
+    items = parser.get(key, [])
+    result = []
+    for i in range(len(items)):
+        result.append(parser.get_parsed_content(f"{key}::{i}"))
+    return result
 
 
 def load_training_history(results_dir: str) -> dict[str, list[float]]:
@@ -86,20 +130,11 @@ def load_validation_histories(results_dir: str) -> dict[str, list[float]]:
     """
     Load and aggregate validation histories from multiple validation_history_epoch_*.json files.
 
-    Finds all validation history files in results_dir/history/, sorts by epoch, and aggregates
-    metrics into time-series format suitable for plotting.
-
     Args:
         results_dir: Directory containing history/validation_history_epoch_*.json files
 
     Returns:
-        Dictionary with aggregated validation data:
-        {
-            "val_epochs": [1, 5, 10, ...],
-            "val_DiceMetric": [0.7, 0.75, 0.8, ...],
-            "val_DiceMetric_Anterior": [0.65, 0.7, 0.75, ...],  # per-class
-            ...
-        }
+        Dictionary with aggregated validation data.
         Returns empty dict if no validation files found.
     """
     results_path = Path(results_dir) / "history"
@@ -108,7 +143,6 @@ def load_validation_histories(results_dir: str) -> dict[str, list[float]]:
     if not val_files:
         return {}
 
-    # Collect data from all validation files
     val_data: dict[str, list] = {"val_epochs": []}
 
     for val_file in val_files:
@@ -121,24 +155,20 @@ def load_validation_histories(results_dir: str) -> dict[str, list[float]]:
 
         val_data["val_epochs"].append(epoch)
 
-        # Extract summary metrics (mean values across all samples)
         summary = val_history.get("summary", {})
 
         for metric_name, metric_stats in summary.items():
-            # Add main metric (mean across all classes and samples)
             metric_key = f"val_{metric_name}"
             if metric_key not in val_data:
                 val_data[metric_key] = []
             val_data[metric_key].append(metric_stats["mean"])
 
-            # Add per-class metrics if available
             per_class = metric_stats.get("per_class", {})
             for class_name, class_stats in per_class.items():
                 class_key = f"val_{metric_name}_{class_name}"
                 if class_key not in val_data:
                     val_data[class_key] = []
-                class_key_data = class_stats["mean"]
-                val_data[class_key].append(class_key_data)
+                val_data[class_key].append(class_stats["mean"])
 
     return val_data
 
@@ -161,7 +191,6 @@ def load_splits(data_dir: str, fold: int) -> tuple[list[str], list[str]]:
     """
     from src.config.paths import get_preprocessed_root
 
-    # Get splits.json from preprocessed directory
     data_dir_path = Path(data_dir)
     dataset_name = data_dir_path.name
     preprocessed_root = get_preprocessed_root()

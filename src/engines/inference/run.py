@@ -5,13 +5,13 @@ Uses Ignite-based EvaluationEngine for event-driven inference.
 """
 
 from pathlib import Path
+from typing import Any
 
 import torch
+from monai.bundle import ConfigParser
 from monai.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
-from src.config import resolve_config_path
-from src.config.validation import validate_sliding_window_config
 from src.engines.inference.engine import EvaluationEngine
 from src.engines.inference.handlers import (
     InferenceMetricsHandler,
@@ -48,7 +48,6 @@ def _build_data_dicts_from_folder(input_folder: str, file_ending: str) -> list[d
     input_path = Path(input_folder)
     label_dir = input_path.parent / input_path.name.replace("images", "labels")
 
-    # Group files by case using _0000 as anchor
     data_dicts: list[dict[str, Any]] = []
     for anchor in sorted(input_path.glob(f"*_0000{file_ending}")):
         if anchor.name.startswith("._"):
@@ -56,7 +55,6 @@ def _build_data_dicts_from_folder(input_folder: str, file_ending: str) -> list[d
 
         base_name = extract_case_id(anchor.name, remove_channel_suffix=True)
 
-        # Find all channel files for this case
         channel_files = sorted(input_path.glob(f"{base_name}_*{file_ending}"))
         channel_files = [f for f in channel_files if not f.name.startswith("._")]
 
@@ -80,19 +78,22 @@ def run_inference(
     config_path: str,
     model_path: str | None = None,
     use_test_set: bool = False,
-    dataset: str | None = None,
     input_folder: str | None = None,
     output_folder: str | None = None,
 ) -> None:
-    # Resolve config path (handles both absolute and relative paths)
-    resolved_config_path = str(resolve_config_path(config_path, dataset))
+    """Run inference.
 
-    # Setup experiment (load config, setup device, paths)
+    Args:
+        config_path: Resolved path to config YAML file
+        model_path: Path to model weights (auto-detect if None)
+        use_test_set: Use dedicated test set instead of val split
+        input_folder: Input image folder (overrides dataset)
+        output_folder: Output prediction folder
+    """
     cfg, device, data_dir, results_dir, config_name = setup_experiment(
-        resolved_config_path, create_results_dir=False
+        config_path, create_results_dir=False
     )
 
-    # Setup logger for inference
     log = setup_test_logger(results_dir)
     log_header(log, f"Inference started for config: {config_name}")
 
@@ -102,24 +103,17 @@ def run_inference(
     enable_cuda_determinism(deterministic=False)
     log.info(f"Random seed: {seed}")
 
-    # Log system information
     log_system_info(log, device)
 
     if model_path is None:
-        # Try to find the best model checkpoint in checkpoints/ subdirectory
         checkpoints_dir = Path(results_dir) / "checkpoints"
-
-        # Look for best model checkpoint
         checkpoints = list(checkpoints_dir.glob("best_loss*.pt"))
 
         if checkpoints:
-            # Sort by modification time, use most recent
             model_path = max(checkpoints, key=lambda p: Path(p).stat().st_mtime)
         else:
-            # Fall back to final checkpoint
             model_path = str(checkpoints_dir / "final.pt")
 
-    # Get fold number (required unless using dedicated test set)
     fold: int | None
     if not use_test_set:
         if "fold" not in cfg["dataset"]:
@@ -130,10 +124,9 @@ def run_inference(
         log.info("CONFIG INFO:")
         log.info(f"Fold: {fold}")
     else:
-        fold = None  # Not needed for dedicated test set
+        fold = None
         log.info("Using dedicated test set")
 
-    # Check if mixed precision is enabled (default: False)
     use_amp: bool = cfg.get("training", {}).get("mixed_precision", False)
     if use_amp and device.type == "cuda":
         log.info("Mixed precision (FP16) inference enabled")
@@ -160,7 +153,6 @@ def run_inference(
             f"Test mode: {'Dedicated test set' if use_test_set else 'Validation split'}"
         )
 
-    # Transforms from config
     test_transforms = build_transforms(cfg, mode="test")
 
     # For -i with raw 3D data: inject EnsureChannelFirstd if LoadImaged doesn't have it
@@ -169,7 +161,7 @@ def run_inference(
         has_ensure_channel = any(
             t.get("ensure_channel_first", False)
             for t in common_transforms
-            if t.get("type") == "LoadImaged"
+            if t.get("_target_", "").endswith("LoadImaged")
         )
         if not has_ensure_channel:
             from monai.transforms import Compose, EnsureChannelFirstd
@@ -180,29 +172,23 @@ def run_inference(
                     break
             test_transforms = Compose(transform_list)
 
-    # Dataset and loader (batch_size=1 for inference)
     test_batch_size: int = cfg.get("inference", {}).get("batch_size", 1)
     test_ds = Dataset(data=test_data, transform=test_transforms)
     test_loader: DataLoader = DataLoader(
         test_ds, batch_size=test_batch_size, num_workers=cfg["training"]["num_workers"]
     )
 
-    # Load model checkpoint (MONAI format)
-    log.info(f"Model: {cfg['model']['type']}")
+    log.info(f"Model: {cfg['model']['_target_']}")
     if Path(model_path).exists():
         log.info(f"Loading checkpoint from: {model_path}")
 
-        # Build model from config
         model = build_model(cfg, device)
 
-        # Load checkpoint
         checkpoint = torch.load(model_path, map_location=device)
 
-        # Extract model state dict (MONAI CheckpointSaver format)
         if isinstance(checkpoint, dict) and "model" in checkpoint:
             model.load_state_dict(checkpoint["model"])
         else:
-            # Direct state dict
             model.load_state_dict(checkpoint)
 
         model.eval()
@@ -211,47 +197,38 @@ def run_inference(
         log_and_print(log, f"Model not found: {model_path}", level="ERROR")
         return
 
-    # Validate sliding window configuration (if present)
-    try:
-        validate_sliding_window_config(cfg)
-        # Log sliding window status
-        inference_cfg = cfg.get("inference", {})
-        sliding_window_cfg = inference_cfg.get("sliding_window", {})
-        if sliding_window_cfg.get("enabled", False):
-            roi_size = sliding_window_cfg.get(
-                "roi_size", cfg.get("dataset", {}).get("spatial_size")
-            )
-            overlap = sliding_window_cfg.get("overlap", 0.5)
-            mode = sliding_window_cfg.get("mode", "gaussian")
-            log.info("Sliding window inference enabled")
-            log.info(f"  ROI size: {roi_size}")
-            log.info(f"  Overlap: {overlap}")
-            log.info(f"  Blending mode: {mode}")
-        else:
-            log.info("Using full-volume inference")
-    except ValueError as e:
-        log.error(f"Invalid sliding window configuration: {e}")
-        raise
+    # Log sliding window status
+    inference_cfg = cfg.get("inference", {})
+    sliding_window_cfg = inference_cfg.get("sliding_window", {}) if inference_cfg else {}
+    if sliding_window_cfg and sliding_window_cfg.get("enabled", False):
+        roi_size = sliding_window_cfg.get(
+            "roi_size", cfg.get("dataset", {}).get("spatial_size")
+        )
+        overlap = sliding_window_cfg.get("overlap", 0.5)
+        mode = sliding_window_cfg.get("mode", "gaussian")
+        log.info("Sliding window inference enabled")
+        log.info(f"  ROI size: {roi_size}")
+        log.info(f"  Overlap: {overlap}")
+        log.info(f"  Blending mode: {mode}")
+    else:
+        log.info("Using full-volume inference")
 
-    # Metrics from config
-    # Use inference_metrics if specified, otherwise fall back to metrics
-    metrics_cfg = cfg.copy()
+    # Metrics
     if "inference_metrics" in cfg:
-        metrics_cfg["metrics"] = cfg["inference_metrics"]
+        metric_fns = build_metrics(cfg, section="inference_metrics")
         log.info("Using inference-specific metrics")
     else:
+        metric_fns = build_metrics(cfg, section="metrics")
         log.info("Using default metrics (inference_metrics not specified)")
 
-    metric_fns = build_metrics(metrics_cfg)
     metric_names = list(metric_fns.keys())
     log.info(f"Metrics: {', '.join(metric_names)}")
 
-    # Get include_background from first metric config
     include_background = False
-    if "metrics" in metrics_cfg and len(metrics_cfg["metrics"]) > 0:
-        include_background = metrics_cfg["metrics"][0].get("include_background", False)
+    metrics_list = cfg.get("inference_metrics") or cfg.get("metrics", [])
+    if metrics_list and len(metrics_list) > 0:
+        include_background = metrics_list[0].get("include_background", False)
 
-    # Create EvaluationEngine
     log_header(log, "Running inference on test set...")
     inference_engine = EvaluationEngine(
         model=model,
@@ -261,7 +238,6 @@ def run_inference(
         data_dir=data_dir,
     )
 
-    # Attach handlers
     metrics_handler = InferenceMetricsHandler(
         metric_fns=metric_fns,
         logger=log,
@@ -291,20 +267,15 @@ def run_inference(
     )
     results_handler.attach(inference_engine.engine)
 
-    # Run inference
     inference_engine.run(test_loader)
 
-    # Get results from engine state (set by InferenceMetricsHandler)
     all_results = inference_engine.engine.state.metrics
 
-    # Print results for all metrics
     for metric_name, results in all_results.items():
         print_results(results, metric_name, context="TEST")
 
-    # Log summary statistics for all metrics (log file only, not console)
     log_metrics_summary(log, all_results, context="TEST RESULTS")
 
-    # Log completion
     log_separator(log, print_too=False)
     log.info(f"Results saved to: {results_dir}")
     log.info(f"Test history file: {Path(results_dir) / 'history' / 'test.json'}")

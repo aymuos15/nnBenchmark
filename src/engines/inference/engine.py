@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 import torch
 import torch.nn as nn
 from ignite.engine import Engine
+from monai.bundle import ConfigParser
 from monai.networks.utils import one_hot
 
 from src.engines.inference.strategy import InferenceStrategy, create_inferer
@@ -31,7 +32,7 @@ class EvaluationEngine:
         self,
         model: nn.Module,
         device: torch.device,
-        cfg: dict[str, Any],
+        cfg: ConfigParser,
         metric_fns: dict[str, Any],
         data_dir: "str | Path | None" = None,
     ):
@@ -41,7 +42,7 @@ class EvaluationEngine:
         Args:
             model: PyTorch model for evaluation
             device: Device to run evaluation on (cuda or cpu)
-            cfg: Configuration dictionary
+            cfg: ConfigParser instance
             metric_fns: Dictionary of metric functions {name: metric_fn}
             data_dir: Optional dataset directory for loading class labels
         """

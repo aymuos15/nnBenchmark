@@ -6,11 +6,10 @@ Uses Ignite-based ValidationEngine for event-driven validation.
 from pathlib import Path
 
 import torch
+from monai.bundle import ConfigParser
 from monai.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
-from src.config import resolve_config_path
-from src.config.validation import validate_sliding_window_config
 from src.engines.inference.engine import EvaluationEngine
 from src.engines.setup import (
     build_metrics,
@@ -42,7 +41,6 @@ from src.utils.seeding import (
 
 def run_validation(
     config_path: str,
-    dataset: str | None = None,
     checkpoint_path: Path | None = None,
     batch_size: int | None = None,
     num_workers: int | None = None,
@@ -50,18 +48,13 @@ def run_validation(
     """Run validation on trained model checkpoint(s).
 
     Args:
-        config_path: Path to config YAML file
-        dataset: Dataset name for resolving relative paths
+        config_path: Resolved path to config YAML file
         checkpoint_path: Specific checkpoint to validate (optional, validates all if None)
         batch_size: Batch size for validation (overrides config)
         num_workers: Number of data loader workers (overrides config)
     """
-    # Resolve config path (handles both absolute and relative paths)
-    resolved_config_path = str(resolve_config_path(config_path, dataset))
-
-    # Setup experiment (load config, setup device, paths)
     cfg, device, data_dir, results_dir, config_name = setup_experiment(
-        resolved_config_path, create_results_dir=False
+        config_path, create_results_dir=False
     )
 
     # Determine which checkpoints to validate
@@ -69,12 +62,10 @@ def run_validation(
     checkpoints_to_validate = []
 
     if checkpoint_path is not None:
-        # Single checkpoint mode
         if not checkpoint_path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
         checkpoints_to_validate = [checkpoint_path]
     else:
-        # Multi-checkpoint mode: find all epoch checkpoints in checkpoints/ subdirectory
         import glob
 
         checkpoints_dir = results_path / "checkpoints"
@@ -90,7 +81,6 @@ def run_validation(
         checkpoints_to_validate = [Path(f) for f in checkpoint_files]
         print(f"Found {len(checkpoints_to_validate)} epoch checkpoints to validate")
 
-    # Validate each checkpoint
     for idx, ckpt_path in enumerate(checkpoints_to_validate, 1):
         if len(checkpoints_to_validate) > 1:
             print(f"\n{'=' * 70}")
@@ -113,7 +103,7 @@ def run_validation(
 
 def _validate_single_checkpoint(
     checkpoint_path: Path,
-    cfg: dict,
+    cfg: ConfigParser,
     device: torch.device,
     data_dir: str,
     results_dir: str,
@@ -121,39 +111,22 @@ def _validate_single_checkpoint(
     batch_size: int | None = None,
     num_workers: int | None = None,
 ) -> None:
-    """Run validation on a single checkpoint.
-
-    Args:
-        checkpoint_path: Path to model checkpoint file
-        cfg: Configuration dictionary
-        device: Device to use
-        data_dir: Dataset directory
-        results_dir: Results directory
-        config_name: Config file name
-        batch_size: Batch size for validation (overrides config)
-        num_workers: Number of data loader workers (overrides config)
-    """
-    # Load checkpoint
+    """Run validation on a single checkpoint."""
     print(f"Loading checkpoint from: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location="cpu")
 
-    # Extract epoch from checkpoint
     epoch = checkpoint.get("epoch", None)
 
-    # Setup logger (creates val.log)
     log = setup_val_logger(results_dir)
     log_header(log, f"Validation started for: {config_name} (Epoch {epoch})")
 
-    # Seeding
     seed: int = get_seed_from_config(cfg)
     set_random_seeds(seed)
     enable_cuda_determinism(deterministic=False)
     log.info(f"Random seed: {seed}")
 
-    # Log system information
     log_system_info(log, device)
 
-    # Get fold from config
     fold = cfg["dataset"].get("fold")
 
     if fold is None:
@@ -165,7 +138,6 @@ def _validate_single_checkpoint(
     log.info(f"Epoch: {epoch}")
     log.info(f"Checkpoint: {checkpoint_path}")
 
-    # Check mixed precision
     use_amp: bool = cfg.get("training", {}).get("mixed_precision", False)
     if use_amp and device.type == "cuda":
         log.info("Mixed precision (FP16) validation enabled")
@@ -177,14 +149,11 @@ def _validate_single_checkpoint(
     else:
         log.info("Mixed precision (FP16) validation disabled")
 
-    # Get validation data
     _, val_data = get_data_dicts(data_dir, fold)
     log.info(f"Validation cases: {len(val_data)}")
 
-    # Transforms
     val_transforms = build_transforms(cfg, mode="val")
 
-    # Dataset and loader
     val_batch_size = (
         batch_size
         if batch_size is not None
@@ -199,11 +168,9 @@ def _validate_single_checkpoint(
         val_ds, batch_size=val_batch_size, num_workers=val_num_workers
     )
 
-    # Load model
-    log.info(f"Model: {cfg['model']['type']}")
+    log.info(f"Model: {cfg['model']['_target_']}")
     model = build_model(cfg, device)
 
-    # Load model weights from checkpoint
     if "model" in checkpoint:
         model.load_state_dict(checkpoint["model"])
     else:
@@ -212,46 +179,40 @@ def _validate_single_checkpoint(
     model.eval()
     log.info("Model loaded successfully")
 
-    # Validate sliding window configuration
-    try:
-        validate_sliding_window_config(cfg)
-        inference_cfg = cfg.get("inference", {})
-        sliding_window_cfg = inference_cfg.get("sliding_window", {})
-        if sliding_window_cfg.get("enabled", False):
-            roi_size = sliding_window_cfg.get(
-                "roi_size", cfg.get("dataset", {}).get("spatial_size")
-            )
-            overlap = sliding_window_cfg.get("overlap", 0.5)
-            mode = sliding_window_cfg.get("mode", "gaussian")
-            log.info("Sliding window inference enabled")
-            log.info(f"  ROI size: {roi_size}")
-            log.info(f"  Overlap: {overlap}")
-            log.info(f"  Blending mode: {mode}")
-        else:
-            log.info("Using full-volume inference")
-    except ValueError as e:
-        log.error(f"Invalid sliding window configuration: {e}")
-        raise
+    # Log sliding window status
+    inference_cfg = cfg.get("inference", {})
+    sliding_window_cfg = inference_cfg.get("sliding_window", {}) if inference_cfg else {}
+    if sliding_window_cfg and sliding_window_cfg.get("enabled", False):
+        roi_size = sliding_window_cfg.get(
+            "roi_size", cfg.get("dataset", {}).get("spatial_size")
+        )
+        overlap = sliding_window_cfg.get("overlap", 0.5)
+        mode = sliding_window_cfg.get("mode", "gaussian")
+        log.info("Sliding window inference enabled")
+        log.info(f"  ROI size: {roi_size}")
+        log.info(f"  Overlap: {overlap}")
+        log.info(f"  Blending mode: {mode}")
+    else:
+        log.info("Using full-volume inference")
 
     # Metrics
-    # Use validation_metrics if specified, otherwise fall back to metrics
-    metrics_cfg = cfg.copy()
     if "validation_metrics" in cfg:
-        metrics_cfg["metrics"] = cfg["validation_metrics"]
+        metric_fns = build_metrics(cfg, section="validation_metrics")
         log.info("Using validation-specific metrics")
     else:
+        metric_fns = build_metrics(cfg, section="metrics")
         log.info("Using default metrics (validation_metrics not specified)")
 
-    metric_fns = build_metrics(metrics_cfg)
     metric_names = list(metric_fns.keys())
     log.info(f"Metrics: {', '.join(metric_names)}")
 
     # Get include_background from first metric config
     include_background = False
-    if "metrics" in metrics_cfg and len(metrics_cfg["metrics"]) > 0:
-        include_background = metrics_cfg["metrics"][0].get("include_background", False)
+    metrics_list = cfg.get("validation_metrics") or cfg.get("metrics", [])
+    if metrics_list and len(metrics_list) > 0:
+        include_background = metrics_list[0].get("include_background", False)
 
-    # Create EvaluationEngine (same engine used for inference)
+    # Create EvaluationEngine
     log_header(log, "Running validation...")
     validation_engine = EvaluationEngine(
         model=model,
@@ -299,20 +260,15 @@ def _validate_single_checkpoint(
     )
     viz_handler.attach(validation_engine.engine)
 
-    # Run validation
     validation_engine.run(val_loader)
 
-    # Get results from engine state
     all_results = validation_engine.engine.state.metrics
 
-    # Print results for all metrics
     for metric_name, results in all_results.items():
         print_results(results, metric_name, context="VALIDATION")
 
-    # Log summary statistics (log file only, not console)
     log_metrics_summary(log, all_results, context="VALIDATION RESULTS")
 
-    # Log completion
     log_separator(log, print_too=False)
     log.info(f"Results saved to: {results_dir}")
     val_history_file = (

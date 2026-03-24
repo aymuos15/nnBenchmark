@@ -202,7 +202,7 @@ class TestCropToNonzero:
         image = np.zeros((10, 10, 10), dtype=np.float32)
         seg = np.zeros((10, 10, 8), dtype=np.uint8)  # Wrong shape
 
-        with pytest.raises(ValueError, match="data and seg must have same shape"):
+        with pytest.raises(ValueError, match="data and seg must have same spatial shape"):
             crop_to_nonzero(image, seg)
 
     def test_crop_2d_data(self) -> None:

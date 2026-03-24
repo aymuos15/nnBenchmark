@@ -3,7 +3,28 @@
 import argparse
 from pathlib import Path
 
+from src.config.paths import get_results_root
 from src.engines.validate.run import run_validation
+
+
+def _resolve_config_path(config: str, dataset: str | None = None) -> Path:
+    """Resolve config path (absolute or relative to results dir)."""
+    config_path = Path(config)
+    if config_path.is_absolute():
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+        return config_path
+
+    if dataset is None:
+        raise ValueError(f"Relative config path '{config}' requires --dataset argument.")
+
+    resolved = get_results_root() / dataset / "configs" / config
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"Config file not found: {resolved}\n"
+            f"Please ensure you have run 'nnBench.plan --dataset {dataset}' first."
+        )
+    return resolved
 
 
 def main() -> None:
@@ -44,9 +65,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    resolved = str(_resolve_config_path(args.config, args.dataset))
+
     run_validation(
-        config_path=args.config,
-        dataset=args.dataset,
+        config_path=resolved,
         checkpoint_path=Path(args.checkpoint) if args.checkpoint else None,
         batch_size=args.batch_size,
         num_workers=args.num_workers,

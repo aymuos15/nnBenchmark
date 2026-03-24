@@ -1,6 +1,6 @@
 """
 Common engine utilities for training and inference.
-Provides helpers for experiment setup to reduce code duplication.
+Provides helpers for experiment setup using MONAI ConfigParser.
 """
 
 
@@ -9,19 +9,11 @@ from typing import TYPE_CHECKING, Any
 
 import torch
 from loguru import logger
-from monai import metrics as monai_metrics
 from monai import transforms
-from monai.networks import nets as monai_nets
-
-from src.models.dynunet import NativeDSDynUNet
-from src.transforms.contrast import RandContrastd
-
-transforms.RandContrastd = RandContrastd  # type: ignore[attr-defined]
-monai_nets.NativeDSDynUNet = NativeDSDynUNet  # type: ignore[attr-defined]
+from monai.bundle import ConfigParser
 
 from src.config import get_datasets_root, get_results_root
 from src.config.load import load_config
-from src.engines.shared import safe_getattr
 from src.utils.files import ensure_directory
 
 if TYPE_CHECKING:
@@ -81,46 +73,48 @@ def setup_results_dir(config_name: str, dataset_name: str, create: bool = True) 
 
 def setup_experiment(
     config_path: str, create_results_dir: bool = True
-) -> tuple[dict[str, Any], torch.device, str, str, str]:
+) -> tuple[ConfigParser, torch.device, str, str, str]:
     """
     One-stop setup for training/testing experiments.
-
-    Performs common setup steps:
-    1. Load configuration
-    2. Setup device
-    3. Extract config name
-    4. Setup results directory
-    5. Derive data directory path from dataset name
 
     Args:
         config_path: Path to YAML config file
         create_results_dir: If True, create results directory
 
     Returns:
-        Tuple of (cfg, device, data_dir, results_dir, config_name)
+        Tuple of (parser, device, data_dir, results_dir, config_name)
     """
-    # Load config
-    cfg = load_config(config_path)
-
-    # Setup device
+    parser = load_config(config_path)
     device = setup_device(verbose=False)
 
-    # Get paths
-    dataset_name = cfg["dataset"]["name"]
+    dataset_name = parser["dataset"]["name"]
     data_dir = str(get_datasets_root() / dataset_name)
     config_name = get_config_name(config_path)
     results_dir = setup_results_dir(
         config_name, dataset_name, create=create_results_dir
     )
 
-    return cfg, device, data_dir, results_dir, config_name
+    return parser, device, data_dir, results_dir, config_name
 
 
-def build_transforms(config: dict, mode: str = "train") -> transforms.Compose:
-    """Build transform pipeline from config using getattr for MONAI transforms.
+def _instantiate_component(cfg_item: dict[str, Any]) -> Any:
+    """Instantiate a single component from a dict with _target_.
 
     Args:
-        config: Configuration dictionary with 'transforms' section
+        cfg_item: Dict with _target_ key and constructor args
+
+    Returns:
+        Instantiated object
+    """
+    parser = ConfigParser(config=cfg_item)
+    return parser.get_parsed_content(instantiate=True)
+
+
+def build_transforms(config: ConfigParser, mode: str = "train") -> transforms.Compose:
+    """Build transform pipeline from config using _target_ instantiation.
+
+    Args:
+        config: ConfigParser with 'transforms' section
         mode: Transform mode ('train', 'val', or 'test')
 
     Returns:
@@ -128,69 +122,48 @@ def build_transforms(config: dict, mode: str = "train") -> transforms.Compose:
     """
     transform_list = []
 
-    # Build common transforms
     for t_cfg in config["transforms"]["common"]:
-        t_cfg = t_cfg.copy()
-        t_type = t_cfg.pop("type")
-        t_class = safe_getattr(transforms, t_type, "monai.transforms")
-        transform_list.append(t_class(**t_cfg))
+        transform_list.append(_instantiate_component(dict(t_cfg)))
 
-    # Append mode-specific transforms
     for t_cfg in config["transforms"][mode]:
-        t_cfg = t_cfg.copy()
-        t_type = t_cfg.pop("type")
-        t_class = safe_getattr(transforms, t_type, "monai.transforms")
-        transform_list.append(t_class(**t_cfg))
+        transform_list.append(_instantiate_component(dict(t_cfg)))
 
     return transforms.Compose(transform_list)
 
 
-def build_model(config: dict, device: torch.device) -> torch.nn.Module:
-    """Build model from config using getattr for MONAI networks.
+def build_model(config: ConfigParser, device: torch.device) -> torch.nn.Module:
+    """Build model from config using _target_ instantiation.
 
     Args:
-        config: Configuration dictionary with 'model' section
+        config: ConfigParser with 'model' section
         device: Device to place the model on
 
     Returns:
         PyTorch model instance
     """
-    model_cfg = config["model"].copy()
-    model_type = model_cfg.pop("type")
-    # Remove training-only parameters that shouldn't be passed to model constructor
-    model_cfg.pop("ds_weights", None)  # Used by DeepSupervisionLossWrapper, not model
-    # deep_supervision only supported by DynUNet and BasicUNetPlusPlus
-    if model_type not in ("DynUNet", "NativeDSDynUNet", "BasicUNetPlusPlus"):
-        model_cfg.pop("deep_supervision", None)
-        model_cfg.pop("deep_supr_num", None)
-    # Merge model-specific parameters
-    # NativeDSDynUNet uses DynUNet params from the config
-    params_key = "DynUNet" if model_type == "NativeDSDynUNet" else model_type
-    dynunet_params = model_cfg.pop("DynUNet", None)
-    model_cfg.pop("UNet", None)
-    if params_key == "DynUNet" and dynunet_params:
-        model_cfg.update(dynunet_params)
-    elif params_key in config["model"] and isinstance(config["model"][params_key], dict):
-        model_cfg.update(config["model"][params_key])
-    model_class = safe_getattr(monai_nets, model_type, "monai.networks.nets")
-    return model_class(**model_cfg).to(device)
+    model_cfg = dict(config["model"])
+    model = _instantiate_component(model_cfg)
+    return model.to(device)
 
 
-def build_metrics(config: dict) -> dict:
-    """Build metrics from config using getattr for MONAI metrics.
+def build_metrics(config: ConfigParser, section: str = "metrics") -> dict:
+    """Build metrics from config using _target_ instantiation.
 
     Args:
-        config: Configuration dictionary with 'metrics' section
+        config: ConfigParser with metrics section
+        section: Config key for metrics list (e.g., "validation_metrics", "inference_metrics", "metrics")
 
     Returns:
         Dictionary of metric functions {name: metric_fn}
     """
     metric_fns = {}
-    for m_cfg in config["metrics"]:
-        m_cfg = m_cfg.copy()
-        m_type = m_cfg.pop("type")
-        m_class = safe_getattr(monai_metrics, m_type, "monai.metrics")
-        metric_fns[m_type] = m_class(**m_cfg)
+    metrics_list = config.get(section, [])
+    for m_cfg in metrics_list:
+        m_cfg = dict(m_cfg)
+        # Extract the class name from _target_ for the dict key
+        target = m_cfg["_target_"]
+        m_name = target.rsplit(".", 1)[-1]  # e.g., "monai.metrics.DiceMetric" -> "DiceMetric"
+        metric_fns[m_name] = _instantiate_component(m_cfg)
     return metric_fns
 
 
@@ -210,7 +183,6 @@ def print_results(results: dict, metric_name: str, context: str = "EVALUATION") 
         f"Mean {metric_name} Score: {results['mean']:.4f} ± {results['std']:.4f}"
     )
 
-    # Log per-class results if available
     if "per_class" in results:
         per_class = results["per_class"]
         if isinstance(per_class, dict):
@@ -234,7 +206,7 @@ def log_metrics_summary(
     Args:
         log: Logger instance
         all_results: Dictionary of all metric results
-        context: Context string for header (e.g., "TEST RESULTS", "VALIDATION RESULTS")
+        context: Context string for header
     """
     from src.logging import log_header
 
@@ -244,7 +216,6 @@ def log_metrics_summary(
         log.info(f"\\n{metric_name}:")
         log.info(f"  Mean: {results['mean']:.4f} ± {results['std']:.4f}")
 
-        # Log per-class results if available
         if "per_class" in results:
             log.info("  Per-Class Results:")
             for class_name, class_stats in results["per_class"].items():
@@ -255,7 +226,6 @@ def log_metrics_summary(
         log.info(f"  Min: {results['min']:.4f}")
         log.info(f"  Max: {results['max']:.4f}")
 
-    # Log number of cases from first metric
     if all_results:
         first_metric_name = next(iter(all_results.keys()))
         num_cases = len(all_results[first_metric_name]["all_scores"])

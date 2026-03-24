@@ -82,7 +82,7 @@ class InferenceResultsHandler(BaseResultsHandler):
         self,
         results_dir: str,
         config_name: str,
-        cfg: dict[str, Any],
+        cfg: Any,
         fold: int | None,
         use_test_set: bool,
         model_path: str,

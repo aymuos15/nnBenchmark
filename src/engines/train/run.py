@@ -9,14 +9,10 @@ import warnings
 from pathlib import Path
 
 import torch
+from monai.bundle import ConfigParser
 from monai.data.dataloader import DataLoader
 from monai.data.dataset import CacheDataset, Dataset
 
-from src.config import resolve_config_path
-from src.config.validation import (
-    validate_deep_supervision_config,
-    validate_required_field,
-)
 from src.engines.ignite_utils import create_trainer
 from src.engines.setup import build_transforms, setup_experiment
 from src.logging import log_and_print, log_header, log_system_info, setup_train_logger
@@ -38,12 +34,10 @@ def find_latest_checkpoint(results_dir: str) -> str | None:
     Returns:
         Path to latest checkpoint file, or None if no checkpoint found
     """
-    # Look in checkpoints subdirectory
     checkpoints_path = Path(results_dir) / "checkpoints"
     if not checkpoints_path.exists():
         return None
 
-    # Look for checkpoint files (in priority order)
     checkpoint_patterns = [
         "final.pt",
         "best_loss*.pt",
@@ -57,13 +51,12 @@ def find_latest_checkpoint(results_dir: str) -> str | None:
             checkpoints = [checkpoint_file] if checkpoint_file.exists() else []
 
         if checkpoints:
-            # Return most recent by modification time
             return str(max(checkpoints, key=lambda p: p.stat().st_mtime))
 
     return None
 
 
-def validate_checkpoint_config(checkpoint: dict, cfg: dict) -> list[str]:
+def validate_checkpoint_config(checkpoint: dict, cfg: ConfigParser) -> list[str]:
     """
     Validate that checkpoint config matches current training config.
 
@@ -76,7 +69,6 @@ def validate_checkpoint_config(checkpoint: dict, cfg: dict) -> list[str]:
     """
     warnings_list = []
 
-    # Check if checkpoint has config metadata
     if "config_metadata" not in checkpoint:
         warnings_list.append(
             "Checkpoint missing config metadata (old checkpoint format)"
@@ -85,7 +77,6 @@ def validate_checkpoint_config(checkpoint: dict, cfg: dict) -> list[str]:
 
     metadata = checkpoint["config_metadata"]
 
-    # Validate dataset name
     current_dataset = cfg.get("dataset", {}).get("name", "unknown")
     checkpoint_dataset = metadata.get("dataset_name", "unknown")
     if current_dataset != checkpoint_dataset:
@@ -93,7 +84,6 @@ def validate_checkpoint_config(checkpoint: dict, cfg: dict) -> list[str]:
             f"Dataset mismatch: checkpoint={checkpoint_dataset}, current={current_dataset}"
         )
 
-    # Validate fold number
     current_fold = cfg.get("dataset", {}).get("fold", -999)
     checkpoint_fold = metadata.get("fold", -999)
     if current_fold != checkpoint_fold:
@@ -101,8 +91,7 @@ def validate_checkpoint_config(checkpoint: dict, cfg: dict) -> list[str]:
             f"Fold mismatch: checkpoint={checkpoint_fold}, current={current_fold}"
         )
 
-    # Validate model type
-    current_model = cfg.get("model", {}).get("type", "unknown")
+    current_model = cfg.get("model", {}).get("_target_", "unknown")
     checkpoint_model = metadata.get("model_type", "unknown")
     if current_model != checkpoint_model:
         warnings_list.append(
@@ -112,7 +101,7 @@ def validate_checkpoint_config(checkpoint: dict, cfg: dict) -> list[str]:
     return warnings_list
 
 
-def is_training_complete(checkpoint: dict, cfg: dict) -> bool:
+def is_training_complete(checkpoint: dict, cfg: ConfigParser) -> bool:
     """
     Check if training is already complete based on checkpoint epoch.
 
@@ -123,65 +112,46 @@ def is_training_complete(checkpoint: dict, cfg: dict) -> bool:
     Returns:
         True if training is complete, False otherwise
     """
-    # Check if checkpoint has epoch information
     if "epoch" not in checkpoint:
         return False
 
     checkpoint_epoch = checkpoint["epoch"]
     total_epochs = cfg.get("training", {}).get("epochs", 0)
 
-    # Training is complete if we've reached or exceeded the configured epochs
     return checkpoint_epoch >= total_epochs
 
 
 def run_training(
     config_path: str,
-    dataset: str | None = None,
     force_fresh: bool = False,
 ) -> None:
     """
     Run training using MONAI SupervisedTrainer.
-    Logs always append to existing files. Checkpoints are automatically resumed.
 
     Args:
-        config_path: Path to YAML config file or relative path (e.g., fold_0.yaml)
-        dataset: Dataset name (required if config_path is relative)
+        config_path: Resolved path to YAML config file
         force_fresh: Force fresh start, delete existing checkpoints
     """
-    # Resolve config path (handles both absolute and relative paths)
-    resolved_config_path = str(resolve_config_path(config_path, dataset))
-
     # Setup experiment (load config, setup device, paths)
-    cfg, device, data_dir, results_dir, config_name = setup_experiment(
-        resolved_config_path
-    )
+    cfg, device, data_dir, results_dir, config_name = setup_experiment(config_path)
 
     seed = get_seed_from_config(cfg)
     if seed is not None:
         set_random_seeds(seed)
     enable_cuda_determinism(deterministic=False)
 
-    # Setup logger for training (always appends to existing logs)
+    # Setup logger
     log = setup_train_logger(results_dir)
     log_header(log, f"Training started for config: {config_name}")
     log.info(f"Random seed: {seed}")
 
-    # Log system information
     log_system_info(log, device)
 
-    # Get fold number (required)
-    validate_required_field(cfg, ["dataset", "fold"], "fold", "fold: 0")
+    # Get fold number
     fold: int = cfg["dataset"]["fold"]
 
-    # Check if we're training on all data (fold=-1)
-    # When fold=-1, we use the training set as validation set
     training_all_data: bool = fold == -1
-
-    # Check if mixed precision training is enabled (default: False)
     use_amp: bool = cfg.get("training", {}).get("mixed_precision", False)
-
-    # Validate deep supervision configuration
-    validate_deep_supervision_config(cfg)
 
     # Log training configuration
     log.info(f"Dataset: {cfg['dataset']['name']}")
@@ -196,12 +166,12 @@ def run_training(
     # Log deep supervision configuration
     model_cfg = cfg.get("model", {})
     if model_cfg.get("deep_supervision", False):
-        ds_weights = model_cfg.get("ds_weights", [])
+        training_cfg = cfg.get("training", {})
+        ds_weights = training_cfg.get("ds_weights") or model_cfg.get("ds_weights", [])
         log.info("Deep supervision: Enabled")
         log.info(f"Deep supervision weights: {ds_weights}")
 
-    # Configure TF32 precision (new PyTorch API)
-    # Use 'high' for balanced precision/performance on Tensor Core GPUs
+    # Configure TF32 precision
     with warnings.catch_warnings():
         warnings.filterwarnings(
             "ignore",
@@ -212,25 +182,21 @@ def run_training(
     # Create data loaders
     log.info("Creating data loaders...")
 
-    # Get data dicts
     train_data, val_data = get_data_dicts(data_dir, fold)
 
-    # If training on all data (fold=-1), use training set as validation set
     if training_all_data:
         val_data = train_data
 
-    # Build transforms
     train_transforms = build_transforms(cfg, mode="train")
     val_transforms = build_transforms(cfg, mode="val")
 
-    # Check if caching is enabled
+    # Check caching
     cache_config = cfg.get("dataset", {}).get("cache", {})
-    use_cache = cache_config.get("enabled", False)
-    cache_rate = cache_config.get("cache_rate", 1.0)
+    use_cache = cache_config.get("enabled", False) if cache_config else False
+    cache_rate = cache_config.get("cache_rate", 1.0) if cache_config else 1.0
     num_workers = cfg["training"]["num_workers"]
 
     if use_cache:
-        # Use CacheDataset for faster training
         log_and_print(log, f"Caching {int(cache_rate * 100)}% of training data...")
         train_ds = CacheDataset(
             data=train_data,
@@ -247,17 +213,14 @@ def run_training(
                 transform=val_transforms,
                 cache_rate=cache_rate,
                 num_workers=num_workers,
-            )  # Cache validation data for consistency (not used in training)
-        persistent_workers = False  # CacheDataset requires persistent_workers=False
+            )
+        persistent_workers = False
         log_and_print(log, "Data caching completed!")
     else:
-        # Use basic Dataset (no caching)
         train_ds = Dataset(data=train_data, transform=train_transforms)
         persistent_workers = num_workers > 0
 
     # Create data loaders
-    # nnU-Net style: fixed iterations per epoch with random sampling (replacement)
-    # ThreadDataLoader uses threads instead of processes — required for GPU-cached data
     from torch.utils.data import RandomSampler
 
     batch_size = cfg["training"]["batch_size"]
@@ -273,7 +236,7 @@ def run_training(
 
     log.info(f"Training samples: {len(train_ds)}")
 
-    # Handle force_fresh: delete all checkpoints if requested
+    # Handle force_fresh
     results_path = Path(results_dir)
     if force_fresh and results_path.exists():
         checkpoint_files = [
@@ -290,7 +253,7 @@ def run_training(
                 ckpt_path = results_path / ckpt_file
                 ckpt_path.unlink()
 
-    # Create MONAI trainer
+    # Create trainer
     log.info("Creating MONAI SupervisedTrainer...")
     log.info("Using GPU device: 0")
 
@@ -302,16 +265,14 @@ def run_training(
         logger=log,
     )
 
-    # Automatic checkpoint detection and loading (unless force_fresh)
+    # Checkpoint detection
     checkpoint_path = find_latest_checkpoint(results_dir) if not force_fresh else None
 
     if checkpoint_path:
         log_and_print(log, f"Checkpoint detected: {checkpoint_path}")
 
-        # Load checkpoint
         checkpoint = torch.load(checkpoint_path, map_location=device)
 
-        # Check if training is already complete
         if is_training_complete(checkpoint, cfg):
             checkpoint_epoch = checkpoint.get("epoch", "?")
             total_epochs = cfg.get("training", {}).get("epochs", 0)
@@ -322,12 +283,11 @@ def run_training(
             log_and_print(log, "No further training needed. Exiting.")
             sys.exit(0)
 
-        # Validate checkpoint config
         config_warnings = validate_checkpoint_config(checkpoint, cfg)
         if config_warnings:
             log_and_print(
                 log,
-                "⚠️  WARNING: Checkpoint config validation issues detected:",
+                "WARNING: Checkpoint config validation issues detected:",
                 level="WARNING",
             )
             for warning in config_warnings:
@@ -336,66 +296,58 @@ def run_training(
                 log, "Continuing with checkpoint load (proceed with caution)..."
             )
 
-        # Load all training state
         log_and_print(log, "Loading training state from checkpoint...")
 
-        # Load model weights
         trainer.network.load_state_dict(checkpoint["model"])
-        log.info("✓ Model weights loaded")
+        log.info("Model weights loaded")
 
-        # Load optimizer state
         if "optimizer" in checkpoint:
             optimizer.load_state_dict(checkpoint["optimizer"])
-            log.info("✓ Optimizer state loaded")
+            log.info("Optimizer state loaded")
         else:
             log_and_print(
                 log,
-                "⚠️  WARNING: Optimizer state not found in checkpoint (old format)",
+                "WARNING: Optimizer state not found in checkpoint (old format)",
                 level="WARNING",
             )
 
-        # Load learning rate scheduler state
         if "lr_scheduler" in checkpoint:
             lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-            log.info("✓ LR scheduler state loaded")
+            log.info("LR scheduler state loaded")
         else:
             log_and_print(
                 log,
-                "⚠️  WARNING: LR scheduler state not found in checkpoint (old format)",
+                "WARNING: LR scheduler state not found in checkpoint (old format)",
                 level="WARNING",
             )
 
-        # Load GradScaler state (for AMP)
         if "scaler" in checkpoint:
             scaler.load_state_dict(checkpoint["scaler"])
-            log.info("✓ GradScaler state loaded")
+            log.info("GradScaler state loaded")
         else:
             log_and_print(
                 log,
-                "⚠️  WARNING: GradScaler state not found in checkpoint (old format)",
+                "WARNING: GradScaler state not found in checkpoint (old format)",
                 level="WARNING",
             )
 
-        # Restore epoch number
         if "epoch" in checkpoint:
             starting_epoch = checkpoint["epoch"]
-            # Set trainer state to resume from next epoch
             trainer.state.epoch = starting_epoch
             trainer.state.iteration = starting_epoch * len(train_loader)
             log_and_print(
                 log,
-                f"✓ Resuming from epoch {starting_epoch}/{cfg['training']['epochs']}",
+                f"Resuming from epoch {starting_epoch}/{cfg['training']['epochs']}",
             )
         else:
             log_and_print(
                 log,
-                "⚠️  WARNING: Epoch number not found in checkpoint (old format)",
+                "WARNING: Epoch number not found in checkpoint (old format)",
                 level="WARNING",
             )
 
         log_and_print(log, "Checkpoint loaded successfully - resuming training")
     else:
-        # No checkpoint found, starting fresh
         log.info("No checkpoint found - starting fresh training")
 
     # Train
@@ -409,22 +361,18 @@ def run_training(
 
     log.info(f"Total epochs trained: {cfg['training']['epochs']}")
 
-    # Log output locations
     history_path = str(Path(results_dir) / "training_history.json")
     log.info(f"Training history saved to: {history_path}")
 
-    # Report training completion
     log_and_print(log, "\nTraining completed!")
     log_and_print(log, f"Training history saved to: {history_path}")
 
-    # Report best checkpoint if loss-based tracking was used
     import glob
 
     best_checkpoint_pattern = str(Path(results_dir) / "checkpoints" / "best_loss*.pt")
     best_checkpoints = glob.glob(best_checkpoint_pattern)
     if best_checkpoints:
         best_checkpoint = best_checkpoints[0]
-        # Extract loss value from filename
         match = re.search(r"loss=([\d.]+)\.pt", best_checkpoint)
         if match:
             best_loss = float(match.group(1))

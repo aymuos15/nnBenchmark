@@ -3,13 +3,33 @@
 import argparse
 from pathlib import Path
 
-from src.config import resolve_config_path
 from src.config.load import load_training_history, load_validation_histories
+from src.config.paths import get_results_root
 from src.engines.setup import get_config_name, setup_results_dir
 from src.plotting.inference import plot_classwise_scores
 from src.plotting.training import plot_training_loss
 from src.plotting.validation import plot_validation_metric
 from src.utils.files import ensure_directory
+
+
+def _resolve_config_path(config: str, dataset: str | None = None) -> Path:
+    """Resolve config path (absolute or relative to results dir)."""
+    config_path = Path(config)
+    if config_path.is_absolute():
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+        return config_path
+
+    if dataset is None:
+        raise ValueError(f"Relative config path '{config}' requires --dataset argument.")
+
+    resolved = get_results_root() / dataset / "configs" / config
+    if not resolved.exists():
+        raise FileNotFoundError(
+            f"Config file not found: {resolved}\n"
+            f"Please ensure you have run 'nnBench.plan --dataset {dataset}' first."
+        )
+    return resolved
 
 
 def main() -> None:
@@ -32,16 +52,13 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    # Resolve config path (handles both absolute and relative paths)
-    resolved_config_path = str(resolve_config_path(args.config, args.dataset))
+    resolved_config_path = str(_resolve_config_path(args.config, args.dataset))
 
-    # Determine results directory from config name
     config_name = get_config_name(resolved_config_path)
     dataset_name = Path(resolved_config_path).parent.parent.name
     results_dir_str = setup_results_dir(config_name, dataset_name, create=False)
     results_dir = Path(results_dir_str)
 
-    # Validate results directory exists
     if not results_dir.exists():
         raise FileNotFoundError(
             f"Results directory not found: {results_dir}\n"
@@ -49,7 +66,6 @@ def main() -> None:
             f"  python -m src.train --config {args.config}"
         )
 
-    # Ensure plots directory exists
     plots_dir = ensure_directory(str(results_dir / "plots"))
 
     # Generate plots from training history
@@ -61,18 +77,17 @@ def main() -> None:
             save_path = str(Path(plots_dir) / "training_loss.png")
             plot_training_loss(epochs, train_loss, save_path)
     except FileNotFoundError:
-        pass  # No training history yet
+        pass
     except Exception as e:
         from loguru import logger
 
         logger.warning(f"Could not generate training loss plot: {e}")
 
-    # Generate plots from validation history (aggregate from epoch files)
+    # Generate plots from validation history
     try:
         val_data = load_validation_histories(results_dir_str)
         if val_data:
             val_epochs = val_data.get("val_epochs", [])
-            # Find the first metric key (skip "val_epochs" and per-class keys)
             metric_name = "Dice"
             metric_values: list[float] = []
             for key in val_data:

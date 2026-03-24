@@ -203,7 +203,7 @@ def sample_config() -> dict[str, Any]:
             "fold": 0,
         },
         "model": {
-            "type": "DynUNet",
+            "_target_": "monai.networks.nets.DynUNet",
             "spatial_dims": 3,
             "in_channels": 1,
             "out_channels": 3,
@@ -214,7 +214,6 @@ def sample_config() -> dict[str, Any]:
             "norm_name": ["INSTANCE", {"affine": True}],
             "act_name": ["leakyrelu", {"inplace": True, "negative_slope": 0.01}],
             "deep_supervision": False,
-            "deep_supr_num": 1,
             "res_block": False,
         },
         "training": {
@@ -225,12 +224,14 @@ def sample_config() -> dict[str, Any]:
             "num_workers": 4,
             "checkpoint_metric": "DiceMetric",
             "plot_metrics": ["DiceMetric"],
+            "ds_weights": [],
+            "deep_supr_num": 1,
         },
-        "optimizer": {"type": "Adam", "weight_decay": 0.0001},
-        "loss": {"type": "DiceCELoss", "to_onehot_y": True, "softmax": True},
-        "metrics": [
+        "optimizer": {"_target_": "torch.optim.Adam", "weight_decay": 0.0001},
+        "loss": {"_target_": "monai.losses.DiceCELoss", "to_onehot_y": True, "softmax": True},
+        "validation_metrics": [
             {
-                "type": "DiceMetric",
+                "_target_": "monai.metrics.DiceMetric",
                 "include_background": False,
                 "reduction": "mean_batch",
                 "num_classes": 3,
@@ -238,14 +239,14 @@ def sample_config() -> dict[str, Any]:
         ],
         "transforms": {
             "common": [
-                {"type": "LoadImaged", "keys": ["image", "label"]},
-                {"type": "EnsureChannelFirstd", "keys": ["image", "label"]},
-                {"type": "ScaleIntensityd", "keys": ["image"]},
-                {"type": "ToTensord", "keys": ["image", "label"]},
+                {"_target_": "monai.transforms.LoadImaged", "keys": ["image", "label"]},
+                {"_target_": "monai.transforms.EnsureChannelFirstd", "keys": ["image", "label"]},
+                {"_target_": "monai.transforms.ScaleIntensityd", "keys": ["image"]},
+                {"_target_": "monai.transforms.ToTensord", "keys": ["image", "label"]},
             ],
             "train": [
                 {
-                    "type": "RandFlipd",
+                    "_target_": "monai.transforms.RandFlipd",
                     "keys": ["image", "label"],
                     "prob": 0.5,
                     "spatial_axis": 0,

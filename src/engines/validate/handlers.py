@@ -58,7 +58,7 @@ class ValidationResultsHandler(BaseResultsHandler):
         self,
         results_dir: str,
         config_name: str,
-        cfg: dict[str, Any],
+        cfg: Any,
         fold: int | None,
         checkpoint_path: str,
         epoch: int | None,

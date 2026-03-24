@@ -10,18 +10,13 @@ from typing import TYPE_CHECKING, Any
 import torch
 import torch.nn as nn
 from ignite.engine import Engine, Events
-from monai import losses as monai_losses
+from monai.bundle import ConfigParser
 from monai.data import DataLoader
 from monai.engines import SupervisedTrainer
 from monai.handlers.lr_schedule_handler import LrScheduleHandler
-from monai.networks import nets as monai_nets
-
-from src.models.dynunet import NativeDSDynUNet
-
-monai_nets.NativeDSDynUNet = NativeDSDynUNet  # type: ignore[attr-defined]
 
 from src.engines.ignite_utils.progress import ConsoleProgressHandler
-from src.engines.shared import safe_getattr
+from src.engines.setup import _instantiate_component, build_model
 from src.engines.train.handlers import (
     ComprehensiveCheckpointHandler,
     TrainingHistoryHandler,
@@ -83,23 +78,15 @@ class DeepSupervisionLossWrapper(nn.Module):
         Returns:
             Weighted sum of losses
         """
-        # Handle deep supervision output format
-        # DynUNet with deep_supervision=True outputs shape:
-        #   2D: [B, num_outputs, C, H, W] (5D) vs [B, C, H, W] (4D) without
-        #   3D: [B, num_outputs, C, D, H, W] (6D) vs [B, C, D, H, W] (5D) without
         expected_ds_ndim = 3 + self.spatial_dims
 
         if isinstance(outputs, torch.Tensor) and outputs.ndim == expected_ds_ndim:
-            # DynUNet deep supervision format - split into list
             outputs_list = [outputs[:, i, ...] for i in range(outputs.shape[1])]
         elif isinstance(outputs, list):
-            # Already in list format
             outputs_list = outputs
         else:
-            # No deep supervision - single output
             return self.loss_fn(outputs, labels)
 
-        # Validate number of outputs matches weights
         if len(outputs_list) != len(self.ds_weights):
             raise ValueError(
                 f"Number of outputs ({len(outputs_list)}) doesn't match "
@@ -111,8 +98,6 @@ class DeepSupervisionLossWrapper(nn.Module):
         total_loss = torch.tensor(0.0, device=labels.device, dtype=labels.dtype)
 
         for output, weight in zip(outputs_list, self.ds_weights):
-            # Downsample labels to match output resolution (nnU-Net style)
-            # This preserves gradient flow at native decoder resolution
             if output.shape[2:] != labels.shape[2:]:
                 labels_down = F.interpolate(
                     labels.float(),
@@ -129,7 +114,7 @@ class DeepSupervisionLossWrapper(nn.Module):
 
 
 def create_trainer(
-    cfg: dict[str, Any],
+    cfg: ConfigParser,
     device: torch.device,
     train_loader: DataLoader,
     results_dir: str,
@@ -142,11 +127,9 @@ def create_trainer(
 ]:  # type: ignore[return]
     """
     Create MONAI SupervisedTrainer.
-    Logs always append to existing files.
-    Validation is now performed post-training via nnBench.validate.
 
     Args:
-        cfg: Configuration dictionary
+        cfg: ConfigParser instance
         device: Device to use
         train_loader: Training data loader
         results_dir: Directory to save results
@@ -155,49 +138,29 @@ def create_trainer(
     Returns:
         Tuple of (trainer, optimizer, lr_scheduler, scaler).
     """
-    # Build model via getattr (supports any MONAI model)
-    model_cfg = cfg["model"].copy()
-    model_type = model_cfg.pop("type")
-    # Remove training-only parameters that shouldn't be passed to model constructor
-    model_cfg.pop("ds_weights", None)  # Used by DeepSupervisionLossWrapper, not model
-    # deep_supervision only supported by DynUNet and BasicUNetPlusPlus
-    if model_type not in ("DynUNet", "NativeDSDynUNet", "BasicUNetPlusPlus"):
-        model_cfg.pop("deep_supervision", None)
-        model_cfg.pop("deep_supr_num", None)
-    # Merge model-specific parameters
-    # NativeDSDynUNet uses DynUNet params from the config
-    params_key = "DynUNet" if model_type == "NativeDSDynUNet" else model_type
-    dynunet_params = model_cfg.pop("DynUNet", None)
-    model_cfg.pop("UNet", None)
-    if params_key == "DynUNet" and dynunet_params:
-        model_cfg.update(dynunet_params)
-    elif params_key in cfg["model"] and isinstance(cfg["model"][params_key], dict):
-        model_cfg.update(cfg["model"][params_key])
-    model_class = safe_getattr(monai_nets, model_type, "monai.networks.nets")
-    model = model_class(**model_cfg).to(device)
+    # Build model via _target_
+    model = build_model(cfg, device)
 
-    # Build optimizer via getattr (supports any PyTorch optimizer)
+    # Build optimizer via _target_
     learning_rate = cfg["training"]["learning_rate"]
-    opt_cfg = cfg["optimizer"].copy()
-    opt_type = opt_cfg.pop("type")
-    opt_class = safe_getattr(torch.optim, opt_type, "torch.optim")
-    optimizer = opt_class(model.parameters(), lr=learning_rate, **opt_cfg)
+    opt_cfg = dict(cfg["optimizer"])
+    opt_cfg["params"] = model.parameters()
+    opt_cfg["lr"] = learning_rate
+    optimizer = _instantiate_component(opt_cfg)
 
-    # Build loss function via getattr (supports any MONAI loss)
-    loss_cfg = cfg["loss"].copy()
-    loss_type = loss_cfg.pop("type")
-    loss_class = safe_getattr(monai_losses, loss_type, "monai.losses")
-    loss_fn_base = loss_class(**loss_cfg)
+    # Build loss via _target_
+    loss_fn_base = _instantiate_component(dict(cfg["loss"]))
 
-    # Wrap loss function for deep supervision if enabled
-    model_cfg = cfg.get("model", {})
+    # Wrap loss for deep supervision if enabled
+    model_cfg = dict(cfg["model"])
+    training_cfg = dict(cfg["training"])
     deep_supervision = model_cfg.get("deep_supervision", False)
     if deep_supervision:
-        ds_weights = model_cfg.get("ds_weights", [])
+        ds_weights = training_cfg.get("ds_weights") or model_cfg.get("ds_weights", [])
         if not ds_weights:
             raise ValueError(
                 "Deep supervision is enabled but 'ds_weights' is not configured or is empty. "
-                "Please provide 'ds_weights' list in the model configuration (e.g., ds_weights: [1.0, 0.5, 0.25, 0.125])"
+                "Please provide 'ds_weights' in the training configuration."
             )
         spatial_dims = model_cfg.get("spatial_dims", 3)
         loss_fn = DeepSupervisionLossWrapper(loss_fn_base, ds_weights, spatial_dims)
@@ -210,9 +173,9 @@ def create_trainer(
 
     # Create learning rate scheduler
     lr_config = cfg.get("lr_scheduler", {})
-    mode = lr_config.get("mode", "polynomial")
-    decay_rate = lr_config.get("decay_rate", 0.00001)
-    exponent = lr_config.get("exponent", 0.9)
+    mode = lr_config.get("mode", "polynomial") if lr_config else "polynomial"
+    decay_rate = lr_config.get("decay_rate", 0.00001) if lr_config else 0.00001
+    exponent = lr_config.get("exponent", 0.9) if lr_config else 0.9
 
     lr_scheduler = PolyLRScheduler(
         optimizer,
@@ -223,9 +186,7 @@ def create_trainer(
         decay_rate=decay_rate,
     )
 
-    # Create GradScaler for AMP (automatic mixed precision)
-    # GradScaler is essential for stable FP16 training - it scales losses to prevent
-    # gradient underflow and ensures proper gradient clipping
+    # Create GradScaler for AMP
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     # Custom iteration update function with AMP and gradient clipping
@@ -233,36 +194,18 @@ def create_trainer(
         """Custom iteration update with AMP GradScaler and gradient clipping."""
         model.train()
 
-        # Prepare batch
         images, labels = _prepare_batch(batch, device, non_blocking=True)
 
-        # Forward pass
         optimizer.zero_grad(set_to_none=True)
 
         with torch.amp.autocast(device_type="cuda", enabled=use_amp):
             outputs = model(images)
             loss = loss_fn(outputs, labels)
 
-        # Backward pass with gradient scaling for AMP
-        # scaler.scale() multiplies loss by scale factor before backward()
-        # This prevents FP16 gradient underflow
         scaler.scale(loss).backward()
-
-        # Unscale gradients before clipping (required for accurate clipping)
-        # This divides gradients by the scale factor
         scaler.unscale_(optimizer)
-
-        # Gradient clipping (matches nnU-Net: max_norm=12)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=12)
-
-        # Optimizer step with scaling
-        # scaler.step() first checks for inf/NaN gradients
-        # If gradients are finite, unscales and calls optimizer.step()
-        # If gradients are inf/NaN, skips the update
         scaler.step(optimizer)
-
-        # Update the scale factor for next iteration
-        # Increases scale if no inf/NaN, decreases if inf/NaN found
         scaler.update()
 
         return {"loss": loss.item()}
@@ -285,16 +228,14 @@ def create_trainer(
         LrScheduleHandler(lr_scheduler=lr_scheduler),  # type: ignore[arg-type]
     )
 
-    # Add GPU cache clearing after each epoch to prevent fragmentation
-    # This is especially important for small GPUs (e.g., 4GB RTX A1000)
+    # Add GPU cache clearing after each epoch
     def clear_gpu_cache(engine: Engine) -> None:
-        """Clear CUDA cache to prevent memory fragmentation."""
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
     trainer.add_event_handler(Events.EPOCH_COMPLETED, clear_gpu_cache)
 
-    # Add training history handler (always appends to existing history)
+    # Add training history handler
     history_handler = TrainingHistoryHandler(results_dir)
     history_handler.attach(trainer)
 
@@ -306,7 +247,7 @@ def create_trainer(
     training_logger = TrainingLogger(logger)
     training_logger.attach(trainer)
 
-    # Add checkpoint saver based on training loss
+    # Add checkpoint saver
     checkpoint_dir = Path(results_dir)
     checkpoint_handler = ComprehensiveCheckpointHandler(
         save_dir=str(checkpoint_dir),
@@ -316,8 +257,8 @@ def create_trainer(
         scaler=scaler,
         cfg=cfg,
         save_interval=1,
-        checkpoint_metric="loss",  # Use training loss for best model
-        evaluator=None,  # No validation during training
+        checkpoint_metric="loss",
+        evaluator=None,
     )
     checkpoint_handler.attach(trainer)
 
